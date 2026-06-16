@@ -28,3 +28,7 @@ Thumbs.db
 
 # Supabase
 supabase/.temp/
+
+# Cloudflare
+.dev.vars
+.wrangler/

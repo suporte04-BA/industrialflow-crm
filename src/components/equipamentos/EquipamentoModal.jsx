@@ -15,6 +15,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
     valorMensal: '', horasUso: '', ultimaRevisao: '',
   });
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (equipamento) {
       setForm({
@@ -33,6 +34,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
       setForm({ nome: '', categoria: 'Terraplanagem', status: 'disponivel', cliente: '', contrato: '', locacaoInicio: '', locacaoFim: '', valorMensal: '', horasUso: '', ultimaRevisao: '' });
     }
   }, [equipamento, isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = async (e) => {
     e.preventDefault();

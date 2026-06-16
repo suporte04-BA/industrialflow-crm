@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Save, FileText, Loader2, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNotas, useCreateNota, useUpdateNota, useDeleteNota } from '../hooks/useNotas';
 import Button from '../components/ui/Button';
@@ -25,7 +25,7 @@ export default function BlocoNotas() {
       setEditTitle(nova.titulo);
       setEditContent(nova.conteudo);
       toast.success('Nota criada!');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao criar nota');
     }
   };
@@ -40,7 +40,7 @@ export default function BlocoNotas() {
       });
       setSelectedNota({ ...selectedNota, titulo: editTitle, conteudo: editContent });
       toast.success('Nota salva!');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao salvar nota');
     } finally {
       setSaving(false);
@@ -56,7 +56,7 @@ export default function BlocoNotas() {
         setEditContent('');
       }
       toast.success('Nota excluida!');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao excluir nota');
     }
   };

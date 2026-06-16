@@ -96,7 +96,7 @@ export default function ComprovanteEntrega() {
       setShowForm(false);
       setSelectedContrato('');
       setForm({ ...emptyForm });
-    } catch (err) {
+    } catch {
       toast.error('Erro ao criar comprovante');
     }
   };

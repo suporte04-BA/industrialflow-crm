@@ -1,16 +1,12 @@
-{
-  "name": "industrialflow-crm",
-  "main": "src/worker/index.js",
-  "compatibility_date": "2026-04-01",
-  "compatibility_flags": ["nodejs_compat_v2"],
-  "pages_build_output_dir": "dist",
+name = "industrialflow-crm-worker"
+main = "src/worker/index.js"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat_v2"]
 
-  "vars": {
-    "SUPABASE_URL": "https://mbcdbclosomqpfboyffj.supabase.co",
-    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iY2RiY2xvc29tcXBmYm95ZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDcxMTksImV4cCI6MjA5NzE4MzExOX0.iNh0wpvpblUGCAo3wOkNxelMTlLUe7RBoFlqPLjxXxE"
-  },
+[vars]
+SUPABASE_URL = "https://mbcdbclosomqpfboyffj.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iY2RiY2xvc29tcXBmYm95ZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDcxMTksImV4cCI6MjA5NzE4MzExOX0.iNh0wpvpblUGCAo3wOkNxelMTlLUe7RBoFlqPLjxXxE"
 
-  "routes": [
-    { "pattern": "transobras.suporte04.workers.dev/api/*", "zone_name": "suporte04.workers.dev" }
-  ]
-}
+[[routes]]
+pattern = "transobras.suporte04.workers.dev/api/*"
+zone_name = "suporte04.workers.dev"

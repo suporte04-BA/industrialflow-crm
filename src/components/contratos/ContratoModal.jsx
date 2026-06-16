@@ -3,8 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 
-const statusOptions = ['ativo', 'vencendo', 'vencido', 'cancelado'];
-
 export default function ContratoModal({ isOpen, onClose, onSave, contrato = null, isRenew = false }) {
   const isEdit = !!contrato && !isRenew;
   const [saving, setSaving] = useState(false);
@@ -14,6 +12,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     status: 'ativo', assinado: false,
   });
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (contrato) {
       setForm({
@@ -31,6 +30,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       setForm({ cliente: '', cnpj: '', equipamentos: [''], inicio: '', fim: '', valorTotal: '', valorMensal: '', status: 'ativo', assinado: false });
     }
   }, [contrato, isOpen, isRenew]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const addEquipamento = () => setForm({ ...form, equipamentos: [...form.equipamentos, ''] });
   const removeEquipamento = (idx) => setForm({ ...form, equipamentos: form.equipamentos.filter((_, i) => i !== idx) });

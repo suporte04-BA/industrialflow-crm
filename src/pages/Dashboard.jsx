@@ -1,4 +1,4 @@
-import { Wrench, TrendingUp, DollarSign, Clock, AlertTriangle, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Wrench, TrendingUp, DollarSign, Clock, AlertTriangle, FileText, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDashboard } from '../hooks/useDashboard';
 import MetricCard from '../components/ui/MetricCard';

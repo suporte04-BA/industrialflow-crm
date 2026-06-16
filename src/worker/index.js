@@ -38,7 +38,7 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }

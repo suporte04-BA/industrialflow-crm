@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Eye, Edit3, Trash2, Wrench, MapPin, Clock } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Wrench, MapPin, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEquipamentos, useCreateEquipamento, useUpdateEquipamento, useDeleteEquipamento } from '../hooks/useEquipamentos';
 import EquipamentoModal from '../components/equipamentos/EquipamentoModal';

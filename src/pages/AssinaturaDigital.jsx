@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, CheckCircle, FileText } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes } from '../hooks/useComprovantes';
@@ -88,7 +88,7 @@ export default function AssinaturaDigital() {
       setNomeSignatario('');
       setCpfSignatario('');
       setSelectedComprovante('');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao salvar assinatura');
     } finally {
       setSaving(false);

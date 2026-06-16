@@ -4,7 +4,6 @@ import { signIn, signUp, isConfigured } from '../../lib/supabase';
 import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import Button from '../ui/Button';
 
 export default function LoginPage() {
   const navigate = useNavigate();

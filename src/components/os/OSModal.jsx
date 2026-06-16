@@ -17,6 +17,7 @@ export default function OSModal({ isOpen, onClose, onSave, os = null }) {
     valor: '', observacoes: '',
   });
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (os) {
       setForm({
@@ -35,6 +36,7 @@ export default function OSModal({ isOpen, onClose, onSave, os = null }) {
       setForm({ cliente: '', equipamento: '', tipo: '', status: 'pendente', prioridade: 'normal', tecnico: '', abertura: new Date().toISOString().split('T')[0], previsao: '', valor: '', observacoes: '' });
     }
   }, [os, isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = async (e) => {
     e.preventDefault();

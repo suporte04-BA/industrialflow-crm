@@ -22,5 +22,6 @@ export function useRealtime(table, queryClient, queryKey, options = {}) {
     return () => {
       supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table, queryClient, queryKey]);
 }

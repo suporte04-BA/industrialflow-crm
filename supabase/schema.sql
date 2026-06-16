@@ -1,8 +1,7 @@
 -- ============================================
--- IndustrialFlow CRM - Supabase Schema (v2)
+-- TransObra CRM - Supabase Schema (v3)
 -- ============================================
 
--- Sequencias para IDs automaticos
 CREATE SEQUENCE IF NOT EXISTS os_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS eq_seq START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS ct_seq START 1 INCREMENT 1;
@@ -62,33 +61,51 @@ CREATE TABLE IF NOT EXISTS contratos (
 );
 
 -- ============================================
--- TABELA: Comprovantes de Entrega
+-- TABELA: Comprovantes de Entrega (espelho Base44)
 -- ============================================
 CREATE TABLE IF NOT EXISTS comprovantes_entrega (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by_id UUID REFERENCES auth.users(id),
+
+  -- Dados do contrato
   contrato TEXT NOT NULL,
   atendente TEXT,
+  data TEXT,
+  hora TEXT,
+
+  -- Dados do locatario
   locatario TEXT NOT NULL,
   cpf TEXT,
   rg TEXT,
-  telefone TEXT,
+  fone TEXT,
   contato TEXT,
+
+  -- Endereco
   endereco TEXT,
   numero TEXT,
   bairro TEXT,
   cidade TEXT,
   estado TEXT,
   cep TEXT,
+
+  -- Local de entrega
   local_entrega TEXT,
   telefone_entrega TEXT,
-  data DATE,
-  hora TIME,
-  observacao TEXT,
+
+  -- Itens (array de objetos)
   itens JSONB DEFAULT '[]',
-  total DECIMAL(10,2) DEFAULT 0,
-  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'entregue', 'assinado')),
+
+  -- Totais e status
+  total TEXT,
+  observacao TEXT,
+  status TEXT DEFAULT 'entregue' CHECK (status IN ('entregue', 'pendente', 'cancelado')),
+
+  -- Assinatura digital
   assinado BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  data_assinatura TEXT,
+  nome_signatario TEXT
 );
 
 -- ============================================
@@ -128,7 +145,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- ============================================
--- INDICES para performance
+-- INDICES
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_os_status ON ordens_servico(status);
 CREATE INDEX IF NOT EXISTS idx_os_cliente ON ordens_servico(cliente);
@@ -145,7 +162,7 @@ CREATE INDEX IF NOT EXISTS idx_as_comprovante ON assinaturas(comprovante_id);
 CREATE INDEX IF NOT EXISTS idx_no_updated ON notas(updated_at DESC);
 
 -- ============================================
--- RLS (Row Level Security)
+-- RLS
 -- ============================================
 ALTER TABLE ordens_servico ENABLE ROW LEVEL SECURITY;
 ALTER TABLE equipamentos ENABLE ROW LEVEL SECURITY;
@@ -155,126 +172,22 @@ ALTER TABLE assinaturas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- ============================================
--- RLS POLICIES (performance-optimized com subselect)
--- ============================================
-
--- Ordens de Servico
-CREATE POLICY "os_select" ON ordens_servico FOR SELECT TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "os_insert" ON ordens_servico FOR INSERT TO authenticated
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "os_update" ON ordens_servico FOR UPDATE TO authenticated
-  USING ((select auth.uid()) IS NOT NULL)
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "os_delete" ON ordens_servico FOR DELETE TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = (select auth.uid())
-        AND profiles.role = 'admin'
-    )
-  );
-
--- Equipamentos
-CREATE POLICY "eq_select" ON equipamentos FOR SELECT TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "eq_insert" ON equipamentos FOR INSERT TO authenticated
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "eq_update" ON equipamentos FOR UPDATE TO authenticated
-  USING ((select auth.uid()) IS NOT NULL)
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "eq_delete" ON equipamentos FOR DELETE TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = (select auth.uid())
-        AND profiles.role = 'admin'
-    )
-  );
-
--- Contratos
-CREATE POLICY "ct_select" ON contratos FOR SELECT TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "ct_insert" ON contratos FOR INSERT TO authenticated
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "ct_update" ON contratos FOR UPDATE TO authenticated
-  USING ((select auth.uid()) IS NOT NULL)
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "ct_delete" ON contratos FOR DELETE TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = (select auth.uid())
-        AND profiles.role = 'admin'
-    )
-  );
-
--- Comprovantes de Entrega
-CREATE POLICY "ce_select" ON comprovantes_entrega FOR SELECT TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "ce_insert" ON comprovantes_entrega FOR INSERT TO authenticated
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "ce_update" ON comprovantes_entrega FOR UPDATE TO authenticated
-  USING ((select auth.uid()) IS NOT NULL)
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "ce_delete" ON comprovantes_entrega FOR DELETE TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = (select auth.uid())
-        AND profiles.role = 'admin'
-    )
-  );
-
--- Assinaturas
-CREATE POLICY "as_select" ON assinaturas FOR SELECT TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "as_insert" ON assinaturas FOR INSERT TO authenticated
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
--- Notas
-CREATE POLICY "no_select" ON notas FOR SELECT TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "no_insert" ON notas FOR INSERT TO authenticated
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "no_update" ON notas FOR UPDATE TO authenticated
-  USING ((select auth.uid()) IS NOT NULL)
-  WITH CHECK ((select auth.uid()) IS NOT NULL);
-
-CREATE POLICY "no_delete" ON notas FOR DELETE TO authenticated
-  USING ((select auth.uid()) IS NOT NULL);
-
--- Profiles
-CREATE POLICY "pr_select" ON profiles FOR SELECT TO authenticated
-  USING (id = (select auth.uid()));
-
-CREATE POLICY "pr_update" ON profiles FOR UPDATE TO authenticated
-  USING (id = (select auth.uid()))
-  WITH CHECK (id = (select auth.uid()));
-
-CREATE POLICY "pr_insert" ON profiles FOR INSERT TO authenticated
-  WITH CHECK (id = (select auth.uid()));
+-- Policies (performance com subselect)
+CREATE POLICY "os_all" ON ordens_servico FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+CREATE POLICY "eq_all" ON equipamentos FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+CREATE POLICY "ct_all" ON contratos FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+CREATE POLICY "ce_all" ON comprovantes_entrega FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+CREATE POLICY "as_all" ON assinaturas FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+CREATE POLICY "no_all" ON notas FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+CREATE POLICY "pr_select" ON profiles FOR SELECT TO authenticated USING (id = (select auth.uid()));
+CREATE POLICY "pr_update" ON profiles FOR UPDATE TO authenticated USING (id = (select auth.uid()));
+CREATE TRIGGER update_comprovantes_updated_at
+  BEFORE UPDATE ON comprovantes_entrega
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================
 -- FUNCOES TRIGGER
 -- ============================================
-
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -319,22 +232,16 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Storage policies
 CREATE POLICY "assinaturas_public_read" ON storage.objects
   FOR SELECT TO authenticated USING (bucket_id = 'assinaturas');
-
 CREATE POLICY "assinaturas_insert" ON storage.objects
   FOR INSERT TO authenticated WITH CHECK (bucket_id = 'assinaturas');
-
 CREATE POLICY "avatars_public_read" ON storage.objects
   FOR SELECT TO authenticated USING (bucket_id = 'avatars');
-
 CREATE POLICY "avatars_insert" ON storage.objects
   FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatars');
-
 CREATE POLICY "comprovantes_auth_read" ON storage.objects
   FOR SELECT TO authenticated USING (bucket_id = 'comprovantes');
-
 CREATE POLICY "comprovantes_insert" ON storage.objects
   FOR INSERT TO authenticated WITH CHECK (bucket_id = 'comprovantes');
 

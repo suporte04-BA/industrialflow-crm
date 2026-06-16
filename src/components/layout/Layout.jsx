@@ -16,14 +16,14 @@ const pageTitles = {
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const pageInfo = pageTitles[location.pathname] || { title: 'CRM Industrial', subtitle: '' };
+  const pageInfo = pageTitles[location.pathname] || { title: 'TransObra', subtitle: '' };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] font-inter">
+    <div className="min-h-screen bg-gray-50">
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      <div className="lg:ml-64 flex flex-col min-h-screen">
+      <div className="lg:ml-64">
         <Header title={pageInfo.title} subtitle={pageInfo.subtitle} setMobileOpen={setMobileOpen} />
-        <main className="flex-1 p-4 lg:p-8">
+        <main className="p-4 md:p-6">
           <Outlet />
         </main>
       </div>

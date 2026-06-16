@@ -18,6 +18,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
   const handleLogout = async () => {
     await signOut();
+    localStorage.removeItem('transobra_mock_auth');
     toast.success('Logout realizado!');
     window.location.href = '/login';
   };
@@ -38,7 +39,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     <>
       <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-[#1C1C1C] fixed left-0 top-0 z-30">
         <div className="flex items-center justify-center px-4 py-5 border-b border-white/10">
-          <span className="text-white font-bold text-xl">⚙️ IndustrialFlow</span>
+          <img src="/logo.jpg" alt="TransObra" className="h-12 w-auto" />
         </div>
         <nav className="flex-1 py-4 space-y-1">
           {navItems.map(item => <NavLink key={item.path} item={item} />)}
@@ -55,7 +56,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
       <aside className={`fixed left-0 top-0 h-full w-64 bg-[#1C1C1C] z-50 lg:hidden transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-          <span className="text-white font-bold text-lg">⚙️ IndustrialFlow</span>
+          <img src="/logo.jpg" alt="TransObra" className="h-10 w-auto" />
           <button onClick={() => setMobileOpen(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
         </div>
         <nav className="py-4 space-y-1">

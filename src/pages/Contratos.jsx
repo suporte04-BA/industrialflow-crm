@@ -1,111 +1,157 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
+import ContratoModal from '../components/contratos/ContratoModal';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
-import { Plus, FileText, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
-import { db, isConfigured } from '../lib/supabase';
-import { contratos as mockContratos } from '../data/mockData';
-
-const filters = [
-  { label: 'Todos', value: 'all' },
-  { label: 'Ativos', value: 'ativo' },
-  { label: 'Vencendo', value: 'vencendo' },
-  { label: 'Vencidos', value: 'vencido' },
-];
+import { CardSkeleton } from '../components/ui/Skeleton';
+import ErrorDisplay from '../components/common/ErrorDisplay';
+import EmptyState from '../components/ui/EmptyState';
 
 export default function Contratos() {
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
-  const [data, setData] = useState(mockContratos);
+  const [filters, setFilters] = useState({ status: 'all', search: '' });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingCt, setEditingCt] = useState(null);
+  const [renewTarget, setRenewTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      if (!isConfigured()) return;
-      const { data: ctData } = await db.contratos.list({ status: filter, search });
-      if (ctData) setData(ctData);
-    };
-    loadData();
-  }, [filter, search]);
+  const { data: ctList, isLoading, isError, error, refetch } = useContratos(filters);
+  const createCt = useCreateContrato();
+  const updateCt = useUpdateContrato();
+  const deleteCt = useDeleteContrato();
 
-  const filtered = data.filter(c => {
-    const matchStatus = filter === 'all' || c.status === filter;
-    const matchSearch = !search || c.cliente.toLowerCase().includes(search.toLowerCase()) || c.id.includes(search);
-    return matchStatus && matchSearch;
-  });
+  const handleCreate = async (data) => {
+    await createCt.mutateAsync(data);
+    toast.success('Contrato criado com sucesso!');
+  };
+
+  const handleUpdate = async (data) => {
+    if (!editingCt) return;
+    await updateCt.mutateAsync({ id: editingCt.id, updates: data });
+    toast.success('Contrato atualizado!');
+  };
+
+  const handleRenew = async (data) => {
+    if (!renewTarget) return;
+    await updateCt.mutateAsync({ id: renewTarget.id, updates: { ...data, status: 'ativo' } });
+    toast.success('Contrato renovado!');
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteCt.mutateAsync(deleteTarget.id);
+    toast.success('Contrato excluido!');
+    setDeleteTarget(null);
+  };
+
+  const stats = {
+    total: ctList.length,
+    ativos: ctList.filter((c) => c.status === 'ativo').length,
+    vencendo: ctList.filter((c) => c.status === 'vencendo').length,
+    vencidos: ctList.filter((c) => c.status === 'vencido').length,
+  };
+
+  if (isLoading) return <div className="p-6"><CardSkeleton count={6} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row gap-3">
-        <input type="text" placeholder="Buscar por cliente ou Nº contrato..." value={search} onChange={e => setSearch(e.target.value)}
-          className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400/40" />
-        <Button onClick={() => toast.success('Novo contrato criado!')} variant="primary">
-          <Plus size={16} /> Novo Contrato
-        </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Contratos</h2>
+          <p className="text-sm text-gray-500">{stats.total} contratos cadastrados</p>
+        </div>
+        <Button icon={Plus} onClick={() => setShowCreateModal(true)}>Novo Contrato</Button>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {filters.map(f => (
-          <button key={f.value} onClick={() => setFilter(f.value)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${filter === f.value ? 'bg-[#1C1C1C] text-white border-[#1C1C1C]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
-            {f.label}
-            <span className="ml-1.5 opacity-60">{f.value === 'all' ? data.length : data.filter(c => c.status === f.value).length}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Ativos', value: data.filter(c => c.status === 'ativo').length, icon: CheckCircle, color: 'text-green-600' },
-          { label: 'Vencendo', value: data.filter(c => c.status === 'vencendo').length, icon: AlertTriangle, color: 'text-yellow-600' },
-          { label: 'Vencidos', value: data.filter(c => c.status === 'vencido').length, icon: XCircle, color: 'text-red-600' },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-lg border border-gray-100 px-4 py-3 flex items-center gap-3">
-            <s.icon size={18} className={s.color} />
-            <div>
-              <p className="text-xs text-gray-500">{s.label}</p>
-              <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-            </div>
+          { label: 'Ativos', value: stats.ativos, color: 'bg-green-100 text-green-700', icon: CheckCircle },
+          { label: 'Vencendo', value: stats.vencendo, color: 'bg-yellow-100 text-yellow-700', icon: AlertTriangle },
+          { label: 'Vencidos', value: stats.vencidos, color: 'bg-red-100 text-red-700', icon: AlertTriangle },
+          { label: 'Total', value: stats.total, color: 'bg-gray-100 text-gray-700', icon: FileText },
+        ].map((s) => (
+          <div key={s.label} className={`rounded-xl p-4 ${s.color}`}>
+            <p className="text-2xl font-bold">{s.value}</p>
+            <p className="text-sm opacity-80">{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="space-y-3">
-        {filtered.map(c => (
-          <div key={c.id} className={`bg-white rounded-xl border shadow-sm p-5 transition-shadow hover:shadow-md ${c.status === 'vencido' ? 'border-red-200' : c.status === 'vencendo' ? 'border-yellow-200' : 'border-gray-100'}`}>
-            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-              <div className="flex items-start gap-4 flex-1">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${c.status === 'vencido' ? 'bg-red-50' : c.status === 'vencendo' ? 'bg-yellow-50' : 'bg-[#1C1C1C]'}`}>
-                  <FileText size={18} className={c.status === 'vencido' ? 'text-red-500' : c.status === 'vencendo' ? 'text-yellow-600' : 'text-yellow-400'} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-gray-500">{c.id}</span>
-                    <StatusBadge status={c.status} />
-                    {!c.assinado && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full border border-orange-200">Aguardando Assinatura</span>}
-                  </div>
-                  <h3 className="font-bold text-[#1C1C1C] text-sm">{c.cliente}</h3>
-                  <p className="text-xs text-gray-400">{c.cnpj}</p>
-                  <p className="text-xs text-gray-500 mt-1">{Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : ''}</p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:items-end gap-1">
-                <p className="text-xl font-bold text-[#1C1C1C]">R$ {(c.valorMensal || 0).toLocaleString('pt-BR')}<span className="text-xs font-normal text-gray-400">/mes</span></p>
-                <p className="text-xs text-gray-400">Total: R$ {(c.valorTotal || 0).toLocaleString('pt-BR')}</p>
-                <div className="text-xs text-gray-500 mt-1">{c.inicio ? new Date(c.inicio).toLocaleDateString('pt-BR') : '-'} → {c.fim ? new Date(c.fim).toLocaleDateString('pt-BR') : '-'}</div>
-                {c.status === 'vencendo' && <p className="text-xs font-semibold text-yellow-700">Vence em {c.vencimentoDias} dias</p>}
-                {c.status === 'vencido' && <p className="text-xs font-semibold text-red-600">Venceu ha {Math.abs(c.vencimentoDias)} dias</p>}
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
-              <button className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Ver Detalhes</button>
-              {c.status !== 'ativo' && (
-                <button className="text-xs px-3 py-1.5 bg-yellow-400 text-[#1C1C1C] rounded-lg font-semibold hover:bg-yellow-300"
-                  onClick={() => toast.success('Contrato renovado com sucesso!')}>Renovar</button>
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input type="text" placeholder="Buscar por cliente ou ID..." value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            className="input-base pl-10" />
+        </div>
+        <div className="flex gap-2">
+          {['all', 'ativo', 'vencendo', 'vencido', 'cancelado'].map((s) => (
+            <button key={s} onClick={() => setFilters({ ...filters, status: s })}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                filters.status === s ? 'bg-yellow-400 text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}>
+              {s === 'all' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {ctList.length === 0 ? (
+        <EmptyState icon={FileText} title="Nenhum contrato encontrado" description="Crie seu primeiro contrato."
+          action={<Button icon={Plus} onClick={() => setShowCreateModal(true)}>Novo Contrato</Button>} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {ctList.map((ct) => (
+            <div key={ct.id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-xs font-mono text-gray-400">{ct.id}</p>
+                  <h3 className="font-bold text-gray-900">{ct.cliente}</h3>
+                  {ct.cnpj && <p className="text-xs text-gray-500 mt-1">CNPJ: {ct.cnpj}</p>}
+                </div>
+                <StatusBadge status={ct.status} />
+              </div>
+              <div className="space-y-2 text-sm text-gray-600 mb-4">
+                <div>Equipamentos: {Array.isArray(ct.equipamentos) ? ct.equipamentos.join(', ') : ct.equipamentos}</div>
+                <div>Periodo: {ct.inicio} a {ct.fim}</div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-green-600">R$ {Number(ct.valorMensal).toLocaleString('pt-BR')}/mes</span>
+                  <span className="text-gray-500">Total: R$ {Number(ct.valorTotal).toLocaleString('pt-BR')}</span>
+                </div>
+                {ct.vencimentoDias != null && (
+                  <div className={`text-xs font-medium ${ct.vencimentoDias <= 0 ? 'text-red-600' : ct.vencimentoDias <= 30 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                    {ct.vencimentoDias <= 0 ? 'Vencido' : `${ct.vencimentoDias} dias para vencer`}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 pt-3 border-t">
+                <button onClick={() => setEditingCt(ct)}
+                  className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
+                  <Edit3 className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button onClick={() => setRenewTarget(ct)}
+                  className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                  <RotateCcw className="w-3.5 h-3.5" /> Renovar
+                </button>
+                <button onClick={() => setDeleteTarget(ct)}
+                  className="flex items-center justify-center gap-1 py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ContratoModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} />
+      <ContratoModal isOpen={!!editingCt} onClose={() => setEditingCt(null)} onSave={handleUpdate} contrato={editingCt} />
+      <ContratoModal isOpen={!!renewTarget} onClose={() => setRenewTarget(null)} onSave={handleRenew} contrato={renewTarget} isRenew />
+      <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
+        title="Excluir Contrato" message={`Tem certeza que deseja excluir o contrato ${deleteTarget?.id}? Esta acao nao pode ser desfeita.`}
+        confirmLabel="Excluir" danger />
     </div>
   );
 }

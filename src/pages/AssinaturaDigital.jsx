@@ -1,163 +1,176 @@
-import { useRef, useState } from 'react';
-import Button from '../components/ui/Button';
-import { CheckCircle, RotateCcw, PenLine } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Eraser, Save, Loader2, CheckCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { db, isConfigured } from '../lib/supabase';
-
-const mockComprovantes = [
-  { id: '1', locatario: 'Joao da Silva', contrato: 'CT-001', data: '16/06/2026', total: 'R$ 8.500,00', assinado: false, cpf: '123.456.789-00' },
-  { id: '2', locatario: 'Empresa Beta S/A', contrato: 'CT-003', data: '16/06/2026', total: 'R$ 3.200,00', assinado: false, cpf: '98.765.432/0001-10' },
-];
+import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
+import { useComprovantes } from '../hooks/useComprovantes';
+import StatusBadge from '../components/ui/StatusBadge';
+import Button from '../components/ui/Button';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import ErrorDisplay from '../components/common/ErrorDisplay';
+import EmptyState from '../components/ui/EmptyState';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [hasSig, setHasSig] = useState(false);
-  const [signed, setSigned] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+  const [hasSignature, setHasSignature] = useState(false);
+  const [selectedComprovante, setSelectedComprovante] = useState('');
   const [nomeSignatario, setNomeSignatario] = useState('');
   const [cpfSignatario, setCpfSignatario] = useState('');
-  const [comprovantes, setComprovantes] = useState(mockComprovantes);
+  const [saving, setSaving] = useState(false);
 
-  const pendentes = comprovantes.filter(c => !c.assinado);
-  const selected = comprovantes.find(c => c.id === selectedId) || null;
+  const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
+  const { data: comprovantes } = useComprovantes();
+  const createAssinatura = useCreateAssinatura();
 
-  const getPos = (e, canvas) => {
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }, []);
+
+  const getPos = (e) => {
+    const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    if (e.touches) return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
-    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
   };
 
   const startDraw = (e) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#1C1C1C'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const pos = getPos(e, canvas);
-    ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
     setIsDrawing(true);
+    setHasSignature(true);
+    const ctx = canvasRef.current.getContext('2d');
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
   };
 
   const draw = (e) => {
-    e.preventDefault();
     if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const pos = getPos(e, canvas);
-    ctx.lineTo(pos.x, pos.y); ctx.stroke();
-    setHasSig(true);
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
   };
 
-  const stopDraw = (e) => { e?.preventDefault(); setIsDrawing(false); };
+  const endDraw = () => setIsDrawing(false);
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
-    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    setHasSig(false); setSigned(false);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
   };
 
-  const handleSign = async () => {
-    if (!hasSig) { toast.error('Por favor, insira sua assinatura.'); return; }
-    if (!selectedId) { toast.error('Selecione um comprovante para assinar.'); return; }
-
-    if (isConfigured()) {
-      const canvas = canvasRef.current;
-      const assinaturaImagem = canvas.toDataURL('image/png');
-      const { error } = await db.assinaturas.create({
-        comprovante_id: selectedId,
-        nome_signatario: nomeSignatario,
-        cpf_signatario: cpfSignatario,
-        assinatura_imagem: assinaturaImagem,
+  const handleSave = async () => {
+    if (!selectedComprovante) { toast.error('Selecione um comprovante'); return; }
+    if (!nomeSignatario) { toast.error('Preencha o nome do signatario'); return; }
+    if (!hasSignature) { toast.error('Faca sua assinatura'); return; }
+    setSaving(true);
+    try {
+      const imagem = canvasRef.current.toDataURL('image/png');
+      await createAssinatura.mutateAsync({
+        comprovanteId: selectedComprovante,
+        nomeSignatario,
+        cpfSignatario,
+        assinaturaImagem: imagem,
       });
-      if (!error) {
-        await db.comprovantes.update(selectedId, { assinado: true, status: 'assinado' });
-      }
+      toast.success('Assinatura salva com sucesso!');
+      clearCanvas();
+      setNomeSignatario('');
+      setCpfSignatario('');
+      setSelectedComprovante('');
+    } catch (err) {
+      toast.error('Erro ao salvar assinatura');
+    } finally {
+      setSaving(false);
     }
-
-    setComprovantes(prev => prev.map(c => c.id === selectedId ? { ...c, assinado: true } : c));
-    setSigned(true);
-    toast.success('Assinatura realizada com sucesso!');
   };
+
+  if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h2 className="font-bold text-[#1C1C1C] mb-4">Comprovantes Aguardando Assinatura</h2>
-        {pendentes.length === 0 ? (
-          <div className="flex flex-col items-center py-8 gap-2">
-            <CheckCircle size={32} className="text-green-500" />
-            <p className="text-sm text-gray-500 font-medium">Todos os comprovantes foram assinados!</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {pendentes.map(c => (
-              <label key={c.id} className={`flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all ${selectedId === c.id ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                <input type="radio" name="comprovante" value={c.id} checked={selectedId === c.id}
-                  onChange={() => { setSelectedId(c.id); setSigned(false); clearCanvas(); setNomeSignatario(c.locatario); setCpfSignatario(c.cpf); }}
-                  className="w-4 h-4" />
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-[#1C1C1C]">{c.locatario}</p>
-                  <p className="text-xs text-gray-500">Contrato {c.contrato} · {c.data} · {c.total}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        )}
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Assinatura Digital</h2>
+        <p className="text-sm text-gray-500">{assinaturas.length} assinaturas registradas</p>
       </div>
 
-      {selectedId && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-[#1C1C1C]">Area de Assinatura</h2>
-            <button onClick={clearCanvas} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 font-medium">
-              <RotateCcw size={13} /> Limpar
-            </button>
-          </div>
-          {signed ? (
-            <div className="flex flex-col items-center py-12 gap-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle size={32} className="text-green-600" />
-              </div>
-              <div className="text-center">
-                <p className="font-bold text-[#1C1C1C] text-lg">Assinatura Realizada!</p>
-                <p className="text-sm text-gray-500 mt-1">Comprovante do contrato <span className="font-semibold">{selected?.contrato}</span> assinado por <span className="font-semibold">{nomeSignatario}</span></p>
-              </div>
-              <Button variant="secondary" onClick={() => { setSigned(false); setSelectedId(null); clearCanvas(); }}>Assinar outro comprovante</Button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Nova Assinatura</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Comprovante de Entrega *</label>
+              <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base">
+                <option value="">Selecione...</option>
+                {comprovantes?.map((c) => (
+                  <option key={c.id} value={c.id}>{c.contrato} - {c.locatario}</option>
+                ))}
+              </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatario *</label>
+              <input type="text" value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
+                className="input-base" placeholder="Nome completo" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+              <input type="text" value={cpfSignatario} onChange={(e) => setCpfSignatario(e.target.value)}
+                className="input-base" placeholder="000.000.000-00" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden">
+                <canvas ref={canvasRef} width={500} height={200}
+                  className="w-full cursor-crosshair touch-none"
+                  onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                  onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Assine usando o mouse ou dedo na tela</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={clearCanvas} icon={Eraser}>Limpar</Button>
+              <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar Assinatura'}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Assinaturas Registradas</h3>
+          {assinaturas.length === 0 ? (
+            <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />
           ) : (
-            <>
-              <div className="relative border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 overflow-hidden">
-                <canvas ref={canvasRef} width={640} height={220} className="w-full touch-none cursor-crosshair"
-                  onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
-                  onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw} />
-                {!hasSig && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><p className="text-gray-300 text-sm font-medium select-none">Assine aqui</p></div>}
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500 font-medium">Nome do Signatario</label>
-                  <input type="text" value={nomeSignatario} onChange={e => setNomeSignatario(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40" />
+            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+              {assinaturas.map((sig) => (
+                <div key={sig.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm text-gray-900">{sig.nomeSignatario}</span>
+                    <StatusBadge status="assinado" />
+                  </div>
+                  {sig.cpfSignatario && <p className="text-xs text-gray-500">CPF: {sig.cpfSignatario}</p>}
+                  {sig.assinaturaImagem && (
+                    <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
+                  )}
+                  <p className="text-xs text-gray-400">
+                    {sig.dataAssinatura ? new Date(sig.dataAssinatura).toLocaleString('pt-BR') : '-'}
+                  </p>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 font-medium">CPF / CNPJ</label>
-                  <input type="text" value={cpfSignatario} onChange={e => setCpfSignatario(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40" />
-                </div>
-              </div>
-              <div className="mt-5 flex gap-3">
-                <Button variant="secondary" onClick={clearCanvas} className="flex-1 justify-center"><RotateCcw size={14} /> Limpar</Button>
-                <Button variant="primary" onClick={handleSign} className="flex-1 justify-center"><PenLine size={14} /> Assinar Documento</Button>
-              </div>
-            </>
+              ))}
+            </div>
           )}
         </div>
-      )}
-
-      <div className="bg-[#1C1C1C] rounded-xl p-5">
-        <p className="text-white font-semibold text-xs uppercase tracking-wider mb-2">Validade Juridica</p>
-        <p className="text-xs text-gray-400">Este documento e assinado digitalmente conforme a <span className="text-yellow-400">MP 2.200-2/2001</span> e a <span className="text-yellow-400">Lei 14.063/2020</span>.</p>
       </div>
     </div>
   );

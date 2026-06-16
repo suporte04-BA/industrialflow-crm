@@ -1,105 +1,93 @@
-import { useState, useEffect } from 'react';
+import { Wrench, TrendingUp, DollarSign, Clock, AlertTriangle, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useDashboard } from '../hooks/useDashboard';
 import MetricCard from '../components/ui/MetricCard';
 import StatusBadge from '../components/ui/StatusBadge';
-import { ClipboardList, Package, FileText, DollarSign, AlertTriangle, CheckCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Link } from 'react-router-dom';
-import { db, isConfigured } from '../lib/supabase';
-import { ordensServico as mockOS, contratos as mockContratos, metricas as mockMetricas } from '../data/mockData';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import ErrorDisplay from '../components/common/ErrorDisplay';
 
 export default function Dashboard() {
-  const [ordens, setOrdens] = useState(mockOS);
-  const [contratos, setContratos] = useState(mockContratos);
-  const [metricas, setMetricas] = useState(mockMetricas);
+  const { data, isLoading, isError, error, refetch } = useDashboard();
 
-  useEffect(() => {
-    const loadData = async () => {
-      if (!isConfigured()) return;
-      const { data: osData } = await db.ordensServico.list();
-      const { data: ctData } = await db.contratos.list();
-      if (osData) setOrdens(osData);
-      if (ctData) setContratos(ctData);
-    };
-    loadData();
-  }, []);
+  if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={4} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
-  const chartData = metricas.meses.map((m, i) => ({ mes: m, receita: metricas.receitaMes[i] }));
-  const osRecentes = ordens.slice(0, 5);
-  const contratosAlerta = contratos.filter(c => c.status === 'vencendo' || c.status === 'vencido');
+  const { metricas, recentOS, alertasContratos } = data;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="OS Abertas" value={metricas.osAbertas} subtitle="2 urgentes" icon={ClipboardList} accent />
-        <MetricCard title="Equipamentos Locados" value={metricas.equipamentosLocados} subtitle={`${metricas.equipamentosDisponiveis} disponiveis`} icon={Package} />
-        <MetricCard title="Contratos Ativos" value={metricas.contratosAtivos} subtitle={`${metricas.contratosVencendo} vencendo`} icon={FileText} />
-        <MetricCard title="Receita Mensal" value={`R$ ${metricas.receitaMensal.toLocaleString('pt-BR')}`} subtitle="Locacoes ativas" icon={DollarSign} trend={8} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard icon={Wrench} title="Total OS" value={metricas.totalOS} accent="yellow" />
+        <MetricCard icon={Clock} title="OS Abertas" value={metricas.osAbertas} accent="blue" />
+        <MetricCard icon={CheckCircle} title="OS Concluidas" value={metricas.osConcluidas} accent="green" />
+        <MetricCard icon={DollarSign} title="Receita Mensal" value={`R$ ${metricas.receitaMensal.toLocaleString('pt-BR')}`} accent="yellow" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <div className="mb-6">
-            <h2 className="font-bold text-[#1C1C1C] text-base">Receita de Locacoes</h2>
-            <p className="text-xs text-gray-500">Ultimos 6 meses</p>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData} barSize={32}>
-              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#999' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#999' }} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={v => [`R$ ${v.toLocaleString('pt-BR')}`, 'Receita']} contentStyle={{ borderRadius: 8, border: '1px solid #eee', fontSize: 12 }} />
-              <Bar dataKey="receita" radius={[4, 4, 0, 0]}>
-                {chartData.map((_, i) => <Cell key={i} fill={i === chartData.length - 1 ? '#FFC107' : '#E5E5E5'} />)}
-              </Bar>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard icon={TrendingUp} title="Equip. Locados" value={metricas.equipamentosLocados} accent="green" />
+        <MetricCard icon={Wrench} title="Equip. Disponiveis" value={metricas.equipamentosDisponiveis} accent="blue" />
+        <MetricCard icon={FileText} title="Contratos Ativos" value={metricas.contratosAtivos} accent="yellow" />
+        <MetricCard icon={AlertTriangle} title="Contratos Vencendo" value={metricas.contratosVencendo} accent="red" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Receita Mensal</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={metricas.receitaMes.map((v, i) => ({ name: metricas.meses[i], valor: v }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(v) => `R$ ${v.toLocaleString('pt-BR')}`} />
+              <Bar dataKey="valor" fill="#FFC107" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <h2 className="font-bold text-[#1C1C1C] text-base mb-4">Alertas</h2>
-          <div className="space-y-3">
-            {contratosAlerta.map(c => (
-              <div key={c.id} className={`flex items-start gap-3 p-3 rounded-lg ${c.status === 'vencido' ? 'bg-red-50' : 'bg-yellow-50'}`}>
-                <AlertTriangle size={15} className={c.status === 'vencido' ? 'text-red-500 mt-0.5' : 'text-yellow-600 mt-0.5'} />
-                <div>
-                  <p className="text-xs font-semibold text-gray-800">{c.cliente}</p>
-                  <p className="text-xs text-gray-500">{c.status === 'vencido' ? `Venceu ha ${Math.abs(c.vencimentoDias)} dias` : `Vence em ${c.vencimentoDias} dias`}</p>
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Alertas</h3>
+          {alertasContratos.length === 0 ? (
+            <p className="text-sm text-gray-500">Nenhum alerta no momento.</p>
+          ) : (
+            <div className="space-y-3">
+              {alertasContratos.slice(0, 4).map((c) => (
+                <div key={c.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <AlertTriangle className={`w-4 h-4 ${c.status === 'vencido' ? 'text-red-500' : 'text-yellow-500'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{c.cliente}</p>
+                    <p className="text-xs text-gray-500">{c.id} - {c.vencimentoDias != null ? `${c.vencimentoDias} dias` : '-'}</p>
+                  </div>
+                  <StatusBadge status={c.status} />
                 </div>
-              </div>
-            ))}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50">
-              <CheckCircle size={15} className="text-green-500 mt-0.5" />
-              <div>
-                <p className="text-xs font-semibold text-gray-800">2 OS concluidas hoje</p>
-                <p className="text-xs text-gray-500">Trator e Empilhadeira revisados</p>
-              </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-[#1C1C1C] text-base">Ordens de Servico Recentes</h2>
-          <Link to="/ordens" className="text-xs text-yellow-600 font-semibold hover:underline">Ver todas →</Link>
-        </div>
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">OS Recentes</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#F5F5F5]">
-                {['OS', 'Cliente', 'Equipamento', 'Tecnico', 'Status', 'Prioridade'].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
+              <tr className="border-b text-left text-gray-500">
+                <th className="pb-3 font-medium">ID</th>
+                <th className="pb-3 font-medium">Cliente</th>
+                <th className="pb-3 font-medium">Equipamento</th>
+                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 font-medium">Prioridade</th>
+                <th className="pb-3 font-medium">Valor</th>
               </tr>
             </thead>
             <tbody>
-              {osRecentes.map(os => (
-                <tr key={os.id} className="border-t border-gray-100 hover:bg-yellow-400/5 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-800">{os.id}</td>
-                  <td className="px-4 py-3 text-gray-700 max-w-[160px] truncate">{os.cliente}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[160px] truncate">{os.equipamento}</td>
-                  <td className="px-4 py-3 text-gray-600">{os.tecnico}</td>
-                  <td className="px-4 py-3"><StatusBadge status={os.status} /></td>
-                  <td className="px-4 py-3"><StatusBadge status={os.prioridade} /></td>
+              {recentOS.map((os) => (
+                <tr key={os.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="py-3 font-mono text-xs font-semibold">{os.id}</td>
+                  <td className="py-3">{os.cliente}</td>
+                  <td className="py-3">{os.equipamento}</td>
+                  <td className="py-3"><StatusBadge status={os.status} /></td>
+                  <td className="py-3"><StatusBadge status={os.prioridade} /></td>
+                  <td className="py-3 font-medium">R$ {Number(os.valor).toLocaleString('pt-BR')}</td>
                 </tr>
               ))}
             </tbody>

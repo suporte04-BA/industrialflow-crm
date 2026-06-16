@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "routes": [
+    {
+      "pattern": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "pattern": "/api/*",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
+      }
+    },
+    {
+      "pattern": "/*",
+      "serve": "/index.html"
+    }
+  ]
+}

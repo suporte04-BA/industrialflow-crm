@@ -1,5 +1,5 @@
 -- ============================================
--- IndustrialFlow CRM - Supabase Schema
+-- IndustrialFlow CRM - Supabase Schema (v2)
 -- ============================================
 
 -- Sequencias para IDs automaticos
@@ -128,6 +128,23 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- ============================================
+-- INDICES para performance
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_os_status ON ordens_servico(status);
+CREATE INDEX IF NOT EXISTS idx_os_cliente ON ordens_servico(cliente);
+CREATE INDEX IF NOT EXISTS idx_os_created ON ordens_servico(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_eq_status ON equipamentos(status);
+CREATE INDEX IF NOT EXISTS idx_eq_categoria ON equipamentos(categoria);
+CREATE INDEX IF NOT EXISTS idx_eq_created ON equipamentos(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ct_status ON contratos(status);
+CREATE INDEX IF NOT EXISTS idx_ct_cliente ON contratos(cliente);
+CREATE INDEX IF NOT EXISTS idx_ct_fim ON contratos(fim);
+CREATE INDEX IF NOT EXISTS idx_ce_created ON comprovantes_entrega(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ce_contrato ON comprovantes_entrega(contrato);
+CREATE INDEX IF NOT EXISTS idx_as_comprovante ON assinaturas(comprovante_id);
+CREATE INDEX IF NOT EXISTS idx_no_updated ON notas(updated_at DESC);
+
+-- ============================================
 -- RLS (Row Level Security)
 -- ============================================
 ALTER TABLE ordens_servico ENABLE ROW LEVEL SECURITY;
@@ -138,88 +155,126 @@ ALTER TABLE assinaturas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Policies para usuarios autenticados
-CREATE POLICY "Authenticated users can view ordens" ON ordens_servico
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- ============================================
+-- RLS POLICIES (performance-optimized com subselect)
+-- ============================================
 
-CREATE POLICY "Authenticated users can insert ordens" ON ordens_servico
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Ordens de Servico
+CREATE POLICY "os_select" ON ordens_servico FOR SELECT TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can update ordens" ON ordens_servico
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "os_insert" ON ordens_servico FOR INSERT TO authenticated
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can delete ordens" ON ordens_servico
-  FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "os_update" ON ordens_servico FOR UPDATE TO authenticated
+  USING ((select auth.uid()) IS NOT NULL)
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can view equipamentos" ON equipamentos
-  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "os_delete" ON ordens_servico FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = (select auth.uid())
+        AND profiles.role = 'admin'
+    )
+  );
 
-CREATE POLICY "Authenticated users can insert equipamentos" ON equipamentos
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Equipamentos
+CREATE POLICY "eq_select" ON equipamentos FOR SELECT TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can update equipamentos" ON equipamentos
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "eq_insert" ON equipamentos FOR INSERT TO authenticated
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can delete equipamentos" ON equipamentos
-  FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "eq_update" ON equipamentos FOR UPDATE TO authenticated
+  USING ((select auth.uid()) IS NOT NULL)
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can view contratos" ON contratos
-  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "eq_delete" ON equipamentos FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = (select auth.uid())
+        AND profiles.role = 'admin'
+    )
+  );
 
-CREATE POLICY "Authenticated users can insert contratos" ON contratos
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Contratos
+CREATE POLICY "ct_select" ON contratos FOR SELECT TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can update contratos" ON contratos
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "ct_insert" ON contratos FOR INSERT TO authenticated
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can delete contratos" ON contratos
-  FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "ct_update" ON contratos FOR UPDATE TO authenticated
+  USING ((select auth.uid()) IS NOT NULL)
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can view comprovantes" ON comprovantes_entrega
-  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "ct_delete" ON contratos FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = (select auth.uid())
+        AND profiles.role = 'admin'
+    )
+  );
 
-CREATE POLICY "Authenticated users can insert comprovantes" ON comprovantes_entrega
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Comprovantes de Entrega
+CREATE POLICY "ce_select" ON comprovantes_entrega FOR SELECT TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can update comprovantes" ON comprovantes_entrega
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "ce_insert" ON comprovantes_entrega FOR INSERT TO authenticated
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can delete comprovantes" ON comprovantes_entrega
-  FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "ce_update" ON comprovantes_entrega FOR UPDATE TO authenticated
+  USING ((select auth.uid()) IS NOT NULL)
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can view assinaturas" ON assinaturas
-  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "ce_delete" ON comprovantes_entrega FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = (select auth.uid())
+        AND profiles.role = 'admin'
+    )
+  );
 
-CREATE POLICY "Authenticated users can insert assinaturas" ON assinaturas
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Assinaturas
+CREATE POLICY "as_select" ON assinaturas FOR SELECT TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can view notas" ON notas
-  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "as_insert" ON assinaturas FOR INSERT TO authenticated
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can insert notas" ON notas
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Notas
+CREATE POLICY "no_select" ON notas FOR SELECT TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can update notas" ON notas
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "no_insert" ON notas FOR INSERT TO authenticated
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Authenticated users can delete notas" ON notas
-  FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "no_update" ON notas FOR UPDATE TO authenticated
+  USING ((select auth.uid()) IS NOT NULL)
+  WITH CHECK ((select auth.uid()) IS NOT NULL);
 
--- Profiles: usuarios so veem seu proprio perfil
-CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "no_delete" ON notas FOR DELETE TO authenticated
+  USING ((select auth.uid()) IS NOT NULL);
 
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
+-- Profiles
+CREATE POLICY "pr_select" ON profiles FOR SELECT TO authenticated
+  USING (id = (select auth.uid()));
 
-CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "pr_update" ON profiles FOR UPDATE TO authenticated
+  USING (id = (select auth.uid()))
+  WITH CHECK (id = (select auth.uid()));
+
+CREATE POLICY "pr_insert" ON profiles FOR INSERT TO authenticated
+  WITH CHECK (id = (select auth.uid()));
 
 -- ============================================
 -- FUNCOES TRIGGER
 -- ============================================
 
--- Atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -228,7 +283,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers para updated_at
 CREATE TRIGGER update_ordens_servico_updated_at
   BEFORE UPDATE ON ordens_servico
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -237,7 +291,6 @@ CREATE TRIGGER update_notas_updated_at
   BEFORE UPDATE ON notas
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Criar perfil automaticamente apos registro
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -250,6 +303,40 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- ============================================
+-- STORAGE BUCKETS
+-- ============================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('assinaturas', 'assinaturas', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('comprovantes', 'comprovantes', false)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage policies
+CREATE POLICY "assinaturas_public_read" ON storage.objects
+  FOR SELECT TO authenticated USING (bucket_id = 'assinaturas');
+
+CREATE POLICY "assinaturas_insert" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'assinaturas');
+
+CREATE POLICY "avatars_public_read" ON storage.objects
+  FOR SELECT TO authenticated USING (bucket_id = 'avatars');
+
+CREATE POLICY "avatars_insert" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'avatars');
+
+CREATE POLICY "comprovantes_auth_read" ON storage.objects
+  FOR SELECT TO authenticated USING (bucket_id = 'comprovantes');
+
+CREATE POLICY "comprovantes_insert" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'comprovantes');
 
 -- ============================================
 -- DADOS INICIAIS (Seed)

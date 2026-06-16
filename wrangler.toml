@@ -1,0 +1,13 @@
+name = "industrialflow-crm"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat_v2"]
+
+# Pages build config
+[vars]
+SUPABASE_URL = "https://mbcdbclosomqpfboyffj.supabase.co"
+SUPABASE_ANON_KEY = "AofxFntpFLpll9xf6vCKLw_v9Qf_Qpg"
+
+# Custom routes for SPA
+routes = [
+  { pattern = "transobras.suporte04.workers.dev/*", zone_name = "suporte04.workers.dev" }
+]

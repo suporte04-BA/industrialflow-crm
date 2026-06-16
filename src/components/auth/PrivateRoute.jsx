@@ -1,36 +1,36 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { getCurrentUser, isConfigured } from '../../lib/supabase';
-import { Loader2 } from 'lucide-react';
+import { isConfigured, getCurrentUser } from '../../lib/supabase';
 
 export default function PrivateRoute({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authState, setAuthState] = useState({ loading: true, authenticated: false });
 
   useEffect(() => {
     const checkAuth = async () => {
       if (!isConfigured()) {
-        // Mock mode: allow access without auth
-        setUser({ id: 'mock-user', email: 'admin@crm.com' });
-        setLoading(false);
+        const mockAuth = localStorage.getItem('industrialflow_mock_auth');
+        setAuthState({ loading: false, authenticated: !!mockAuth });
         return;
       }
-      const { user } = await getCurrentUser();
-      setUser(user);
-      setLoading(false);
+      try {
+        const { user } = await getCurrentUser();
+        setAuthState({ loading: false, authenticated: !!user });
+      } catch {
+        setAuthState({ loading: false, authenticated: false });
+      }
     };
     checkAuth();
   }, []);
 
-  if (loading) {
+  if (authState.loading) {
     return (
-      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-yellow-400" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!user) {
+  if (!authState.authenticated) {
     return <Navigate to="/login" replace />;
   }
 

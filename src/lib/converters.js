@@ -31,7 +31,7 @@ const SNAKE_TO_CAMEL = {
   locatario: 'locatario',
   cpf: 'cpf',
   rg: 'rg',
-  telefone: 'telefone',
+  fone: 'fone',
   contato: 'contato',
   endereco: 'endereco',
   numero: 'numero',

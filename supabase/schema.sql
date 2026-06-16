@@ -181,10 +181,6 @@ CREATE POLICY "as_all" ON assinaturas FOR ALL TO authenticated USING ((select au
 CREATE POLICY "no_all" ON notas FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
 CREATE POLICY "pr_select" ON profiles FOR SELECT TO authenticated USING (id = (select auth.uid()));
 CREATE POLICY "pr_update" ON profiles FOR UPDATE TO authenticated USING (id = (select auth.uid()));
-CREATE TRIGGER update_comprovantes_updated_at
-  BEFORE UPDATE ON comprovantes_entrega
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
 -- ============================================
 -- FUNCOES TRIGGER
 -- ============================================
@@ -196,12 +192,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ============================================
+-- TRIGGERS
+-- ============================================
 CREATE TRIGGER update_ordens_servico_updated_at
   BEFORE UPDATE ON ordens_servico
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER update_notas_updated_at
   BEFORE UPDATE ON notas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_comprovantes_updated_at
+  BEFORE UPDATE ON comprovantes_entrega
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE OR REPLACE FUNCTION handle_new_user()

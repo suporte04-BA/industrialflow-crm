@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, BookOpen, LogOut } from 'lucide-react';
 import { signOut } from '../../lib/supabase';
+import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -15,6 +16,10 @@ const navItems = [
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const location = useLocation();
+  const { user } = useAuth();
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
+  const userEmail = user?.email || 'admin@transobra.com';
+  const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const handleLogout = async () => {
     await signOut();
@@ -45,6 +50,15 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           {navItems.map(item => <NavLink key={item.path} item={item} />)}
         </nav>
         <div className="px-4 py-4 border-t border-white/10">
+          <div className="flex items-center gap-3 px-2 mb-3">
+            <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-bold text-gray-900">{initials}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-xs font-medium truncate">{userName}</p>
+              <p className="text-gray-500 text-xs truncate">{userEmail}</p>
+            </div>
+          </div>
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2 w-full text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
             <LogOut size={18} />
             <span className="text-sm">Sair</span>
@@ -63,6 +77,15 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           {navItems.map(item => <NavLink key={item.path} item={item} />)}
         </nav>
         <div className="px-4 py-4 border-t border-white/10">
+          <div className="flex items-center gap-3 px-2 mb-3">
+            <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-bold text-gray-900">{initials}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-xs font-medium truncate">{userName}</p>
+              <p className="text-gray-500 text-xs truncate">{userEmail}</p>
+            </div>
+          </div>
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2 w-full text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
             <LogOut size={18} />
             <span className="text-sm">Sair</span>

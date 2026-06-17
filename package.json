@@ -8,10 +8,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy:pages": "npm run build && wrangler pages deploy dist --project-name=industrialflow-crm",
-    "deploy:worker": "wrangler deploy",
-    "deploy:all": "npm run build && wrangler pages deploy dist --project-name=industrialflow-crm && wrangler deploy",
-    "logs": "wrangler tail"
+    "deploy:pages": "npm run build && npx wrangler pages deploy dist --project-name=industrialflow-crm",
+    "deploy:worker": "npx wrangler deploy",
+    "deploy:all": "npm run build && npx wrangler pages deploy dist --project-name=industrialflow-crm && npx wrangler deploy",
+    "logs": "npx wrangler tail"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

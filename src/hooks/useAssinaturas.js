@@ -1,9 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isConfigured } from '../lib/supabase';
+import { supabase, isConfigured, storage } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
-import { storage } from '../lib/supabase';
 
 export function useAssinaturas(comprovanteId = null) {
   const queryClient = useQueryClient();

@@ -12,11 +12,7 @@ export async function parseComprovantePDF(file) {
 
 function cleanValue(val) {
   if (!val) return '';
-  return val
-    .replace(/^[:\s]+/, '')
-    .replace(/[:\s]+$/, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return val.replace(/^[:\s]+/, '').replace(/[:\s]+$/, '').replace(/\s+/g, ' ').trim();
 }
 
 function findAfterLabel(lines, patterns, opts = {}) {
@@ -37,29 +33,14 @@ function findAfterLabel(lines, patterns, opts = {}) {
         break;
       }
 
-      if (i + 1 < lines.length) {
-        const nextLine = cleanValue(lines[i + 1]);
-        if (
-          nextLine.length > 1 &&
-          nextLine.length <= maxLength &&
-          !lines[i + 1].match(p)
-        ) {
-          if (!multiple) return nextLine;
-          results.push(nextLine);
-          break;
-        }
-      }
-
-      if (i + 2 < lines.length) {
-        const nextLine2 = cleanValue(lines[i + 2]);
-        if (
-          nextLine2.length > 1 &&
-          nextLine2.length <= maxLength &&
-          !lines[i + 2].match(p)
-        ) {
-          if (!multiple) return nextLine2;
-          results.push(nextLine2);
-          break;
+      for (let offset = 1; offset <= 3; offset++) {
+        if (i + offset < lines.length) {
+          const nextLine = cleanValue(lines[i + offset]);
+          if (nextLine.length > 1 && nextLine.length <= maxLength && !lines[i + offset].match(p)) {
+            if (!multiple) return nextLine;
+            results.push(nextLine);
+            break;
+          }
         }
       }
     }
@@ -96,8 +77,7 @@ function extractFields(lines) {
   };
 
   fields.numero_pedido = findAfterLabel(lines, [
-    /(?:Pedido|PEDIDO|pedido|N[ºo°]|N[ºo.]?\s*[ºo°]|ORCAMENTO|ORÇAMENTO|Orcamento)\s*[:.]?\s*([A-Z0-9\-/]+)/i,
-    /^(\d{3,}[-/]\d{3,})/,
+    /(?:Pedido|PEDIDO|pedido|N[ºo°]|ORCAMENTO|ORÇAMENTO|Orcamento)\s*[:.]?\s*([A-Z0-9\-/]+)/i,
   ]);
 
   fields.contrato = findAfterLabel(lines, [
@@ -108,16 +88,16 @@ function extractFields(lines) {
 
   fields.data_retirada = findAfterLabel(lines, [
     /(?:Retirada|Saída|Saida|Data\s+da\s+Retirada|data\s+de\s+retirada|D\.?\s*LOC|Data\s+Locação|Data\s+Locacao)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{2,4})/i,
-    /(?:^|\s)Data\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{2,4})/i,
+    /Data\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{2,4})/i,
   ]);
 
   fields.data_devolucao = findAfterLabel(lines, [
-    /(?:Devolução|Devolucao|Entrada|Data\s+da\s+Devolucao|data\s+de\s+devolucao|D\.?\s*DEV|Data\s+Devolução)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{2,4})/i,
+    /(?:Devolução|Devolucao|Entrada|Data\s+da\s+Devolucao|D\.?\s*DEV)\s*[:.]?\s*(\d{2}[/-]\d{2}[/-]\d{2,4})/i,
   ]);
 
   fields.hora = findAfterLabel(lines, [
-    /(?:Hora|Horário|Horario|horário)\s*[:.]?\s*(\d{1,2}[:\s]\d{2}(?:\s*[.:]\s*\d{2})?)/i,
-    /(\d{1,2}:\d{2}(?:\s*[.:]\s*\d{2})?)/,
+    /(?:Hora|Horário|Horario)\s*[:.]?\s*(\d{1,2}[:\s]\d{2})/i,
+    /(\d{1,2}:\d{2})/,
   ]);
 
   fields.atendente = findAfterLabel(lines, [
@@ -125,7 +105,7 @@ function extractFields(lines) {
   ]);
 
   fields.contato = findAfterLabel(lines, [
-    /(?:Locatário|LOCATÁRIO|Locatario|Cliente|CLIENTE|Nome)\s*[:.]\s*(.+)/i,
+    /(?:Locatário|LOCATÁRIO|Locatario|Cliente|CLIENTE)\s*[:.]\s*(.+)/i,
   ]);
 
   fields.contato_cliente = findAfterLabel(lines, [
@@ -137,7 +117,7 @@ function extractFields(lines) {
   ]);
 
   fields.rg = findAfterLabel(lines, [
-    /(?:RG|Identidade|Insc\s*Est)\s*[:.]?\s*([\d.\-X]+)/i,
+    /(?:RG|Identidade)\s*[:.]?\s*([\d.\-X]+)/i,
   ]);
 
   fields.telefone = findAfterLabel(lines, [
@@ -145,13 +125,11 @@ function extractFields(lines) {
   ]);
 
   fields.endereco = findAfterLabel(lines, [
-    /(?:Endereço|Endereco|ENDEREÇO|Rua|Avenida|Av\.|Alameda)\s*[:.]\s*(.+)/i,
-    /(?:Endereço|Endereco|ENDEREÇO)\s*[:.]?\s*(.+)/i,
+    /(?:Endereço|Endereco|ENDEREÇO)\s*[:.]\s*(.+)/i,
+    /(?:Rua|Avenida|Av\.|Alameda|Travessa)\s+[:.]?\s*(.+)/i,
   ]);
 
-  fields.numero = findAfterLabel(lines, [
-    /(?:N[úu]mero|Num\.?|N[ºo°]|No\.?)\s*[:.]?\s*(.+)/i,
-  ]);
+  fields.numero = '';
 
   fields.bairro = findAfterLabel(lines, [
     /(?:Bairro|BAIRRO)\s*[:.]?\s*(.+)/i,
@@ -179,6 +157,7 @@ function extractFields(lines) {
 
   fields.telefone_entrega = findAfterLabel(lines, [
     /(?:Telefone\s+do\s+Local|Tel\.?\s*Entrega|Fone\s+Entrega)\s*[:.]?\s*([\d\s()-]+)/i,
+    /(?:Telefone|Tel)\s*[:.]?\s*([\d\s()-]+)/i,
   ]);
 
   fields.observacao = findAfterLabel(lines, [
@@ -188,24 +167,29 @@ function extractFields(lines) {
   fields.itens = extractItems(lines);
   fields.valores = extractValues(lines);
 
+  if (fields.itens.length > 0) {
+    fields.numero = '';
+  }
+
   return fields;
 }
 
 function extractItems(lines) {
   const items = [];
-  const valuePattern = /R\$\s*([\d.,]+)/;
+  const valuePattern = /\b(\d+[.,]\d{2})\b/;
   const datePattern = /(\d{2}[/-]\d{2}[/-]\d{2,4})/;
 
   let startIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (/(?:DESCRIÇÃO|Descricao|ITEM|Item|Qtde|Quantidade|Descri)/i.test(lines[i])) {
+    if (/(?:DESCRIÇÃO|Descricao|ITEM|Item|Qtde|Quantidade|Descri|Bem|Equipamento|BENFEITORIAS?)/i.test(lines[i])) {
       startIdx = i + 1;
       break;
     }
   }
+
   if (startIdx === -1) {
     for (let i = 0; i < lines.length; i++) {
-      if (valuePattern.test(lines[i]) && /\d/.test(lines[i])) {
+      if (valuePattern.test(lines[i]) && /\d{2}[/-]\d{2}/.test(lines[i])) {
         startIdx = i;
         break;
       }
@@ -213,43 +197,59 @@ function extractItems(lines) {
   }
   if (startIdx === -1) startIdx = 0;
 
+  let totalLineIdx = -1;
   for (let i = startIdx; i < lines.length; i++) {
+    if (/(?:TOTAL|Total\s+Geral|SUBTOTAL|VALOR\s+TOTAL)/i.test(lines[i])) {
+      totalLineIdx = i;
+      break;
+    }
+  }
+
+  const endIdx = totalLineIdx > 0 ? totalLineIdx : lines.length;
+
+  for (let i = startIdx; i < endIdx; i++) {
     const line = lines[i];
 
-    if (/(?:TOTAL|Total\s+Geral|Subtotal|Frete|Desconto)/i.test(line) && valuePattern.test(line)) break;
+    if (/(?:OBSERVAÇÃO|Observação|Observacoes|OBS)/i.test(line) && !/\d+[.,]\d{2}/.test(line)) break;
 
-    const valueMatch = line.match(valuePattern);
-    if (!valueMatch) continue;
+    const valueMatches = line.match(new RegExp(valuePattern, 'g'));
+    if (!valueMatches || valueMatches.length === 0) continue;
 
-    const qtyMatch = line.match(/^(\d+)\s/);
+    const lastValue = parseValue(valueMatches[valueMatches.length - 1]);
+    if (lastValue <= 0) continue;
+
+    const dates = [];
+    let m;
+    const dateRegex = new RegExp(datePattern, 'g');
+    while ((m = dateRegex.exec(line)) !== null) {
+      dates.push(m[1]);
+    }
+
+    const qtyMatch = line.match(/^(\d{1,3})\s/);
     const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-    const valorUnit = parseValue(valueMatch[1]);
-
-    const dates = line.match(new RegExp(datePattern, 'g'));
-    const dataLoc = dates && dates.length >= 1 ? dates[0] : '';
-    const dataDev = dates && dates.length >= 2 ? dates[1] : '';
 
     const patrimMatch = line.match(/(?:Patrim\.?|PATRIM\.?)\s*(\d+)/i);
     const patrimonio = patrimMatch ? patrimMatch[1] : '';
 
     let desc = line
-      .replace(/^(\d+)\s+/, '')
-      .replace(/R\$\s*[\d.,]+/, '')
+      .replace(/^(\d{1,3})\s+/, '')
+      .replace(/R?\$?\s*[\d.,]+/g, '')
       .replace(/\d{2}[/-]\d{2}[/-]\d{2,4}/g, '')
       .replace(/Patrim\.?\s*\d+/gi, '')
-      .replace(/\b\d{3,6}\b/g, '')
-      .replace(/^\s*[-.,]+\s*/, '')
+      .replace(/\b\d{4,}\b/g, '')
+      .replace(/[|/\\]/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
 
-    if (desc.length > 2 && valorUnit > 0) {
+    if (desc.length >= 1) {
       items.push({
         descricao: desc,
         quantidade: qty,
         patrimonio,
-        data_locacao: dataLoc,
-        data_devolucao: dataDev,
-        valor_unitario: valorUnit,
-        valor_total: valorUnit * qty,
+        data_locacao: dates[0] || '',
+        data_devolucao: dates[1] || dates[0] || '',
+        valor_unitario: lastValue,
+        valor_total: lastValue * qty,
       });
     }
   }

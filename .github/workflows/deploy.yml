@@ -21,9 +21,9 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy dist --project-name=industrialflow-crm
-          wranglerVersion: "4.14.4"
+          command: deploy
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

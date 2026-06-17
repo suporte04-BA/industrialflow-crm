@@ -1,6 +1,3 @@
-// Cloudflare Worker - IndustrialFlow CRM API Proxy
-// Roda em: transobras.suporte04.workers.dev
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -38,7 +35,7 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
@@ -48,15 +45,10 @@ export default {
     const method = request.method;
     const authHeader = request.headers.get('Authorization');
 
-    // API routes
-    if (path.startsWith('/api/')) {
-
-    // Health check
     if (path === '/api/health') {
       return json({ status: 'ok', timestamp: new Date().toISOString() });
     }
 
-    // Dashboard stats (usa service role para bypass RLS)
     if (path === '/api/dashboard' && method === 'GET') {
       const [os, eq, ct] = await Promise.all([
         supabaseRequest(env, 'GET', '/ordens_servico?select=*'),
@@ -86,7 +78,6 @@ export default {
       });
     }
 
-    // CRUD: Ordens de Servico
     if (path.startsWith('/api/ordens')) {
       const id = path.split('/').pop();
       if (method === 'GET' && id && id !== 'ordens') {
@@ -111,7 +102,6 @@ export default {
       return json(result.data, result.status);
     }
 
-    // CRUD: Equipamentos
     if (path.startsWith('/api/equipamentos')) {
       const id = path.split('/').pop();
       if (method === 'POST') {
@@ -132,7 +122,6 @@ export default {
       return json(result.data, result.status);
     }
 
-    // CRUD: Contratos
     if (path.startsWith('/api/contratos')) {
       const id = path.split('/').pop();
       if (method === 'POST') {
@@ -153,7 +142,6 @@ export default {
       return json(result.data, result.status);
     }
 
-    // CRUD: Comprovantes
     if (path.startsWith('/api/comprovantes')) {
       const id = path.split('/').pop();
       if (method === 'POST') {
@@ -170,7 +158,6 @@ export default {
       return json(result.data, result.status);
     }
 
-    // CRUD: Notas
     if (path.startsWith('/api/notas')) {
       const id = path.split('/').pop();
       if (method === 'POST') {
@@ -191,14 +178,12 @@ export default {
       return json(result.data, result.status);
     }
 
-    // Assinaturas
     if (path.startsWith('/api/assinaturas') && method === 'POST') {
       const body = await request.json();
       const result = await supabaseRequest(env, 'POST', '/assinaturas', body, authHeader);
       return json(result.data, result.status);
     }
 
-    // Edge Function proxy (chama functions do Supabase)
     if (path.startsWith('/api/edge/')) {
       const funcName = path.replace('/api/edge/', '');
       const body = method === 'POST' ? await request.json() : null;
@@ -213,17 +198,6 @@ export default {
       });
       const edgeData = await edgeRes.json();
       return json(edgeData, edgeRes.status);
-    }
-
-    // Serve static assets for all non-API routes (SPA fallback)
-    if (env.ASSETS) {
-      const assetResponse = await env.ASSETS.fetch(request);
-      if (assetResponse.status !== 404) {
-        return assetResponse;
-      }
-      // SPA fallback: serve index.html for unknown routes
-      const indexRequest = new Request(new URL('/index.html', request.url), request);
-      return env.ASSETS.fetch(indexRequest);
     }
 
     return json({ error: 'Not found', path }, 404);

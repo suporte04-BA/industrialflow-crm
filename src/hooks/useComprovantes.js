@@ -11,7 +11,36 @@ export function useComprovantes() {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      if (!isConfigured()) return [];
+      if (!isConfigured()) return [
+        {
+          id: 'mock-1',
+          contrato: '2024-00100',
+          locatario: 'Empresa de Teste LTDA',
+          data: '10/06/2026',
+          total: 1500.00,
+          status: 'entregue',
+          endereco: 'Av. Principal, 500',
+          numero: '500',
+          bairro: 'Centro',
+          cidade: 'Sao Paulo',
+          estado: 'SP',
+          fone: '(11) 99999-9999',
+        },
+        {
+          id: 'mock-2',
+          contrato: '2024-00101',
+          locatario: 'João da Silva',
+          data: '12/06/2026',
+          total: 450.50,
+          status: 'pendente',
+          endereco: 'Rua Secundária, 123',
+          numero: '123',
+          bairro: 'Jardim',
+          cidade: 'Rio de Janeiro',
+          estado: 'RJ',
+          fone: '(21) 88888-8888',
+        },
+      ];
       const { data, error } = await supabase.from('comprovantes_entrega').select('*').order('created_at', { ascending: false });
       if (error) throw handleSupabaseError(error);
       return (data || []).map(toCamel);

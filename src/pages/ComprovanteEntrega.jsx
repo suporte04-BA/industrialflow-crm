@@ -81,28 +81,18 @@ export default function ComprovanteEntrega() {
     e.preventDefault();
     if (!form.contrato) { toast.error('Preencha o numero do contrato'); return; }
     if (!form.locatario) { toast.error('Preencha o nome do locatario'); return; }
+
+    const itensValidos = form.itens.filter((i) => i.descricao && i.descricao.trim().length > 0);
+    if (itensValidos.length === 0) {
+      toast.error('Adicione ao menos um item com descrição');
+      return;
+    }
+
     try {
-      const itensValidos = form.itens.filter((i) => i.descricao || i.valorUnitario > 0);
       await createComprovante.mutateAsync({
-        contrato: form.contrato,
+        ...form,
         atendente: form.atendente || 'Sistema',
-        locatario: form.locatario,
-        cpf: form.cpf,
-        rg: form.rg,
-        fone: form.fone,
-        contato: form.contato,
-        endereco: form.endereco,
-        numero: form.numero,
-        bairro: form.bairro,
-        cidade: form.cidade,
-        estado: form.estado,
-        cep: form.cep,
-        localEntrega: form.localEntrega,
-        telefoneEntrega: form.telefoneEntrega,
-        data: form.data,
-        hora: form.hora,
-        observacao: form.observacao,
-        itens: itensValidos.length > 0 ? itensValidos : form.itens,
+        itens: itensValidos,
         total: totalGeral,
         status: 'entregue',
         assinado: false,
@@ -137,7 +127,7 @@ export default function ComprovanteEntrega() {
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
-    <div className="space-y-4 px-2 sm:px-0">
+    <div className="space-y-4 px-2 sm:px-0 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Comprovantes de Entrega</h2>

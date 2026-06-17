@@ -129,7 +129,11 @@ function extractFields(lines) {
     /(?:Rua|Avenida|Av\.|Alameda|Travessa)\s+[:.]?\s*(.+)/i,
   ]);
 
-  fields.numero = '';
+  // Correção do Número: Busca explicitamente por "Nº" ou "Num" longe da palavra "Contrato"
+  fields.numero = findAfterLabel(lines, [
+    /(?<!Contrato\s)(?:N[úu]mero|N[ºo°]|Num\.?)\s*[:.]?\s*(\d+)/i,
+    /,\s*(\d+)\s*(?:-\s*Bairro|Bairro)/i,
+  ]);
 
   fields.bairro = findAfterLabel(lines, [
     /(?:Bairro|BAIRRO)\s*[:.]?\s*(.+)/i,
@@ -167,16 +171,13 @@ function extractFields(lines) {
   fields.itens = extractItems(lines);
   fields.valores = extractValues(lines);
 
-  if (fields.itens.length > 0) {
-    fields.numero = '';
-  }
-
   return fields;
 }
 
 function extractItems(lines) {
   const items = [];
-  const valuePattern = /\b(\d+[.,]\d{2})\b/;
+  // Aceita valor com ou sem R$, com vírgula ou ponto
+  const valuePattern = /\b(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\b/;
   const datePattern = /(\d{2}[/-]\d{2}[/-]\d{2,4})/;
 
   let startIdx = -1;
@@ -189,7 +190,8 @@ function extractItems(lines) {
 
   if (startIdx === -1) {
     for (let i = 0; i < lines.length; i++) {
-      if (valuePattern.test(lines[i]) && /\d{2}[/-]\d{2}/.test(lines[i])) {
+      // Se a linha tem data e valor, provavelmente é um item
+      if (valuePattern.test(lines[i]) && datePattern.test(lines[i])) {
         startIdx = i;
         break;
       }
@@ -197,6 +199,7 @@ function extractItems(lines) {
   }
   if (startIdx === -1) startIdx = 0;
 
+  // Para evitar pegar o total como item
   let totalLineIdx = -1;
   for (let i = startIdx; i < lines.length; i++) {
     if (/(?:TOTAL|Total\s+Geral|SUBTOTAL|VALOR\s+TOTAL)/i.test(lines[i])) {
@@ -204,19 +207,19 @@ function extractItems(lines) {
       break;
     }
   }
-
   const endIdx = totalLineIdx > 0 ? totalLineIdx : lines.length;
 
   for (let i = startIdx; i < endIdx; i++) {
     const line = lines[i];
-
-    if (/(?:OBSERVAÇÃO|Observação|Observacoes|OBS)/i.test(line) && !/\d+[.,]\d{2}/.test(line)) break;
+    if (/(?:OBSERVAÇÃO|Observação|Observacoes|OBS)/i.test(line) && !valuePattern.test(line)) break;
 
     const valueMatches = line.match(new RegExp(valuePattern, 'g'));
-    if (!valueMatches || valueMatches.length === 0) continue;
+    if (!valueMatches) continue;
 
-    const lastValue = parseValue(valueMatches[valueMatches.length - 1]);
-    if (lastValue <= 0) continue;
+    // O último valor da linha costuma ser o preço unitário ou total
+    const lastValueStr = valueMatches[valueMatches.length - 1];
+    const valorUnit = parseValue(lastValueStr);
+    if (valorUnit <= 0) continue;
 
     const dates = [];
     let m;
@@ -231,12 +234,14 @@ function extractItems(lines) {
     const patrimMatch = line.match(/(?:Patrim\.?|PATRIM\.?)\s*(\d+)/i);
     const patrimonio = patrimMatch ? patrimMatch[1] : '';
 
+    // Limpeza agressiva da descrição
     let desc = line
-      .replace(/^(\d{1,3})\s+/, '')
-      .replace(/R?\$?\s*[\d.,]+/g, '')
-      .replace(/\d{2}[/-]\d{2}[/-]\d{2,4}/g, '')
-      .replace(/Patrim\.?\s*\d+/gi, '')
-      .replace(/\b\d{4,}\b/g, '')
+      .replace(/^(\d{1,3})\s+/, '') // Remove quantidade inicial
+      .replace(new RegExp(valuePattern, 'g'), '') // Remove todos os valores
+      .replace(new RegExp(datePattern, 'g'), '') // Remove todas as datas
+      .replace(/Patrim\.?\s*\d+/gi, '') // Remove patrimônio
+      .replace(/R?\$?\s*/g, '') // Remove símbolos de moeda
+      .replace(/\b\d{4,}\b/g, '') // Remove números longos (IDs, etc)
       .replace(/[|/\\]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -248,8 +253,8 @@ function extractItems(lines) {
         patrimonio,
         data_locacao: dates[0] || '',
         data_devolucao: dates[1] || dates[0] || '',
-        valor_unitario: lastValue,
-        valor_total: lastValue * qty,
+        valor_unitario: valorUnit,
+        valor_total: valorUnit * qty,
       });
     }
   }

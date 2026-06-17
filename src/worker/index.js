@@ -38,7 +38,7 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
@@ -47,6 +47,9 @@ export default {
     const path = url.pathname;
     const method = request.method;
     const authHeader = request.headers.get('Authorization');
+
+    // API routes
+    if (path.startsWith('/api/')) {
 
     // Health check
     if (path === '/api/health') {
@@ -210,6 +213,17 @@ export default {
       });
       const edgeData = await edgeRes.json();
       return json(edgeData, edgeRes.status);
+    }
+
+    // Serve static assets for all non-API routes (SPA fallback)
+    if (env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+      // SPA fallback: serve index.html for unknown routes
+      const indexRequest = new Request(new URL('/index.html', request.url), request);
+      return env.ASSETS.fetch(indexRequest);
     }
 
     return json({ error: 'Not found', path }, 404);

@@ -2,3 +2,7 @@ name = "transobras"
 main = "src/worker/index.js"
 compatibility_date = "2026-06-16"
 compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "dist"
+binding = "ASSETS"

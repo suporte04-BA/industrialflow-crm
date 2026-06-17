@@ -16,13 +16,20 @@ export default function PdfImportButton({ onFieldsExtracted }) {
 
     try {
       const fields = await importarPDF(file);
-      const filledCount = Object.values(fields).filter(Boolean).length;
+      const textFields = { ...fields };
+      delete textFields.itens;
+      delete textFields.valores;
+      const filledCount = Object.values(textFields).filter(v => typeof v === 'string' && v.length > 0).length;
+      const itemCount = Array.isArray(fields.itens) ? fields.itens.length : 0;
 
       if (filledCount === 0) {
         setStatus({ type: 'error', message: 'Nenhum campo detectado no PDF. Verifique o arquivo.' });
       } else {
         onFieldsExtracted(fields);
-        setStatus({ type: 'success', message: `${filledCount} campos importados com sucesso!` });
+        const msg = itemCount > 0
+          ? `${filledCount} campos e ${itemCount} item(ns) importados!`
+          : `${filledCount} campos importados com sucesso!`;
+        setStatus({ type: 'success', message: msg });
       }
     } catch (err) {
       console.error('PDF import error:', err);

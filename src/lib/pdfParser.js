@@ -28,7 +28,7 @@ export async function extractTextFromPDF(file) {
         const yDiff = Math.abs(y - lastY);
         const xDiff = x - lastX;
 
-        if (yDiff > 5) {
+        if (yDiff > 3) {
           pageText += '\n';
         } else if (xDiff < -100 || (xDiff > 50 && Math.abs(xDiff) < 200)) {
           pageText += '\n';

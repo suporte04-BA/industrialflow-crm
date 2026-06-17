@@ -45,6 +45,7 @@ const SNAKE_TO_CAMEL = {
   hora: 'hora',
   itens: 'itens',
   total: 'total',
+  observacao: 'observacao',
   comprovante_id: 'comprovanteId',
   nome_signatario: 'nomeSignatario',
   cpf_signatario: 'cpfSignatario',

@@ -113,7 +113,7 @@ export default function AssinaturaDigital() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Comprovante de Entrega *</label>
               <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base">
                 <option value="">Selecione...</option>
-                {comprovantes?.map((c) => (
+                {comprovantes?.filter(c => !c.assinado).map((c) => (
                   <option key={c.id} value={c.id}>{c.contrato} - {c.locatario}</option>
                 ))}
               </select>

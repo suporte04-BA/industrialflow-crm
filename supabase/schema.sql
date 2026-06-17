@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS comprovantes_entrega (
   -- Totais e status
   total TEXT,
   observacao TEXT,
-  status TEXT DEFAULT 'entregue' CHECK (status IN ('entregue', 'pendente', 'cancelado')),
+  status TEXT DEFAULT 'entregue' CHECK (status IN ('entregue', 'pendente', 'cancelado', 'assinado')),
 
   -- Assinatura digital
   assinado BOOLEAN DEFAULT FALSE,

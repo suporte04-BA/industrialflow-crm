@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import Button from '../ui/Button';
 
 const categorias = ['Terraplanagem', 'Escavacao', 'Agricola', 'Compactacao', 'Icamento', 'Movimentacao', 'Mineracao', 'Construcao'];
@@ -48,6 +49,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
       onClose();
     } catch (err) {
       console.error(err);
+      toast.error('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, BookOpen, LogOut } from 'lucide-react';
-import { signOut } from '../../lib/supabase';
 import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
 
@@ -16,14 +15,13 @@ const navItems = [
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
   const userEmail = user?.email || 'admin@transobra.com';
   const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const handleLogout = async () => {
-    await signOut();
-    localStorage.removeItem('transobra_mock_auth');
+    await logout();
     toast.success('Logout realizado!');
     window.location.href = '/login';
   };

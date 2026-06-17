@@ -31,7 +31,7 @@ export default function ConfirmDialog({ isOpen, onClose, onConfirm, title, messa
               <Button variant="secondary" onClick={onClose}>Cancelar</Button>
               <Button
                 variant={danger ? 'danger' : 'primary'}
-                onClick={() => { onConfirm(); onClose(); }}
+                onClick={async () => { try { await onConfirm(); } catch (e) { console.error(e); } onClose(); }}
               >
                 {confirmLabel}
               </Button>

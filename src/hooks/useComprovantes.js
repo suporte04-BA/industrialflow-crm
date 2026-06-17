@@ -25,6 +25,10 @@ export function useComprovantes() {
           cidade: 'Sao Paulo',
           estado: 'SP',
           fone: '(11) 99999-9999',
+          itens: [
+            { descricao: 'Betoneira 400L', quantidade: 1, valorUnitario: 1000, patrimonio: '12345' },
+            { descricao: 'Andaime 1.80m', quantidade: 5, valorUnitario: 100, patrimonio: '67890' }
+          ]
         },
         {
           id: 'mock-2',
@@ -39,6 +43,9 @@ export function useComprovantes() {
           cidade: 'Rio de Janeiro',
           estado: 'RJ',
           fone: '(21) 88888-8888',
+          itens: [
+            { descricao: 'Compactador de Solo', quantidade: 1, valorUnitario: 450.50, patrimonio: '11223' }
+          ]
         },
       ];
       const { data, error } = await supabase.from('comprovantes_entrega').select('*').order('created_at', { ascending: false });

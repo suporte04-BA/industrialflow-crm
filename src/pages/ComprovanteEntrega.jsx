@@ -82,9 +82,11 @@ export default function ComprovanteEntrega() {
     if (!form.contrato) { toast.error('Preencha o numero do contrato'); return; }
     if (!form.locatario) { toast.error('Preencha o nome do locatario'); return; }
 
-    const itensValidos = form.itens.filter((i) => i.descricao && i.descricao.trim().length > 0);
+    // Filtra itens: aceita se tiver descrição OU se tiver valor > 0
+    const itensValidos = form.itens.filter((i) => (i.descricao && i.descricao.trim().length > 0) || i.valorUnitario > 0);
+    
     if (itensValidos.length === 0) {
-      toast.error('Adicione ao menos um item com descrição');
+      toast.error('Adicione ao menos um item válido (com descrição ou valor)');
       return;
     }
 
@@ -102,6 +104,7 @@ export default function ComprovanteEntrega() {
       setForm({ ...emptyForm });
       setActiveTab('lista');
     } catch (err) {
+      console.error('Erro no mutate:', err);
       toast.error('Erro ao criar comprovante: ' + (err.message || 'Erro desconhecido'));
     }
   };

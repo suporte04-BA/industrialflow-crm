@@ -155,6 +155,10 @@ export default {
           const result = await supabaseRequest(env, 'PATCH', `/comprovantes_entrega?id=eq.${id}`, body, authHeader);
           return json(result.data, result.status);
         }
+        if (method === 'DELETE' && id) {
+          const result = await supabaseRequest(env, 'DELETE', `/comprovantes_entrega?id=eq.${id}`, null, authHeader);
+          return json({ success: true }, result.status);
+        }
         const result = await supabaseRequest(env, 'GET', '/comprovantes_entrega?select=*&order=created_at.desc');
         return json(result.data, result.status);
       }

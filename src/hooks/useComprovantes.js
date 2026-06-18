@@ -120,3 +120,17 @@ export function useUpdateComprovante() {
     },
   });
 }
+
+export function useDeleteComprovante() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      if (!isConfigured()) return;
+      const { error } = await supabase.from('comprovantes_entrega').delete().eq('id', id);
+      if (error) throw handleSupabaseError(error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+    },
+  });
+}

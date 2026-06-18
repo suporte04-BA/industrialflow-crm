@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import { formatDateBR } from '../lib/dates';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -19,8 +20,12 @@ export default function AssinaturaDigital() {
   const [saving, setSaving] = useState(false);
 
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
-  const { data: comprovantes } = useComprovantes();
+  const { data: comprovantes, refetch: refetchComprovantes } = useComprovantes();
   const createAssinatura = useCreateAssinatura();
+
+  useEffect(() => {
+    refetchComprovantes();
+  }, [refetchComprovantes]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,6 +93,7 @@ export default function AssinaturaDigital() {
       setNomeSignatario('');
       setCpfSignatario('');
       setSelectedComprovante('');
+      refetchComprovantes();
     } catch {
       toast.error('Erro ao salvar assinatura');
     } finally {
@@ -164,7 +170,7 @@ export default function AssinaturaDigital() {
                     <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
                   )}
                   <p className="text-xs text-gray-400">
-                    {sig.dataAssinatura ? new Date(sig.dataAssinatura).toLocaleString('pt-BR') : '-'}
+                    {sig.dataAssinatura ? formatDateBR(sig.dataAssinatura) : '-'}
                   </p>
                 </div>
               ))}

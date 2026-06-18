@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Plus, Trash2, Save, FileText, X, Upload, Search, PenLine, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { useComprovantes, useCreateComprovante } from '../hooks/useComprovantes';
+import { useComprovantes, useCreateComprovante, useDeleteComprovante } from '../hooks/useComprovantes';
 import PdfImportButton from '../components/common/PdfImportButton';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import { isValidDateBR } from '../lib/dates';
 
 const emptyForm = {
   contrato: '', atendente: '', data: '', hora: '',
@@ -22,9 +24,11 @@ export default function ComprovanteEntrega() {
   const [form, setForm] = useState({ ...emptyForm });
   const [activeTab, setActiveTab] = useState('lista');
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: comprovantes, isLoading, isError, error, refetch } = useComprovantes();
   const createComprovante = useCreateComprovante();
+  const deleteComprovante = useDeleteComprovante();
 
   const updateField = (field, value) => setForm({ ...form, [field]: value });
 
@@ -113,8 +117,16 @@ export default function ComprovanteEntrega() {
         toast.error(`Item ${i + 1}: Preencha o campo D.LOC (data de locacao)`);
         return;
       }
+      if (!isValidDateBR(item.dataLocacao)) {
+        toast.error(`Item ${i + 1}: Data de locacao invalida. Use DD/MM/AAAA`);
+        return;
+      }
       if (!item.dataDevolucao || item.dataDevolucao.trim() === '') {
         toast.error(`Item ${i + 1}: Preencha o campo D.DEV (data de devolucao)`);
+        return;
+      }
+      if (!isValidDateBR(item.dataDevolucao)) {
+        toast.error(`Item ${i + 1}: Data de devolucao invalida. Use DD/MM/AAAA`);
         return;
       }
       if (!item.valorUnitario || item.valorUnitario <= 0) {
@@ -156,6 +168,17 @@ export default function ComprovanteEntrega() {
       console.error('Erro ao salvar comprovante:', err);
       const msg = err?.message || err?.error?.message || 'Erro desconhecido';
       toast.error('Erro ao criar comprovante: ' + msg);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteComprovante.mutateAsync(deleteTarget.id);
+      toast.success('Comprovante excluido!');
+      setDeleteTarget(null);
+    } catch {
+      toast.error('Erro ao excluir comprovante');
     }
   };
 
@@ -253,6 +276,9 @@ export default function ComprovanteEntrega() {
                         </button>
                         <button className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Assinar">
                           <PenLine className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setDeleteTarget(c)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -501,6 +527,16 @@ export default function ComprovanteEntrega() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Excluir Comprovante"
+        message={`Tem certeza que deseja excluir o comprovante do contrato ${deleteTarget?.contrato}? Esta acao nao pode ser desfeita.`}
+        confirmLabel="Excluir"
+        danger
+      />
     </div>
   );
 }

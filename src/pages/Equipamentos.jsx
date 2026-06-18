@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, Wrench, MapPin, Clock } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Wrench, Clock, Eye, X, Calendar, DollarSign, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useEquipamentos, useCreateEquipamento, useUpdateEquipamento, useDeleteEquipamento } from '../hooks/useEquipamentos';
 import EquipamentoModal from '../components/equipamentos/EquipamentoModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -9,12 +10,14 @@ import Button from '../components/ui/Button';
 import { CardSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import { formatDateBR, daysUntil } from '../lib/dates';
 
 export default function Equipamentos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEq, setEditingEq] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [viewingEq, setViewingEq] = useState(null);
 
   const { data: eqList, isLoading, isError, error, refetch } = useEquipamentos(filters);
   const createEq = useCreateEquipamento();
@@ -97,35 +100,169 @@ export default function Equipamentos() {
           action={<Button icon={Plus} onClick={() => setShowCreateModal(true)}>Novo Equipamento</Button>} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {eqList.map((eq) => (
-            <div key={eq.id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="text-xs font-mono text-gray-400">{eq.id}</p>
-                  <h3 className="font-bold text-gray-900">{eq.nome}</h3>
+          {eqList.map((eq) => {
+            const diasRestantes = daysUntil(eq.locacaoFim);
+            return (
+              <div key={eq.id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-mono text-gray-400">{eq.id}</p>
+                    <h3 className="font-bold text-gray-900 truncate">{eq.nome}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">{eq.categoria}</p>
+                  </div>
+                  <StatusBadge status={eq.status} />
                 </div>
-                <StatusBadge status={eq.status} />
+
+                <div className="space-y-2 text-sm text-gray-600 mb-4">
+                  {eq.cliente && eq.cliente !== '-' && (
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="truncate">{eq.cliente}</span>
+                    </div>
+                  )}
+                  {eq.contrato && eq.contrato !== '-' && (
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-gray-400" />
+                      <span>{eq.contrato}</span>
+                    </div>
+                  )}
+                  {eq.locacaoFim && eq.locacaoFim !== '-' && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Ate {formatDateBR(eq.locacaoFim)}</span>
+                      {diasRestantes !== null && (
+                        <span className={`text-xs font-medium ${diasRestantes < 0 ? 'text-red-500' : diasRestantes < 30 ? 'text-yellow-500' : 'text-green-500'}`}>
+                          {diasRestantes < 0 ? `${Math.abs(diasRestantes)}d atrasado` : `${diasRestantes}d restantes`}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {eq.valorMensal > 0 && (
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="font-medium text-green-600">R$ {eq.valorMensal.toLocaleString('pt-BR')}/mes</span>
+                    </div>
+                  )}
+                  {eq.horasUso > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span>{eq.horasUso.toLocaleString('pt-BR')}h de uso</span>
+                    </div>
+                  )}
+                  {eq.ultimaRevisao && eq.ultimaRevisao !== '-' && (
+                    <div className="flex items-center gap-2">
+                      <Wrench className="w-3.5 h-3.5 text-gray-400" />
+                      <span>Ultima revisao: {formatDateBR(eq.ultimaRevisao)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t">
+                  <button onClick={() => setViewingEq(eq)}
+                    className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                    <Eye className="w-3.5 h-3.5" /> Detalhes
+                  </button>
+                  <button onClick={() => setEditingEq(eq)}
+                    className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
+                    <Edit3 className="w-3.5 h-3.5" /> Editar
+                  </button>
+                  <button onClick={() => setDeleteTarget(eq)}
+                    className="flex items-center justify-center gap-1 py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2 text-sm text-gray-600 mb-4">
-                <div className="flex items-center gap-2"><Wrench className="w-3.5 h-3.5" /> {eq.categoria}</div>
-                {eq.cliente && eq.cliente !== '-' && <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /> {eq.cliente}</div>}
-                {eq.valorMensal > 0 && <div className="font-medium text-green-600">R$ {eq.valorMensal.toLocaleString('pt-BR')}/mes</div>}
-                {eq.horasUso > 0 && <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> {eq.horasUso}h de uso</div>}
-              </div>
-              <div className="flex gap-2 pt-3 border-t">
-                <button onClick={() => setEditingEq(eq)}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
-                  <Edit3 className="w-3.5 h-3.5" /> Editar
-                </button>
-                <button onClick={() => setDeleteTarget(eq)}
-                  className="flex items-center justify-center gap-1 py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+
+      <AnimatePresence>
+        {viewingEq && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingEq(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-bold text-gray-900 truncate">{viewingEq.nome}</h2>
+                  <p className="text-sm text-gray-500">{viewingEq.id}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={viewingEq.status} />
+                  <button onClick={() => setViewingEq(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Categoria</p>
+                    <p className="text-sm font-semibold text-gray-900">{viewingEq.categoria}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Status</p>
+                    <p className="text-sm font-semibold text-gray-900">{viewingEq.status === 'locado' ? 'Locado' : viewingEq.status === 'disponivel' ? 'Disponivel' : 'Manutencao'}</p>
+                  </div>
+                </div>
+
+                {viewingEq.cliente && viewingEq.cliente !== '-' && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-900">Dados da Locacao</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Cliente</p>
+                        <p className="text-sm font-medium text-gray-900">{viewingEq.cliente}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Contrato</p>
+                        <p className="text-sm font-medium text-gray-900">{viewingEq.contrato || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Inicio</p>
+                        <p className="text-sm font-medium text-gray-900">{formatDateBR(viewingEq.locacaoInicio)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Fim</p>
+                        <p className="text-sm font-medium text-gray-900">{formatDateBR(viewingEq.locacaoFim)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Valor Mensal</p>
+                        <p className="text-sm font-semibold text-green-600">R$ {(viewingEq.valorMensal || 0).toLocaleString('pt-BR')}/mes</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-900">Dados Tecnicos</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Horas de Uso</p>
+                      <p className="text-sm font-medium text-gray-900">{(viewingEq.horasUso || 0).toLocaleString('pt-BR')}h</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Ultima Revisao</p>
+                      <p className="text-sm font-medium text-gray-900">{formatDateBR(viewingEq.ultimaRevisao)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button variant="secondary" onClick={() => { setViewingEq(null); setEditingEq(viewingEq); }} icon={Edit3} className="flex-1">
+                    Editar
+                  </Button>
+                  <Button onClick={() => { setViewingEq(null); setDeleteTarget(viewingEq); }} icon={Trash2} variant="danger" className="flex-1">
+                    Excluir
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <EquipamentoModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} />
       <EquipamentoModal isOpen={!!editingEq} onClose={() => setEditingEq(null)} onSave={handleUpdate} equipamento={editingEq} />

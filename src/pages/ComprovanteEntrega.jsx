@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Save, FileText, X, Upload, Search, Edit3, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, X, Upload, Search, Edit3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useComprovantes, useCreateComprovante, useUpdateComprovante, useDeleteComprovante } from '../hooks/useComprovantes';
 import PdfImportButton from '../components/common/PdfImportButton';
@@ -11,7 +11,6 @@ import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { isValidDateBR } from '../lib/dates';
-import { isConfigured } from '../lib/supabase';
 
 const emptyForm = {
   contrato: '', atendente: '', data: '', hora: '',
@@ -32,8 +31,6 @@ export default function ComprovanteEntrega() {
   const createComprovante = useCreateComprovante();
   const updateComprovante = useUpdateComprovante();
   const deleteComprovante = useDeleteComprovante();
-
-  const supabaseOk = isConfigured();
 
   const updateField = (field, value) => setForm({ ...form, [field]: value });
 
@@ -265,13 +262,6 @@ export default function ComprovanteEntrega() {
 
   return (
     <div className="space-y-4 px-3 sm:px-0 pb-20">
-      {!supabaseOk && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2 text-sm text-yellow-800">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>Supabase nao configurado. Salvamento apenas local.</span>
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Comprovantes de Entrega</h2>

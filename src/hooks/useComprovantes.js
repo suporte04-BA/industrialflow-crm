@@ -10,15 +10,19 @@ export function useComprovantes() {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      if (!isConfigured()) return [];
+      if (!isConfigured()) {
+        return JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+      }
       const { data, error } = await supabase
         .from('comprovantes_entrega')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) {
-        throw error;
+        return JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
       }
-      return (data || []).map(toCamel);
+      const items = (data || []).map(toCamel);
+      localStorage.setItem('comprovantes_local', JSON.stringify(items));
+      return items;
     },
     staleTime: 5000,
     retry: 1,
@@ -33,6 +37,24 @@ export function useComprovantes() {
     error: query.error,
     refetch: query.refetch,
   };
+}
+
+function saveToLocal(item) {
+  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+  stored.unshift(item);
+  localStorage.setItem('comprovantes_local', JSON.stringify(stored));
+}
+
+function updateLocal(id, updates) {
+  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+  const idx = stored.findIndex((c) => c.id === id);
+  if (idx >= 0) stored[idx] = { ...stored[idx], ...updates };
+  localStorage.setItem('comprovantes_local', JSON.stringify(stored));
+}
+
+function deleteLocal(id) {
+  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+  localStorage.setItem('comprovantes_local', JSON.stringify(stored.filter((c) => c.id !== id)));
 }
 
 export function useCreateComprovante() {
@@ -64,35 +86,25 @@ export function useCreateComprovante() {
         assinado: newComp.assinado || false,
       });
 
-      if (!isConfigured()) {
-        throw new Error('Supabase nao configurado. Verifique o arquivo .env');
+      if (isConfigured()) {
+        try {
+          const { data, error } = await supabase
+            .from('comprovantes_entrega')
+            .insert(payload)
+            .select()
+            .single();
+          if (error) throw error;
+          return toCamel(data);
+        } catch {
+          const local = { id: crypto.randomUUID(), ...newComp, createdAt: new Date().toISOString() };
+          saveToLocal(local);
+          return local;
+        }
       }
 
-      const { data, error } = await supabase
-        .from('comprovantes_entrega')
-        .insert(payload)
-        .select()
-        .single();
-      if (error) {
-        throw error;
-      }
-      return toCamel(data);
-    },
-    onMutate: async (newComp) => {
-      await queryClient.cancelQueries({ queryKey: ['comprovantes'] });
-      const previous = queryClient.getQueryData(['comprovantes']);
-      const optimisticItem = {
-        id: 'temp-' + Date.now(),
-        ...newComp,
-        createdAt: new Date().toISOString(),
-      };
-      queryClient.setQueryData(['comprovantes'], (old) => [optimisticItem, ...(old || [])]);
-      return { previous };
-    },
-    onError: (err, newComp, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['comprovantes'], context.previous);
-      }
+      const local = { id: crypto.randomUUID(), ...newComp, createdAt: new Date().toISOString() };
+      saveToLocal(local);
+      return local;
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
@@ -104,29 +116,24 @@ export function useUpdateComprovante() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, updates }) => {
-      if (!isConfigured()) throw new Error('Supabase nao configurado');
-      const payload = toSnake(updates);
-      const { data, error } = await supabase
-        .from('comprovantes_entrega')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      return toCamel(data);
-    },
-    onMutate: async ({ id, updates }) => {
-      await queryClient.cancelQueries({ queryKey: ['comprovantes'] });
-      const previous = queryClient.getQueryData(['comprovantes']);
-      queryClient.setQueryData(['comprovantes'], (old) =>
-        (old || []).map((c) => (c.id === id ? { ...c, ...updates } : c))
-      );
-      return { previous };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['comprovantes'], context.previous);
+      if (isConfigured()) {
+        try {
+          const payload = toSnake(updates);
+          const { data, error } = await supabase
+            .from('comprovantes_entrega')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .single();
+          if (error) throw error;
+          return toCamel(data);
+        } catch {
+          updateLocal(id, updates);
+          return { id, ...updates };
+        }
       }
+      updateLocal(id, updates);
+      return { id, ...updates };
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
@@ -138,21 +145,15 @@ export function useDeleteComprovante() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id) => {
-      if (!isConfigured()) throw new Error('Supabase nao configurado');
-      const { error } = await supabase.from('comprovantes_entrega').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['comprovantes'] });
-      const previous = queryClient.getQueryData(['comprovantes']);
-      queryClient.setQueryData(['comprovantes'], (old) =>
-        (old || []).filter((c) => c.id !== id)
-      );
-      return { previous };
-    },
-    onError: (err, id, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['comprovantes'], context.previous);
+      if (isConfigured()) {
+        try {
+          const { error } = await supabase.from('comprovantes_entrega').delete().eq('id', id);
+          if (error) throw error;
+        } catch {
+          deleteLocal(id);
+        }
+      } else {
+        deleteLocal(id);
       }
     },
     onSettled: () => {

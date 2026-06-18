@@ -48,7 +48,7 @@ export default function ComprovanteEntrega() {
           dataDevolucao: i.data_devolucao || '',
           valorUnitario: i.valor_unitario || 0,
         }))
-      : form.itens;
+      : [{ descricao: '', quantidade: 1, patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 }];
 
     setForm((prev) => ({
       ...prev,
@@ -74,38 +74,68 @@ export default function ComprovanteEntrega() {
     }));
 
     setActiveTab('formulario');
-    toast.success('PDF importado com sucesso!');
+    if (fields.itens && fields.itens.length > 0) {
+      toast.success(`${fields.itens.length} item(ns) importado(s) com sucesso!`);
+    } else {
+      toast.success('Campos importados! Preencha os itens manualmente.');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.contrato) { toast.error('Preencha o numero do contrato'); return; }
-    if (!form.locatario) { toast.error('Preencha o nome do locatario'); return; }
+    if (!form.contrato || form.contrato.trim() === '') {
+      toast.error('Preencha o numero do contrato');
+      return;
+    }
+    if (!form.locatario || form.locatario.trim() === '') {
+      toast.error('Preencha o nome do locatario');
+      return;
+    }
 
-    // Filtra itens: aceita se tiver descrição OU se tiver valor > 0
-    const itensValidos = form.itens.filter((i) => (i.descricao && i.descricao.trim().length > 0) || i.valorUnitario > 0);
-    
-    if (itensValidos.length === 0) {
-      toast.error('Adicione ao menos um item válido (com descrição ou valor)');
+    const itensParaSalvar = form.itens.filter((i) => {
+      const hasDesc = i.descricao && i.descricao.trim().length > 0;
+      const hasVal = typeof i.valorUnitario === 'number' && i.valorUnitario > 0;
+      return hasDesc || hasVal;
+    });
+
+    if (itensParaSalvar.length === 0) {
+      toast.warning('Nenhum item valido encontrado. Adicione itens antes de salvar.');
       return;
     }
 
     try {
       await createComprovante.mutateAsync({
-        ...form,
+        contrato: form.contrato,
         atendente: form.atendente || 'Sistema',
-        itens: itensValidos,
+        locatario: form.locatario,
+        cpf: form.cpf,
+        rg: form.rg,
+        fone: form.fone,
+        contato: form.contato,
+        endereco: form.endereco,
+        numero: form.numero,
+        bairro: form.bairro,
+        cidade: form.cidade,
+        estado: form.estado,
+        cep: form.cep,
+        localEntrega: form.localEntrega,
+        telefoneEntrega: form.telefoneEntrega,
+        data: form.data,
+        hora: form.hora,
+        observacao: form.observacao,
+        itens: itensParaSalvar,
         total: totalGeral,
         status: 'entregue',
         assinado: false,
       });
-      toast.success('Comprovante de entrega criado!');
+      toast.success('Comprovante de entrega criado com sucesso!');
       setShowForm(false);
       setForm({ ...emptyForm });
       setActiveTab('lista');
     } catch (err) {
-      console.error('Erro no mutate:', err);
-      toast.error('Erro ao criar comprovante: ' + (err.message || 'Erro desconhecido'));
+      console.error('Erro ao salvar comprovante:', err);
+      const msg = err?.message || err?.error?.message || 'Erro desconhecido';
+      toast.error('Erro ao criar comprovante: ' + msg);
     }
   };
 
@@ -126,17 +156,22 @@ export default function ComprovanteEntrega() {
     );
   });
 
-  if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+  if (isLoading) return <div className="p-4 sm:p-6"><TableSkeleton rows={5} cols={4} /></div>;
+  if (isError) return <div className="p-4 sm:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
-    <div className="space-y-4 px-2 sm:px-0 pb-20">
+    <div className="space-y-4 px-3 sm:px-0 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Comprovantes de Entrega</h2>
           <p className="text-sm text-gray-500">{(comprovantes || []).length} comprovantes</p>
         </div>
-        <Button icon={showForm ? X : Plus} onClick={() => { setShowForm(!showForm); if (!showForm) setActiveTab('formulario'); }} variant={showForm ? 'secondary' : 'primary'}>
+        <Button
+          icon={showForm ? X : Plus}
+          onClick={() => { setShowForm(!showForm); if (!showForm) setActiveTab('formulario'); }}
+          variant={showForm ? 'secondary' : 'primary'}
+          className="w-full sm:w-auto"
+        >
           {showForm ? 'Fechar' : 'Novo Comprovante'}
         </Button>
       </div>
@@ -149,13 +184,13 @@ export default function ComprovanteEntrega() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por contrato, locatário, CPF..."
+                  placeholder="Buscar por contrato, locatario, CPF..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="input-base pl-9 w-full"
                 />
               </div>
-              <Button icon={Upload} onClick={() => { setShowForm(true); setActiveTab('importar'); }} variant="secondary" className="whitespace-nowrap">
+              <Button icon={Upload} onClick={() => { setShowForm(true); setActiveTab('importar'); }} variant="secondary" className="whitespace-nowrap hidden sm:flex">
                 Importar PDF
               </Button>
             </div>
@@ -167,7 +202,7 @@ export default function ComprovanteEntrega() {
               title="Nenhum comprovante"
               description="Importe um PDF ou crie um novo comprovante para comecar."
               action={
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button icon={Upload} onClick={() => { setShowForm(true); setActiveTab('importar'); }} variant="secondary">Importar PDF</Button>
                   <Button icon={Plus} onClick={() => { setShowForm(true); setActiveTab('formulario'); }}>Novo Comprovante</Button>
                 </div>
@@ -206,6 +241,12 @@ export default function ComprovanteEntrega() {
               ))}
             </div>
           )}
+
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 sm:hidden z-40">
+            <Button icon={Plus} onClick={() => { setShowForm(true); setActiveTab('importar'); }} className="shadow-lg px-6 py-3">
+              Novo Comprovante
+            </Button>
+          </div>
         </>
       )}
 
@@ -245,7 +286,7 @@ export default function ComprovanteEntrega() {
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Dados do Contrato</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Contrato Nº *</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Contrato *</label>
                     <input type="text" required value={form.contrato} onChange={(e) => updateField('contrato', e.target.value)} className="input-base text-sm" placeholder="Ex: 2024-00158" />
                   </div>
                   <div>
@@ -344,17 +385,17 @@ export default function ComprovanteEntrega() {
                   <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Itens Locados</h4>
                   <button type="button" onClick={addItem} className="text-xs text-yellow-600 hover:text-yellow-700">+ Adicionar</button>
                 </div>
-                <div className="overflow-x-auto -mx-2 px-2">
-                  <table className="w-full text-xs min-w-[600px]">
+                <div className="overflow-x-auto -mx-2 px-2 pb-2">
+                  <table className="w-full text-xs min-w-[550px]">
                     <thead>
                       <tr className="border-b bg-gray-50 text-left text-gray-500">
-                        <th className="px-1.5 py-1.5 font-medium w-12">QTDE</th>
+                        <th className="px-1.5 py-1.5 font-medium w-10">QTDE</th>
                         <th className="px-1.5 py-1.5 font-medium">DESCRICAO</th>
-                        <th className="px-1.5 py-1.5 font-medium w-20">PATRIM.</th>
-                        <th className="px-1.5 py-1.5 font-medium w-24">D.LOC</th>
-                        <th className="px-1.5 py-1.5 font-medium w-24">D.DEV</th>
-                        <th className="px-1.5 py-1.5 font-medium w-24">VALOR R$</th>
-                        <th className="px-1.5 py-1.5 w-8"></th>
+                        <th className="px-1.5 py-1.5 font-medium w-16">PATRIM.</th>
+                        <th className="px-1.5 py-1.5 font-medium w-20">D.LOC</th>
+                        <th className="px-1.5 py-1.5 font-medium w-20">D.DEV</th>
+                        <th className="px-1.5 py-1.5 font-medium w-20">VALOR</th>
+                        <th className="px-1.5 py-1.5 w-6"></th>
                       </tr>
                     </thead>
                     <tbody>

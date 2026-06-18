@@ -129,12 +129,7 @@ function extractFields(lines) {
     /(?:Rua|Avenida|Av\.|Alameda|Travessa)\s+[:.]?\s*(.+)/i,
   ]);
 
-  // CORREÇÃO: Busca número do endereço excluindo o que já é contrato
-  const possibleNumero = findAfterLabel(lines, [
-    /(?:N[úu]mero|N[ºo°]|Num\.?)\s*[:.]?\s*(\d+)/i,
-    /,\s*(\d+)\s*(?:-\s*Bairro|Bairro)/i,
-  ]);
-  fields.numero = (possibleNumero && possibleNumero !== fields.contrato) ? possibleNumero : '';
+  fields.numero = extractNumeroFromEndereco(lines, fields.endereco, fields.contrato);
 
   fields.bairro = findAfterLabel(lines, [
     /(?:Bairro|BAIRRO)\s*[:.]?\s*(.+)/i,
@@ -175,22 +170,36 @@ function extractFields(lines) {
   return fields;
 }
 
+function extractNumeroFromEndereco(lines, endereco, contrato) {
+  if (endereco) {
+    const addrNum = endereco.match(/,\s*(\d{1,5})\s*$/);
+    if (addrNum) return addrNum[1];
+    const addrNum2 = endereco.match(/\d{1,5}\s*$/);
+    if (addrNum2 && !contrato.includes(addrNum2[0])) return addrNum2[0];
+  }
+
+  for (const line of lines) {
+    if (contrato && line.includes(contrato)) continue;
+    const m = line.match(/(?:N[úu]mero|Num\.?|N[ºo°])\s*[:.]?\s*(\d{1,5})/i);
+    if (m && !contrato.includes(m[1])) return m[1];
+  }
+
+  return '';
+}
+
 function extractItems(lines) {
   const items = [];
   const valuePattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/;
   const datePattern = /(\d{2}[/-]\d{2}[/-]\d{2,4})/;
 
-  // 1. Tenta achar o início da tabela
-  let startIdx = -1;
+  let startIdx = 0;
   for (let i = 0; i < lines.length; i++) {
     if (/(?:DESCRIÇÃO|Descricao|ITEM|Item|Qtde|Quantidade|Descri|Bem|Equipamento|BENFEITORIAS?)/i.test(lines[i])) {
       startIdx = i + 1;
       break;
     }
   }
-
-  // 2. Se não achou cabeçalho, procura primeira linha com data e valor
-  if (startIdx === -1) {
+  if (startIdx === 0) {
     for (let i = 0; i < lines.length; i++) {
       if (valuePattern.test(lines[i]) && datePattern.test(lines[i])) {
         startIdx = i;
@@ -198,12 +207,10 @@ function extractItems(lines) {
       }
     }
   }
-  if (startIdx === -1) startIdx = 0;
 
-  // 3. Define o fim (Total ou Observações)
   let endIdx = lines.length;
   for (let i = startIdx; i < lines.length; i++) {
-    if (/(?:TOTAL|Total\s+Geral|SUBTOTAL|Valor\s+Total)/i.test(lines[i])) {
+    if (/(?:TOTAL|Total\s+Geral|SUBTOTAL|VALOR\s+TOTAL|Total\s+Geral\s+R\$)/i.test(lines[i])) {
       endIdx = i;
       break;
     }
@@ -211,28 +218,35 @@ function extractItems(lines) {
 
   for (let i = startIdx; i < endIdx; i++) {
     const line = lines[i];
-    if (/(?:OBSERVAÇÃO|Observação|Observacoes)/i.test(line)) break;
+    if (/(?:OBSERVAÇÃO|Observação|Observacoes|OBS\s*[:.])/i.test(line) && !valuePattern.test(line)) break;
 
-    const valueMatch = line.match(valuePattern);
-    if (!valueMatch) continue;
+    const valueMatches = line.match(new RegExp(valuePattern, 'g'));
+    if (!valueMatches || valueMatches.length === 0) continue;
 
-    const val = parseValue(valueMatch[1]);
-    if (val <= 0) continue;
+    const lastVal = parseValue(valueMatches[valueMatches.length - 1]);
+    if (lastVal <= 0) continue;
 
-    const dates = line.match(new RegExp(datePattern, 'g')) || [];
-    const qtyMatch = line.match(/^(\d{1,3})\s/);
+    const dates = [];
+    let m;
+    const dateRegex = new RegExp(datePattern, 'g');
+    while ((m = dateRegex.exec(line)) !== null) {
+      dates.push(m[1]);
+    }
+
+    const qtyMatch = line.match(/^(?:\s*)(\d{1,3})\s/);
     const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
     const patrimMatch = line.match(/(?:Patrim\.?|PATRIM\.?)\s*(\d+)/i);
     const patrimonio = patrimMatch ? patrimMatch[1] : '';
 
-    // Limpeza da descrição: remove tudo que é conhecido (data, valor, qtde)
     let desc = line
-      .replace(/^(\d{1,3})\s+/, '')
+      .replace(/^(?:\d{1,3})\s+/, '')
       .replace(new RegExp(valuePattern, 'g'), '')
       .replace(new RegExp(datePattern, 'g'), '')
       .replace(/Patrim\.?\s*\d+/gi, '')
       .replace(/R?\$?\s*/g, '')
+      .replace(/\b\d{4,}\b/g, '')
+      .replace(/[|/\\]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -243,9 +257,55 @@ function extractItems(lines) {
         patrimonio,
         data_locacao: dates[0] || '',
         data_devolucao: dates[1] || dates[0] || '',
-        valor_unitario: val,
-        valor_total: val * qty,
+        valor_unitario: lastVal,
+        valor_total: lastVal * qty,
       });
+    }
+  }
+
+  if (items.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/(?:TOTAL|Total|SUBTOTAL|Observação|OBS)/i.test(line)) continue;
+
+      const valueMatch = line.match(valuePattern);
+      if (!valueMatch) continue;
+
+      const val = parseValue(valueMatch[1]);
+      if (val <= 0) continue;
+
+      const dates = [];
+      let dm;
+      const dr = new RegExp(datePattern, 'g');
+      while ((dm = dr.exec(line)) !== null) dates.push(dm[1]);
+
+      const patrimMatch = line.match(/(?:Patrim\.?|PATRIM\.?)\s*(\d+)/i);
+
+      const qtyMatch = line.match(/^(?:\s*)(\d{1,3})\s/);
+      const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+      let desc = line
+        .replace(/^(?:\d{1,3})\s+/, '')
+        .replace(new RegExp(valuePattern, 'g'), '')
+        .replace(new RegExp(datePattern, 'g'), '')
+        .replace(/Patrim\.?\s*\d+/gi, '')
+        .replace(/R?\$?\s*/g, '')
+        .replace(/\b\d{4,}\b/g, '')
+        .replace(/[|/\\]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (desc.length >= 1) {
+        items.push({
+          descricao: desc,
+          quantidade: qty,
+          patrimonio: patrimMatch ? patrimMatch[1] : '',
+          data_locacao: dates[0] || '',
+          data_devolucao: dates[1] || dates[0] || '',
+          valor_unitario: val,
+          valor_total: val * qty,
+        });
+      }
     }
   }
 

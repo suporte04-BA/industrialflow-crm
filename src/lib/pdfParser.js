@@ -16,33 +16,41 @@ export async function extractTextFromPDF(file) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
 
-    let lastY = null;
-    let lastX = null;
-    let pageText = '';
+    const items = textContent.items
+      .map(item => ({
+        str: item.str,
+        x: Math.round(item.transform[4]),
+        y: Math.round(item.transform[5]),
+      }))
+      .filter(item => item.str.trim().length > 0);
 
-    for (const item of textContent.items) {
-      const y = Math.round(item.transform[5]);
-      const x = Math.round(item.transform[4]);
+    if (items.length === 0) continue;
 
-      if (lastY !== null) {
-        const yDiff = Math.abs(y - lastY);
-        const xDiff = x - lastX;
+    const rows = [];
+    let currentRow = [items[0]];
+    let currentY = items[0].y;
 
-        if (yDiff > 3) {
-          pageText += '\n';
-        } else if (xDiff < -100 || (xDiff > 50 && Math.abs(xDiff) < 200)) {
-          pageText += '\n';
-        } else if (pageText.length > 0 && !pageText.endsWith(' ') && !pageText.endsWith('\n')) {
-          pageText += ' ';
-        }
+    for (let j = 1; j < items.length; j++) {
+      const yDiff = Math.abs(items[j].y - currentY);
+      if (yDiff > 4) {
+        rows.push(currentRow);
+        currentRow = [items[j]];
+        currentY = items[j].y;
+      } else {
+        currentRow.push(items[j]);
       }
+    }
+    rows.push(currentRow);
 
-      pageText += item.str;
-      lastY = y;
-      lastX = x + (item.width || 0);
+    for (const row of rows) {
+      row.sort((a, b) => a.x - b.x);
+      const line = row.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
+      if (line.length > 0) {
+        fullText += line + '\n';
+      }
     }
 
-    fullText += pageText + '\n\n';
+    fullText += '\n';
   }
 
   return fullText;

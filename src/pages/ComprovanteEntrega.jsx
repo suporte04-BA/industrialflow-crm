@@ -103,6 +103,26 @@ export default function ComprovanteEntrega() {
       return;
     }
 
+    for (let i = 0; i < itensParaSalvar.length; i++) {
+      const item = itensParaSalvar[i];
+      if (!item.patrimonio || item.patrimonio.trim() === '') {
+        toast.error(`Item ${i + 1}: Preencha o campo PATRIM.`);
+        return;
+      }
+      if (!item.dataLocacao || item.dataLocacao.trim() === '') {
+        toast.error(`Item ${i + 1}: Preencha o campo D.LOC (data de locacao)`);
+        return;
+      }
+      if (!item.dataDevolucao || item.dataDevolucao.trim() === '') {
+        toast.error(`Item ${i + 1}: Preencha o campo D.DEV (data de devolucao)`);
+        return;
+      }
+      if (!item.valorUnitario || item.valorUnitario <= 0) {
+        toast.error(`Item ${i + 1}: Preencha o campo VALOR`);
+        return;
+      }
+    }
+
     try {
       await createComprovante.mutateAsync({
         contrato: form.contrato,
@@ -391,10 +411,10 @@ export default function ComprovanteEntrega() {
                       <tr className="border-b bg-gray-50 text-left text-gray-500">
                         <th className="px-1.5 py-1.5 font-medium w-10">QTDE</th>
                         <th className="px-1.5 py-1.5 font-medium">DESCRICAO</th>
-                        <th className="px-1.5 py-1.5 font-medium w-16">PATRIM.</th>
-                        <th className="px-1.5 py-1.5 font-medium w-20">D.LOC</th>
-                        <th className="px-1.5 py-1.5 font-medium w-20">D.DEV</th>
-                        <th className="px-1.5 py-1.5 font-medium w-20">VALOR</th>
+                        <th className="px-1.5 py-1.5 font-medium w-16 text-red-500">PATRIM.*</th>
+                        <th className="px-1.5 py-1.5 font-medium w-20 text-red-500">D.LOC*</th>
+                        <th className="px-1.5 py-1.5 font-medium w-20 text-red-500">D.DEV*</th>
+                        <th className="px-1.5 py-1.5 font-medium w-20 text-red-500">VALOR*</th>
                         <th className="px-1.5 py-1.5 w-6"></th>
                       </tr>
                     </thead>
@@ -408,16 +428,46 @@ export default function ComprovanteEntrega() {
                             <input type="text" value={item.descricao} onChange={(e) => updateItem(idx, 'descricao', e.target.value)} className="input-base text-xs" placeholder="Descricao" />
                           </td>
                           <td className="px-1 py-1">
-                            <input type="text" value={item.patrimonio} onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)} className="input-base text-xs" placeholder="Patrim." />
+                            <input
+                              type="text"
+                              value={item.patrimonio}
+                              onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
+                              className={`input-base text-xs ${!item.patrimonio ? 'border-red-300 bg-red-50' : ''}`}
+                              placeholder="Patrim.*"
+                              required
+                            />
                           </td>
                           <td className="px-1 py-1">
-                            <input type="text" value={item.dataLocacao} onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)} className="input-base text-xs" placeholder="DD/MM/AAAA" />
+                            <input
+                              type="text"
+                              value={item.dataLocacao}
+                              onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)}
+                              className={`input-base text-xs ${!item.dataLocacao ? 'border-red-300 bg-red-50' : ''}`}
+                              placeholder="DD/MM/AAAA*"
+                              required
+                            />
                           </td>
                           <td className="px-1 py-1">
-                            <input type="text" value={item.dataDevolucao} onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)} className="input-base text-xs" placeholder="DD/MM/AAAA" />
+                            <input
+                              type="text"
+                              value={item.dataDevolucao}
+                              onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)}
+                              className={`input-base text-xs ${!item.dataDevolucao ? 'border-red-300 bg-red-50' : ''}`}
+                              placeholder="DD/MM/AAAA*"
+                              required
+                            />
                           </td>
                           <td className="px-1 py-1">
-                            <input type="number" min="0" step="0.01" value={item.valorUnitario} onChange={(e) => updateItem(idx, 'valorUnitario', Number(e.target.value))} className="input-base text-right text-xs" />
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.valorUnitario || ''}
+                              onChange={(e) => updateItem(idx, 'valorUnitario', Number(e.target.value))}
+                              className={`input-base text-right text-xs ${!item.valorUnitario ? 'border-red-300 bg-red-50' : ''}`}
+                              placeholder="0,00*"
+                              required
+                            />
                           </td>
                           <td className="px-1 py-1">
                             {form.itens.length > 1 && (

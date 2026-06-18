@@ -187,6 +187,12 @@ function extractNumeroFromEndereco(lines, endereco, contrato) {
   return '';
 }
 
+const FIELD_LINE_PATTERN = /^(?:Contrato|CONTRATO|Locat[áa]rio|LOCAT[ÁA]RIO|Cliente|CLIENTE|CPF|CNPJ|RG|Identidade|Telefone|TEL|Tel|Fone|Celular|Cel|Endere[çc]o|Endereco|Bairro|BAIRRO|Cidade|CIDADE|Estado|UF|CEP|cep|E-mail|Email|Hora|Hor[áa]rio|Atendente|Vendedor|Respons[áa]vel|Pedido|PEDIDO|Observa[çc][ãa]o|OBS|Local\s+de\s+Entrega|Telefone\s+do\s+Local|N[úu]mero|Num\.?|N[ºo°])/i;
+
+function isFieldLine(line) {
+  return FIELD_LINE_PATTERN.test(line);
+}
+
 function extractItems(lines) {
   const items = [];
   const valuePattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/;
@@ -219,6 +225,7 @@ function extractItems(lines) {
   for (let i = startIdx; i < endIdx; i++) {
     const line = lines[i];
     if (/(?:OBSERVAÇÃO|Observação|Observacoes|OBS\s*[:.])/i.test(line) && !valuePattern.test(line)) break;
+    if (isFieldLine(line)) continue;
 
     const valueMatches = line.match(new RegExp(valuePattern, 'g'));
     if (!valueMatches || valueMatches.length === 0) continue;
@@ -267,6 +274,7 @@ function extractItems(lines) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (/(?:TOTAL|Total|SUBTOTAL|Observação|OBS)/i.test(line)) continue;
+      if (isFieldLine(line)) continue;
 
       const valueMatch = line.match(valuePattern);
       if (!valueMatch) continue;

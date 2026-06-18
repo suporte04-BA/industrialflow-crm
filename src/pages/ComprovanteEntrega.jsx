@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Plus, Trash2, Save, FileText, X, Upload, Search, PenLine, Eye } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, X, Upload, Search, Edit3 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useComprovantes, useCreateComprovante, useDeleteComprovante } from '../hooks/useComprovantes';
+import { useComprovantes, useCreateComprovante, useUpdateComprovante, useDeleteComprovante } from '../hooks/useComprovantes';
 import PdfImportButton from '../components/common/PdfImportButton';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
+import DateInput from '../components/ui/DateInput';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
@@ -25,9 +26,11 @@ export default function ComprovanteEntrega() {
   const [activeTab, setActiveTab] = useState('lista');
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingComp, setEditingComp] = useState(null);
 
   const { data: comprovantes, isLoading, isError, error, refetch } = useComprovantes();
   const createComprovante = useCreateComprovante();
+  const updateComprovante = useUpdateComprovante();
   const deleteComprovante = useDeleteComprovante();
 
   const updateField = (field, value) => setForm({ ...form, [field]: value });
@@ -41,6 +44,42 @@ export default function ComprovanteEntrega() {
   };
 
   const totalGeral = form.itens.reduce((sum, item) => sum + (item.quantidade * item.valorUnitario), 0);
+
+  const handleEdit = (comp) => {
+    setEditingComp(comp);
+    setForm({
+      contrato: comp.contrato || '',
+      atendente: comp.atendente || '',
+      data: comp.data || '',
+      hora: comp.hora || '',
+      locatario: comp.locatario || '',
+      cpf: comp.cpf || '',
+      rg: comp.rg || '',
+      fone: comp.fone || '',
+      contato: comp.contato || '',
+      endereco: comp.endereco || '',
+      numero: comp.numero || '',
+      bairro: comp.bairro || '',
+      cidade: comp.cidade || '',
+      estado: comp.estado || '',
+      cep: comp.cep || '',
+      localEntrega: comp.localEntrega || '',
+      telefoneEntrega: comp.telefoneEntrega || '',
+      observacao: comp.observacao || '',
+      itens: comp.itens && comp.itens.length > 0
+        ? comp.itens.map(i => ({
+            descricao: i.descricao || '',
+            quantidade: i.quantidade || 1,
+            patrimonio: i.patrimonio || '',
+            dataLocacao: i.dataLocacao || '',
+            dataDevolucao: i.dataDevolucao || '',
+            valorUnitario: i.valorUnitario || 0,
+          }))
+        : [{ descricao: '', quantidade: 1, patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 }],
+    });
+    setShowForm(true);
+    setActiveTab('formulario');
+  };
 
   const handlePdfImport = (fields) => {
     const newItens = fields.itens && fields.itens.length > 0
@@ -85,15 +124,14 @@ export default function ComprovanteEntrega() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const validateForm = () => {
     if (!form.contrato || form.contrato.trim() === '') {
       toast.error('Preencha o numero do contrato');
-      return;
+      return false;
     }
     if (!form.locatario || form.locatario.trim() === '') {
       toast.error('Preencha o nome do locatario');
-      return;
+      return false;
     }
 
     const itensParaSalvar = form.itens.filter((i) => {
@@ -104,70 +142,86 @@ export default function ComprovanteEntrega() {
 
     if (itensParaSalvar.length === 0) {
       toast.warning('Nenhum item valido encontrado. Adicione itens antes de salvar.');
-      return;
+      return false;
     }
 
     for (let i = 0; i < itensParaSalvar.length; i++) {
       const item = itensParaSalvar[i];
       if (!item.patrimonio || item.patrimonio.trim() === '') {
         toast.error(`Item ${i + 1}: Preencha o campo PATRIM.`);
-        return;
+        return false;
       }
       if (!item.dataLocacao || item.dataLocacao.trim() === '') {
         toast.error(`Item ${i + 1}: Preencha o campo D.LOC (data de locacao)`);
-        return;
+        return false;
       }
       if (!isValidDateBR(item.dataLocacao)) {
         toast.error(`Item ${i + 1}: Data de locacao invalida. Use DD/MM/AAAA`);
-        return;
+        return false;
       }
       if (!item.dataDevolucao || item.dataDevolucao.trim() === '') {
         toast.error(`Item ${i + 1}: Preencha o campo D.DEV (data de devolucao)`);
-        return;
+        return false;
       }
       if (!isValidDateBR(item.dataDevolucao)) {
         toast.error(`Item ${i + 1}: Data de devolucao invalida. Use DD/MM/AAAA`);
-        return;
+        return false;
       }
       if (!item.valorUnitario || item.valorUnitario <= 0) {
         toast.error(`Item ${i + 1}: Preencha o campo VALOR`);
-        return;
+        return false;
       }
     }
+    return true;
+  };
+
+  const getFormData = () => ({
+    contrato: form.contrato,
+    atendente: form.atendente || 'Sistema',
+    locatario: form.locatario,
+    cpf: form.cpf,
+    rg: form.rg,
+    fone: form.fone,
+    contato: form.contato,
+    endereco: form.endereco,
+    numero: form.numero,
+    bairro: form.bairro,
+    cidade: form.cidade,
+    estado: form.estado,
+    cep: form.cep,
+    localEntrega: form.localEntrega,
+    telefoneEntrega: form.telefoneEntrega,
+    data: form.data,
+    hora: form.hora,
+    observacao: form.observacao,
+    itens: form.itens.filter((i) => {
+      const hasDesc = i.descricao && i.descricao.trim().length > 0;
+      const hasVal = typeof i.valorUnitario === 'number' && i.valorUnitario > 0;
+      return hasDesc || hasVal;
+    }),
+    total: totalGeral,
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
     try {
-      await createComprovante.mutateAsync({
-        contrato: form.contrato,
-        atendente: form.atendente || 'Sistema',
-        locatario: form.locatario,
-        cpf: form.cpf,
-        rg: form.rg,
-        fone: form.fone,
-        contato: form.contato,
-        endereco: form.endereco,
-        numero: form.numero,
-        bairro: form.bairro,
-        cidade: form.cidade,
-        estado: form.estado,
-        cep: form.cep,
-        localEntrega: form.localEntrega,
-        telefoneEntrega: form.telefoneEntrega,
-        data: form.data,
-        hora: form.hora,
-        observacao: form.observacao,
-        itens: itensParaSalvar,
-        total: totalGeral,
-        status: 'entregue',
-        assinado: false,
-      });
-      toast.success('Comprovante de entrega criado com sucesso!');
+      const data = getFormData();
+      if (editingComp) {
+        await updateComprovante.mutateAsync({ id: editingComp.id, updates: data });
+        toast.success('Comprovante atualizado com sucesso!');
+      } else {
+        await createComprovante.mutateAsync({ ...data, status: 'entregue', assinado: false });
+        toast.success('Comprovante de entrega criado com sucesso!');
+      }
       setShowForm(false);
       setForm({ ...emptyForm });
+      setEditingComp(null);
       setActiveTab('lista');
     } catch (err) {
-      console.error('Erro ao salvar comprovante:', err);
       const msg = err?.message || err?.error?.message || 'Erro desconhecido';
-      toast.error('Erro ao criar comprovante: ' + msg);
+      toast.error('Erro ao salvar comprovante: ' + msg);
     }
   };
 
@@ -211,7 +265,7 @@ export default function ComprovanteEntrega() {
         </div>
         <Button
           icon={showForm ? X : Plus}
-          onClick={() => { setShowForm(!showForm); if (!showForm) setActiveTab('formulario'); }}
+          onClick={() => { setShowForm(!showForm); setEditingComp(null); setForm({ ...emptyForm }); if (!showForm) setActiveTab('formulario'); }}
           variant={showForm ? 'secondary' : 'primary'}
           className="w-full sm:w-auto"
         >
@@ -271,11 +325,8 @@ export default function ComprovanteEntrega() {
                     <div className="text-right flex-shrink-0">
                       <p className="text-lg font-bold text-green-600">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       <div className="flex gap-1 mt-2">
-                        <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Visualizar">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Assinar">
-                          <PenLine className="w-4 h-4" />
+                        <button onClick={() => handleEdit(c)} className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Editar">
+                          <Edit3 className="w-4 h-4" />
                         </button>
                         <button onClick={() => setDeleteTarget(c)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
                           <Trash2 className="w-4 h-4" />
@@ -326,7 +377,9 @@ export default function ComprovanteEntrega() {
 
           {activeTab === 'formulario' && (
             <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-              <h3 className="text-base sm:text-lg font-bold text-gray-900">Comprovante de Entrega dos Bens Locados</h3>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900">
+                {editingComp ? 'Editar Comprovante' : 'Comprovante de Entrega dos Bens Locados'}
+              </h3>
 
               <div>
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Dados do Contrato</h4>
@@ -337,7 +390,7 @@ export default function ComprovanteEntrega() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Data</label>
-                    <input type="text" value={form.data} onChange={(e) => updateField('data', e.target.value)} className="input-base text-sm" placeholder="DD/MM/AAAA" />
+                    <DateInput value={form.data} onChange={(v) => updateField('data', v)} className="input-base text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Hora</label>
@@ -464,23 +517,19 @@ export default function ComprovanteEntrega() {
                             />
                           </td>
                           <td className="px-1 py-1">
-                            <input
-                              type="text"
+                            <DateInput
                               value={item.dataLocacao}
-                              onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)}
+                              onChange={(v) => updateItem(idx, 'dataLocacao', v)}
                               className={`input-base text-xs ${!item.dataLocacao ? 'border-red-300 bg-red-50' : ''}`}
-                              placeholder="DD/MM/AAAA*"
-                              required
+                              placeholder="DD/MM*"
                             />
                           </td>
                           <td className="px-1 py-1">
-                            <input
-                              type="text"
+                            <DateInput
                               value={item.dataDevolucao}
-                              onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)}
+                              onChange={(v) => updateItem(idx, 'dataDevolucao', v)}
                               className={`input-base text-xs ${!item.dataDevolucao ? 'border-red-300 bg-red-50' : ''}`}
-                              placeholder="DD/MM/AAAA*"
-                              required
+                              placeholder="DD/MM*"
                             />
                           </td>
                           <td className="px-1 py-1">
@@ -518,9 +567,9 @@ export default function ComprovanteEntrega() {
               </div>
 
               <div className="flex gap-2 justify-end pt-3 border-t">
-                <Button variant="secondary" type="button" onClick={() => setShowForm(false)} className="text-sm">Cancelar</Button>
-                <Button type="submit" icon={Save} disabled={createComprovante.isPending} className="text-sm">
-                  {createComprovante.isPending ? 'Salvando...' : 'Salvar Comprovante'}
+                <Button variant="secondary" type="button" onClick={() => { setShowForm(false); setEditingComp(null); setForm({ ...emptyForm }); }} className="text-sm">Cancelar</Button>
+                <Button type="submit" icon={Save} disabled={createComprovante.isPending || updateComprovante.isPending} className="text-sm">
+                  {(createComprovante.isPending || updateComprovante.isPending) ? 'Salvando...' : editingComp ? 'Salvar Alteracoes' : 'Salvar Comprovante'}
                 </Button>
               </div>
             </form>

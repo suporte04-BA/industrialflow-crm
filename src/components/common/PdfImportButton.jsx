@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { FileUp, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { importarPDF } from '../../lib/pdfImporter';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export default function PdfImportButton({ onFieldsExtracted }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
@@ -10,6 +12,16 @@ export default function PdfImportButton({ onFieldsExtracted }) {
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setStatus({ type: 'error', message: 'Apenas arquivos PDF sao aceitos.' });
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setStatus({ type: 'error', message: `Arquivo muito grande. Maximo: ${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB.` });
+      return;
+    }
 
     setLoading(true);
     setStatus(null);
@@ -31,8 +43,7 @@ export default function PdfImportButton({ onFieldsExtracted }) {
           : `${filledCount} campos importados com sucesso!`;
         setStatus({ type: 'success', message: msg });
       }
-    } catch (err) {
-      console.error('PDF import error:', err);
+    } catch {
       setStatus({ type: 'error', message: 'Erro ao processar PDF. Verifique se o arquivo e valido.' });
     } finally {
       setLoading(false);
@@ -59,7 +70,7 @@ export default function PdfImportButton({ onFieldsExtracted }) {
       <input
         ref={fileRef}
         type="file"
-        accept=".pdf"
+        accept=".pdf,application/pdf"
         className="hidden"
         onChange={handleImport}
       />

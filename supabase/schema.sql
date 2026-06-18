@@ -172,7 +172,7 @@ ALTER TABLE assinaturas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Policies (performance com subselect)
+-- Policies (authenticated)
 CREATE POLICY "os_all" ON ordens_servico FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
 CREATE POLICY "eq_all" ON equipamentos FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
 CREATE POLICY "ct_all" ON contratos FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
@@ -181,6 +181,14 @@ CREATE POLICY "as_all" ON assinaturas FOR ALL TO authenticated USING ((select au
 CREATE POLICY "no_all" ON notas FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
 CREATE POLICY "pr_select" ON profiles FOR SELECT TO authenticated USING (id = (select auth.uid()));
 CREATE POLICY "pr_update" ON profiles FOR UPDATE TO authenticated USING (id = (select auth.uid()));
+
+-- Policies (anon - full access for demo/offline mode)
+CREATE POLICY "os_anon" ON ordens_servico FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "eq_anon" ON equipamentos FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "ct_anon" ON contratos FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "ce_anon" ON comprovantes_entrega FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "as_anon" ON assinaturas FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "no_anon" ON notas FOR ALL TO anon USING (true) WITH CHECK (true);
 -- ============================================
 -- FUNCOES TRIGGER
 -- ============================================

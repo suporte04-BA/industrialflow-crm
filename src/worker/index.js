@@ -340,7 +340,7 @@ export default {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                from: 'TransObra <noreply@transobra.com.br>',
+                from: env.EMAIL_FROM || 'TransObra <onboarding@resend.dev>',
                 to: [destinatario],
                 subject: assunto,
                 html: htmlContent,

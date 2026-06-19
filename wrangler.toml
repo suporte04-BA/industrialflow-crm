@@ -5,6 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 EMAIL_RECIPIENT = "gestores@transobra.com.br"
+EMAIL_FROM = "TransObra <onboarding@resend.dev>"
 
 [assets]
 directory = "dist"

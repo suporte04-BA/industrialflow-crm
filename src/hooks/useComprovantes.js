@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
 import { useRealtime } from './useRealtime';
+import { comprovantes as mockComprovantes } from '../data/mockData';
 
 export function useComprovantes() {
   const queryClient = useQueryClient();
@@ -11,18 +12,18 @@ export function useComprovantes() {
     queryKey,
     queryFn: async () => {
       if (!isConfigured()) {
-        return JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+        return JSON.parse(localStorage.getItem('comprovantes_local') || 'null') || mockComprovantes;
       }
       const { data, error } = await supabase
         .from('comprovantes_entrega')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) {
-        return JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+        return JSON.parse(localStorage.getItem('comprovantes_local') || 'null') || mockComprovantes;
       }
       const items = (data || []).map(toCamel);
       localStorage.setItem('comprovantes_local', JSON.stringify(items));
-      return items;
+      return items.length > 0 ? items : mockComprovantes;
     },
     staleTime: 5000,
     retry: 1,

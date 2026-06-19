@@ -13,7 +13,6 @@ import Equipamentos from './pages/Equipamentos';
 import Contratos from './pages/Contratos';
 import AssinaturaDigital from './pages/AssinaturaDigital';
 import ComprovanteEntrega from './pages/ComprovanteEntrega';
-import BlocoNotas from './pages/BlocoNotas';
 import Perfil from './pages/Perfil';
 
 const queryClient = new QueryClient({
@@ -44,7 +43,6 @@ function App() {
                 <Route path="/contratos" element={<Contratos />} />
                 <Route path="/comprovantes" element={<ComprovanteEntrega />} />
                 <Route path="/assinatura" element={<AssinaturaDigital />} />
-                <Route path="/bloco-notas" element={<BlocoNotas />} />
                 <Route path="/perfil" element={<Perfil />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

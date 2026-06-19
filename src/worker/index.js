@@ -108,6 +108,7 @@ export default {
       if (path === '/api/config' && method === 'GET') {
         return json({
           emailRecipient: env.EMAIL_RECIPIENT || 'gestores@transobra.com.br',
+          emailFrom: env.EMAIL_FROM || 'TransObra <onboarding@resend.dev>',
           resendConfigured: !!env.RESEND_API_KEY,
         }, 200, corsHeaders);
       }

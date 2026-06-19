@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2 } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
@@ -11,6 +11,7 @@ import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import { formatDateBR } from '../lib/dates';
 import { isConfigured } from '../lib/supabase';
+import { generateComprovantePDF } from '../lib/pdfExport';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -157,11 +158,20 @@ export default function AssinaturaDigital() {
         if (comp.contratoId) {
           const ct = (contratos || []).find((c) => c.id === comp.contratoId);
           if (ct) {
-            await updateContrato.mutateAsync({ id: ct.id, updates: { assinado: true } });
-            await sendEmailNotification(ct, comp, nomeSignatario);
+            await updateContrato.mutateAsync({ id: ct.id, updates: { assinado: true, status: 'entregue' } });
           }
-        } else {
-          await sendEmailNotification(null, comp, nomeSignatario);
+        }
+
+        await sendEmailNotification(
+          comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
+          comp,
+          nomeSignatario
+        );
+
+        try {
+          await generateComprovantePDF({ ...comp, assinado: true, nomeSignatario, dataAssinatura: new Date().toISOString() });
+        } catch {
+          // PDF generation failure is non-blocking
         }
       }
 
@@ -277,7 +287,18 @@ export default function AssinaturaDigital() {
                   <div key={sig.id} className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm text-gray-900">{sig.nomeSignatario}</span>
-                      <StatusBadge status="assinado" />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status="assinado" />
+                        {comp && (
+                          <button
+                            onClick={() => generateComprovantePDF(comp).catch(() => toast.error('Erro ao gerar PDF'))}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Baixar PDF"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {comp && (
                       <div className="flex items-center gap-2 text-xs text-gray-500">

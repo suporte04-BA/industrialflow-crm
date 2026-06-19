@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle, Download } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle, Download, ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
+import { useComprovantes } from '../hooks/useComprovantes';
 import ContratoModal from '../components/contratos/ContratoModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -19,6 +20,7 @@ export default function Contratos() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: ctList, isLoading, isError, error, refetch } = useContratos(filters);
+  const { data: comprovantes } = useComprovantes();
   const createCt = useCreateContrato();
   const updateCt = useUpdateContrato();
   const deleteCt = useDeleteContrato();
@@ -61,6 +63,7 @@ export default function Contratos() {
     ativos: ctList.filter((c) => c.status === 'ativo').length,
     vencendo: ctList.filter((c) => c.status === 'vencendo').length,
     vencidos: ctList.filter((c) => c.status === 'vencido').length,
+    entregues: comprovantes?.filter(c => c.assinado).length || 0,
   };
 
   if (isLoading) return <div className="p-6"><CardSkeleton count={6} /></div>;
@@ -98,7 +101,7 @@ export default function Contratos() {
             className="input-base pl-10" />
         </div>
         <div className="flex gap-2">
-          {['all', 'ativo', 'vencendo', 'vencido', 'cancelado'].map((s) => (
+          {['all', 'ativo', 'vencendo', 'vencido', 'entregue', 'cancelado'].map((s) => (
             <button key={s} onClick={() => setFilters({ ...filters, status: s })}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 filters.status === s ? 'bg-yellow-400 text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -122,7 +125,14 @@ export default function Contratos() {
                   <h3 className="font-bold text-gray-900">{ct.cliente}</h3>
                   {ct.cnpj && <p className="text-xs text-gray-500 mt-1">CNPJ: {ct.cnpj}</p>}
                 </div>
-                <StatusBadge status={ct.status} />
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={ct.status} />
+                  {comprovantes?.some(c => c.contratoId === ct.id && c.assinado) && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-purple-100 text-purple-700 border-purple-200">
+                      <ClipboardCheck className="w-3 h-3" /> Entregue
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="space-y-2 text-sm text-gray-600 mb-4">
                 <div>Equipamentos: {Array.isArray(ct.equipamentos) ? ct.equipamentos.join(', ') : ct.equipamentos}</div>

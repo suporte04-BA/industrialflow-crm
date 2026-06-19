@@ -97,32 +97,28 @@ export default function AssinaturaDigital() {
         contrato_id: contrato?.id || null,
         comprovante_id: comprovante?.id || null,
         destinatario: emailRecipient,
-        assunto: `Contrato ${contrato?.id || comprovante?.contrato} assinado - ${comprovante?.locatario || contrato?.cliente}`,
-        corpo: JSON.stringify({
-          contrato: contrato ? {
-            id: contrato.id,
-            cliente: contrato.cliente,
-            cnpj: contrato.cnpj,
-            equipamentos: contrato.equipamentos,
-            inicio: contrato.inicio,
-            fim: contrato.fim,
-            valorMensal: contrato.valorMensal,
-            valorTotal: contrato.valorTotal,
-          } : null,
-          comprovante: {
-            id: comprovante?.id,
-            contrato: comprovante?.contrato,
-            locatario: comprovante?.locatario,
-            endereco: comprovante?.endereco,
-            cidade: comprovante?.cidade,
-            total: comprovante?.total,
-          },
-          signatario: {
-            nome: signatario,
-            data: new Date().toISOString(),
-          },
-        }),
-        status: 'pendente',
+        contrato: contrato ? {
+          id: contrato.id,
+          cliente: contrato.cliente,
+          cnpj: contrato.cnpj,
+          equipamentos: contrato.equipamentos,
+          inicio: contrato.inicio,
+          fim: contrato.fim,
+          valorMensal: contrato.valorMensal,
+          valorTotal: contrato.valorTotal,
+        } : null,
+        comprovante: {
+          id: comprovante?.id,
+          contrato: comprovante?.contrato,
+          locatario: comprovante?.locatario,
+          endereco: comprovante?.endereco,
+          cidade: comprovante?.cidade,
+          total: comprovante?.total,
+        },
+        signatario: {
+          nome: signatario,
+          data: new Date().toISOString(),
+        },
       };
 
       await fetch('/api/email/send', {

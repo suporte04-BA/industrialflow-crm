@@ -274,91 +274,30 @@ export default {
       if (path === '/api/email/send' && method === 'POST') {
         const parsed = await parseBody(request);
         if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-        const { contrato_id, comprovante_id, destinatario: reqDest, assunto, corpo } = parsed.data;
+        const { contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
         const destinatario = reqDest || env.EMAIL_RECIPIENT || 'gestores@transobra.com.br';
-        if (!assunto || !corpo) {
-          return json({ error: 'assunto, corpo are required' }, 400, corsHeaders);
-        }
-
-        let emailBody;
-        try {
-          emailBody = JSON.parse(corpo);
-        } catch {
-          emailBody = { texto: corpo };
-        }
-
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: #1C1C1C; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; font-size: 18px;">TransObra - Notificacao de Contrato</h1>
-            </div>
-            <div style="background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px;">
-              <p style="color: #333; font-size: 14px;">Um contrato foi assinado e entregue.</p>
-              ${emailBody.contrato ? `
-              <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0; border: 1px solid #e0e0e0;">
-                <h3 style="margin: 0 0 10px; color: #1C1C1C; font-size: 14px;">Dados do Contrato</h3>
-                <table style="width: 100%; font-size: 13px; color: #555;">
-                  <tr><td style="padding: 3px 0;"><strong>Contrato:</strong></td><td>${escapeHtml(emailBody.contrato.id)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Cliente:</strong></td><td>${escapeHtml(emailBody.contrato.cliente)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>CNPJ:</strong></td><td>${escapeHtml(emailBody.contrato.cnpj)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Equipamentos:</strong></td><td>${escapeHtml(Array.isArray(emailBody.contrato.equipamentos) ? emailBody.contrato.equipamentos.join(', ') : '-')}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Periodo:</strong></td><td>${escapeHtml(emailBody.contrato.inicio)} a ${escapeHtml(emailBody.contrato.fim)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Valor Mensal:</strong></td><td>R$ ${Number(emailBody.contrato.valorMensal || 0).toLocaleString('pt-BR')}/mes</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Valor Total:</strong></td><td>R$ ${Number(emailBody.contrato.valorTotal || 0).toLocaleString('pt-BR')}</td></tr>
-                </table>
-              </div>` : ''}
-              ${emailBody.comprovante ? `
-              <div style="background: white; padding: 15px; border-radius: 6px; margin: 15px 0; border: 1px solid #e0e0e0;">
-                <h3 style="margin: 0 0 10px; color: #1C1C1C; font-size: 14px;">Dados da Entrega</h3>
-                <table style="width: 100%; font-size: 13px; color: #555;">
-                  <tr><td style="padding: 3px 0;"><strong>Locatario:</strong></td><td>${escapeHtml(emailBody.comprovante.locatario)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Endereco:</strong></td><td>${escapeHtml(emailBody.comprovante.endereco)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Cidade:</strong></td><td>${escapeHtml(emailBody.comprovante.cidade)}</td></tr>
-                  <tr><td style="padding: 3px 0;"><strong>Total:</strong></td><td>R$ ${Number(emailBody.comprovante.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td></tr>
-                </table>
-              </div>` : ''}
-              ${emailBody.signatario ? `
-              <div style="background: #f0fdf4; padding: 15px; border-radius: 6px; margin: 15px 0; border: 1px solid #bbf7d0;">
-                <h3 style="margin: 0 0 10px; color: #166534; font-size: 14px;">Assinatura</h3>
-                <p style="font-size: 13px; color: #555;"><strong>Signatario:</strong> ${escapeHtml(emailBody.signatario.nome)}</p>
-                <p style="font-size: 13px; color: #555;"><strong>Data:</strong> ${new Date(emailBody.signatario.data).toLocaleString('pt-BR')}</p>
-              </div>` : ''}
-              <p style="color: #999; font-size: 11px; margin-top: 20px; text-align: center;">TransObra CRM - Sistema de Gestao de Locacao</p>
-            </div>
-          </div>
-        `;
 
         let emailStatus = 'pendente';
         let erroMsg = null;
 
-        if (env.RESEND_API_KEY) {
-          try {
-            const resendRes = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: env.EMAIL_FROM || 'TransObra <onboarding@resend.dev>',
-                to: [destinatario],
-                subject: assunto,
-                html: htmlContent,
-              }),
-            });
-            if (resendRes.ok) {
-              emailStatus = 'enviado';
-            } else {
-              const errText = await resendRes.text();
-              erroMsg = errText;
-              emailStatus = 'erro';
-            }
-          } catch (e) {
-            erroMsg = e.message;
+        try {
+          const edgeRes = await fetch(`${env.SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ contrato, comprovante, signatario, destinatario }),
+          });
+          const edgeData = await edgeRes.json();
+          if (edgeRes.ok && edgeData.success) {
+            emailStatus = 'enviado';
+          } else {
+            erroMsg = edgeData.error ? JSON.stringify(edgeData.error) : 'Edge function failed';
             emailStatus = 'erro';
           }
-        } else {
-          erroMsg = 'RESEND_API_KEY not configured';
+        } catch (e) {
+          erroMsg = e.message;
           emailStatus = 'erro';
         }
 
@@ -366,8 +305,8 @@ export default {
           contrato_id: contrato_id || null,
           comprovante_id: comprovante_id || null,
           destinatario,
-          assunto,
-          corpo: JSON.stringify(emailBody),
+          assunto: `Contrato ${contrato?.id || comprovante?.contrato || ''} assinado`,
+          corpo: JSON.stringify({ contrato, comprovante, signatario }),
           status: emailStatus,
           erro_msg: erroMsg,
         });

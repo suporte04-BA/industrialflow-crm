@@ -1,9 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, BookOpen, LogOut } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, BookOpen, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
 
-const navItems = [
+const gestorNav = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'Ordens de Servico', icon: ClipboardList, path: '/ordens' },
   { label: 'Equipamentos', icon: Package, path: '/equipamentos' },
@@ -11,13 +11,22 @@ const navItems = [
   { label: 'Comprovantes de Entrega', icon: ClipboardCheck, path: '/comprovantes' },
   { label: 'Assinatura Digital', icon: PenLine, path: '/assinatura' },
   { label: 'Bloco de Notas', icon: BookOpen, path: '/bloco-notas' },
+  { label: 'Meu Perfil', icon: User, path: '/perfil' },
+];
+
+const funcionarioNav = [
+  { label: 'Comprovantes de Entrega', icon: ClipboardCheck, path: '/comprovantes' },
+  { label: 'Assinatura Digital', icon: PenLine, path: '/assinatura' },
+  { label: 'Meu Perfil', icon: User, path: '/perfil' },
 ];
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const location = useLocation();
-  const { user, logout } = useAuth();
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
-  const userEmail = user?.email || 'admin@transobra.com';
+  const { user, profile, logout, isGestor } = useAuth();
+  const navItems = isGestor ? gestorNav : funcionarioNav;
+  const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
+  const userEmail = profile?.email || user?.email || 'admin@transobra.com';
+  const userRole = profile?.role || 'gestor';
   const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const handleLogout = async () => {
@@ -55,6 +64,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             <div className="min-w-0">
               <p className="text-white text-xs font-medium truncate">{userName}</p>
               <p className="text-gray-500 text-xs truncate">{userEmail}</p>
+              <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 capitalize">{userRole}</span>
             </div>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2 w-full text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
@@ -82,6 +92,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             <div className="min-w-0">
               <p className="text-white text-xs font-medium truncate">{userName}</p>
               <p className="text-gray-500 text-xs truncate">{userEmail}</p>
+              <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 capitalize">{userRole}</span>
             </div>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2 w-full text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">

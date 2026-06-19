@@ -3,6 +3,9 @@ main = "src/worker/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+EMAIL_RECIPIENT = "gestores@transobra.com.br"
+
 [assets]
 directory = "dist"
 binding = "ASSETS"

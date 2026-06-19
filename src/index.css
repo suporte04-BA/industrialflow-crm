@@ -51,3 +51,24 @@
 ::-webkit-scrollbar-track { background: #f0f0f0; }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .input-base {
+    @apply text-base py-2;
+  }
+  .input-base:focus {
+    @apply ring-4;
+  }
+  button.btn-primary, button.btn-secondary, [role="button"].btn-primary {
+    min-height: 44px;
+  }
+  select {
+    @apply text-base py-2.5;
+  }
+}
+
+@media (max-width: 640px) {
+  .input-base {
+    @apply text-base;
+  }
+}

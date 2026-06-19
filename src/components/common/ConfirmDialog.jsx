@@ -11,8 +11,8 @@ export default function ConfirmDialog({ isOpen, onClose, onConfirm, title, messa
     try {
       await onConfirm();
       onClose();
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // Error handled by caller's toast
     } finally {
       setLoading(false);
     }

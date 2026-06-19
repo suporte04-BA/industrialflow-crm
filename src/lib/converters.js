@@ -58,6 +58,13 @@ const SNAKE_TO_CAMEL = {
   full_name: 'fullName',
   avatar_url: 'avatarUrl',
   role: 'role',
+  contrato_id: 'contratoId',
+  destinatario: 'destinatario',
+  assunto: 'assunto',
+  corpo: 'corpo',
+  erro_msg: 'erroMsg',
+  telefone: 'telefone',
+  email: 'email',
 };
 
 const CAMEL_TO_SNAKE = {};

@@ -48,7 +48,6 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
       });
       onClose();
     } catch (err) {
-      console.error(err);
       toast.error('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);

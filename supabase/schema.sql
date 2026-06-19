@@ -1,5 +1,5 @@
 -- ============================================
--- TransObra CRM - Supabase Schema (v3)
+-- TransObra CRM - Supabase Schema (v4)
 -- ============================================
 
 CREATE SEQUENCE IF NOT EXISTS os_seq START 1 INCREMENT 1;
@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS contratos (
   valor_mensal DECIMAL(10,2) DEFAULT 0,
   status TEXT DEFAULT 'ativo' CHECK (status IN ('ativo', 'vencendo', 'vencido', 'cancelado')),
   assinado BOOLEAN DEFAULT FALSE,
+  endereco TEXT,
+  bairro TEXT,
+  cidade TEXT,
+  estado TEXT,
+  cep TEXT,
+  telefone TEXT,
+  email TEXT,
+  contato TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -68,6 +76,9 @@ CREATE TABLE IF NOT EXISTS comprovantes_entrega (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by_id UUID REFERENCES auth.users(id),
+
+  -- Link to contract
+  contrato_id TEXT REFERENCES contratos(id) ON DELETE SET NULL,
 
   -- Dados do contrato
   contrato TEXT NOT NULL,
@@ -98,7 +109,7 @@ CREATE TABLE IF NOT EXISTS comprovantes_entrega (
   itens JSONB DEFAULT '[]',
 
   -- Totais e status
-  total TEXT,
+  total DECIMAL(10,2) DEFAULT 0,
   observacao TEXT,
   status TEXT DEFAULT 'entregue' CHECK (status IN ('entregue', 'pendente', 'cancelado', 'assinado')),
 
@@ -140,7 +151,22 @@ CREATE TABLE IF NOT EXISTS profiles (
   full_name TEXT,
   email TEXT,
   avatar_url TEXT,
-  role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  role TEXT DEFAULT 'funcionario' CHECK (role IN ('gestor', 'funcionario', 'admin')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- TABELA: Logs de Email
+-- ============================================
+CREATE TABLE IF NOT EXISTS email_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contrato_id TEXT REFERENCES contratos(id) ON DELETE SET NULL,
+  comprovante_id UUID REFERENCES comprovantes_entrega(id) ON DELETE SET NULL,
+  destinatario TEXT NOT NULL,
+  assunto TEXT NOT NULL,
+  corpo TEXT NOT NULL,
+  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'enviado', 'erro')),
+  erro_msg TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -158,8 +184,11 @@ CREATE INDEX IF NOT EXISTS idx_ct_cliente ON contratos(cliente);
 CREATE INDEX IF NOT EXISTS idx_ct_fim ON contratos(fim);
 CREATE INDEX IF NOT EXISTS idx_ce_created ON comprovantes_entrega(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ce_contrato ON comprovantes_entrega(contrato);
+CREATE INDEX IF NOT EXISTS idx_ce_contrato_id ON comprovantes_entrega(contrato_id);
 CREATE INDEX IF NOT EXISTS idx_as_comprovante ON assinaturas(comprovante_id);
 CREATE INDEX IF NOT EXISTS idx_no_updated ON notas(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_el_contrato ON email_logs(contrato_id);
+CREATE INDEX IF NOT EXISTS idx_el_created ON email_logs(created_at DESC);
 
 -- ============================================
 -- RLS
@@ -171,6 +200,7 @@ ALTER TABLE comprovantes_entrega ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assinaturas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_logs ENABLE ROW LEVEL SECURITY;
 
 -- Policies (authenticated)
 CREATE POLICY "os_all" ON ordens_servico FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
@@ -181,6 +211,7 @@ CREATE POLICY "as_all" ON assinaturas FOR ALL TO authenticated USING ((select au
 CREATE POLICY "no_all" ON notas FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
 CREATE POLICY "pr_select" ON profiles FOR SELECT TO authenticated USING (id = (select auth.uid()));
 CREATE POLICY "pr_update" ON profiles FOR UPDATE TO authenticated USING (id = (select auth.uid()));
+CREATE POLICY "el_all" ON email_logs FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
 
 -- Policies (anon - full access for demo/offline mode)
 CREATE POLICY "os_anon" ON ordens_servico FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -189,6 +220,7 @@ CREATE POLICY "ct_anon" ON contratos FOR ALL TO anon USING (true) WITH CHECK (tr
 CREATE POLICY "ce_anon" ON comprovantes_entrega FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "as_anon" ON assinaturas FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "no_anon" ON notas FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "el_anon" ON email_logs FOR ALL TO anon USING (true) WITH CHECK (true);
 -- ============================================
 -- FUNCOES TRIGGER
 -- ============================================

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
 import ContratoModal from '../components/contratos/ContratoModal';
@@ -9,6 +9,7 @@ import Button from '../components/ui/Button';
 import { CardSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import { generateContratoPDF } from '../lib/pdfExport';
 
 export default function Contratos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
@@ -44,6 +45,15 @@ export default function Contratos() {
     await deleteCt.mutateAsync(deleteTarget.id);
     toast.success('Contrato excluido!');
     setDeleteTarget(null);
+  };
+
+  const handleExportPDF = async (ct) => {
+    try {
+      await generateContratoPDF(ct);
+      toast.success('PDF gerado com sucesso!');
+    } catch {
+      toast.error('Erro ao gerar PDF');
+    }
   };
 
   const stats = {
@@ -131,6 +141,10 @@ export default function Contratos() {
                 <button onClick={() => setEditingCt(ct)}
                   className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
                   <Edit3 className="w-3.5 h-3.5" /> Editar
+                </button>
+                <button onClick={() => handleExportPDF(ct)}
+                  className="flex items-center justify-center gap-1 py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="Gerar PDF">
+                  <Download className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => setRenewTarget(ct)}
                   className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">

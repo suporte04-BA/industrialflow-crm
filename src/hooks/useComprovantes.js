@@ -62,6 +62,7 @@ export function useCreateComprovante() {
   return useMutation({
     mutationFn: async (newComp) => {
       const payload = toSnake({
+        contratoId: newComp.contratoId,
         contrato: newComp.contrato,
         atendente: newComp.atendente,
         locatario: newComp.locatario,

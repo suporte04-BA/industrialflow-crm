@@ -49,7 +49,6 @@ export default function OSModal({ isOpen, onClose, onSave, os = null }) {
       });
       onClose();
     } catch (err) {
-      console.error(err);
       toast.error('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);

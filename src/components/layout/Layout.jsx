@@ -11,6 +11,7 @@ const pageTitles = {
   '/comprovantes': { title: 'Comprovantes de Entrega', subtitle: 'Bens locados entregues e registrados' },
   '/assinatura': { title: 'Assinatura Digital', subtitle: 'Assine contratos e documentos' },
   '/bloco-notas': { title: 'Bloco de Notas', subtitle: 'Anotacoes e lembretes' },
+  '/perfil': { title: 'Meu Perfil', subtitle: 'Informacoes e relatorios' },
 };
 
 export default function Layout() {

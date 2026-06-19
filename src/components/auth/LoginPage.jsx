@@ -15,8 +15,8 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isConfigured()) {
-      toast.info('Modo demo: configurando acesso...');
-      loginAsDemo();
+      toast.info('Modo demo: Entrando como gestor...');
+      loginAsDemo('gestor');
       navigate('/');
       return;
     }
@@ -75,9 +75,23 @@ export default function LoginPage() {
           </button>
           {!isConfigured() && (
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-xs text-yellow-700 text-center">
-                Supabase nao configurado. Clique em <strong>Entrar</strong> para acessar o modo demo.
+              <p className="text-xs text-yellow-700 text-center mb-3">
+                Supabase nao configurado. Clique abaixo para acessar o modo demo.
               </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { loginAsDemo('gestor'); navigate('/'); }}
+                  className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg border-2 border-yellow-400 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
+                >
+                  Gestor
+                </button>
+                <button
+                  onClick={() => { loginAsDemo('funcionario'); navigate('/'); }}
+                  className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg border-2 border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  Funcionario
+                </button>
+              </div>
             </div>
           )}
         </div>

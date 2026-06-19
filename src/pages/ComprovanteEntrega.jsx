@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Trash2, Save, FileText, X, Upload, Search, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, X, Upload, Search, Edit3, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useComprovantes, useCreateComprovante, useUpdateComprovante, useDeleteComprovante } from '../hooks/useComprovantes';
+import { useContratos } from '../hooks/useContratos';
 import PdfImportButton from '../components/common/PdfImportButton';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
@@ -13,7 +14,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { isValidDateBR } from '../lib/dates';
 
 const emptyForm = {
-  contrato: '', atendente: '', data: '', hora: '',
+  contratoId: '', contrato: '', atendente: '', data: '', hora: '',
   locatario: '', cpf: '', rg: '', fone: '', contato: '',
   endereco: '', numero: '', bairro: '', cidade: '', estado: '', cep: '',
   localEntrega: '', telefoneEntrega: '', observacao: '',
@@ -26,8 +27,10 @@ export default function ComprovanteEntrega() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingComp, setEditingComp] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const { data: comprovantes, isLoading, isError, error, refetch } = useComprovantes();
+  const { data: contratos } = useContratos();
   const createComprovante = useCreateComprovante();
   const updateComprovante = useUpdateComprovante();
   const deleteComprovante = useDeleteComprovante();
@@ -44,6 +47,40 @@ export default function ComprovanteEntrega() {
 
   const totalGeral = form.itens.reduce((sum, item) => sum + (item.quantidade * item.valorUnitario), 0);
 
+  const handleContractSelect = (contratoId) => {
+    const ct = (contratos || []).find((c) => c.id === contratoId);
+    if (!ct) {
+      setForm({ ...form, contratoId: '', contrato: '' });
+      return;
+    }
+    const equipamentos = Array.isArray(ct.equipamentos) ? ct.equipamentos : [];
+    const itensFromContract = equipamentos.map((eq) => ({
+      descricao: eq,
+      quantidade: 1,
+      patrimonio: '',
+      dataLocacao: '',
+      dataDevolucao: '',
+      valorUnitario: 0,
+    }));
+
+    setForm({
+      ...form,
+      contratoId: ct.id,
+      contrato: ct.id,
+      locatario: ct.cliente || '',
+      cpf: ct.cnpj || '',
+      endereco: ct.endereco || '',
+      bairro: ct.bairro || '',
+      cidade: ct.cidade || '',
+      estado: ct.estado || '',
+      cep: ct.cep || '',
+      telefone: ct.telefone || '',
+      contato: ct.contato || '',
+      itens: itensFromContract.length > 0 ? itensFromContract : form.itens,
+    });
+    toast.success(`Contrato ${ct.id} selecionado! Dados preenchidos.`);
+  };
+
   const openNewForm = () => {
     setEditingComp(null);
     setForm({ ...emptyForm });
@@ -59,6 +96,7 @@ export default function ComprovanteEntrega() {
   const handleEdit = (comp) => {
     setEditingComp(comp);
     setForm({
+      contratoId: comp.contratoId || '',
       contrato: comp.contrato || '',
       atendente: comp.atendente || '',
       data: comp.data || '',
@@ -135,7 +173,7 @@ export default function ComprovanteEntrega() {
 
   const validateForm = () => {
     if (!form.contrato || form.contrato.trim() === '') {
-      toast.error('Preencha o numero do contrato');
+      toast.error('Selecione um contrato ou preencha o numero do contrato');
       return false;
     }
     if (!form.locatario || form.locatario.trim() === '') {
@@ -195,6 +233,7 @@ export default function ComprovanteEntrega() {
     });
 
     const data = {
+      contratoId: form.contratoId || null,
       contrato: form.contrato,
       atendente: form.atendente || 'Sistema',
       locatario: form.locatario,
@@ -257,6 +296,8 @@ export default function ComprovanteEntrega() {
     );
   });
 
+  const getContrato = (contratoId) => (contratos || []).find((c) => c.id === contratoId);
+
   if (isLoading) return <div className="p-4 sm:p-6"><TableSkeleton rows={5} cols={4} /></div>;
   if (isError) return <div className="p-4 sm:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
@@ -306,38 +347,67 @@ export default function ComprovanteEntrega() {
             />
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {filteredComprovantes.map((c) => (
-                <div key={c.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.contrato}</span>
-                        <StatusBadge status={c.status} />
+              {filteredComprovantes.map((c) => {
+                const contratoData = c.contratoId ? getContrato(c.contratoId) : null;
+                const isExpanded = expandedId === c.id;
+                return (
+                  <div key={c.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.contrato}</span>
+                          <StatusBadge status={c.status} />
+                          {c.assinado && <StatusBadge status="assinado" />}
+                          {contratoData && (
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              <Building2 className="w-3 h-3" />
+                              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-gray-900 truncate">{c.locatario}</h3>
+                        <div className="text-sm text-gray-500 mt-1 space-y-0.5">
+                          {c.endereco && <p className="truncate">{c.endereco}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}</p>}
+                          {c.fone && <p>{c.fone}</p>}
+                          {c.cidade && <p>{c.cidade}{c.estado ? `/${c.estado}` : ''}</p>}
+                        </div>
+                        {c.itens && c.itens.length > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">{c.itens.length} item(ns)</p>
+                        )}
                       </div>
-                      <h3 className="font-semibold text-gray-900 truncate">{c.locatario}</h3>
-                      <div className="text-sm text-gray-500 mt-1 space-y-0.5">
-                        {c.endereco && <p className="truncate">{c.endereco}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}</p>}
-                        {c.fone && <p>{c.fone}</p>}
-                        {c.cidade && <p>{c.cidade}{c.estado ? `/${c.estado}` : ''}</p>}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-lg font-bold text-green-600">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <div className="flex gap-1 mt-2">
+                          <button onClick={() => handleEdit(c)} className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Editar">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setDeleteTarget(c)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      {c.itens && c.itens.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-1">{c.itens.length} item(ns)</p>
-                      )}
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-lg font-bold text-green-600">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                      <div className="flex gap-1 mt-2">
-                        <button onClick={() => handleEdit(c)} className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors" title="Editar">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setDeleteTarget(c)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+
+                    {isExpanded && contratoData && (
+                      <div className="mt-3 pt-3 border-t bg-gray-50 rounded-lg p-3 space-y-2">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase">Detalhes do Contrato</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                          <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
+                          <div><span className="text-gray-500">CNPJ:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
+                          <div><span className="text-gray-500">Status:</span> <StatusBadge status={contratoData.status} /></div>
+                          <div><span className="text-gray-500">Inicio:</span> <span className="font-medium">{contratoData.inicio || '-'}</span></div>
+                          <div><span className="text-gray-500">Fim:</span> <span className="font-medium">{contratoData.fim || '-'}</span></div>
+                          <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(contratoData.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
+                          <div className="sm:col-span-3"><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(contratoData.equipamentos) ? contratoData.equipamentos.join(', ') : '-'}</span></div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -363,8 +433,25 @@ export default function ComprovanteEntrega() {
             </button>
           </div>
 
+          {!editingComp && (
+            <div className="p-4 border-b bg-blue-50">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Selecionar Contrato (auto-preenchimento)</label>
+              <select
+                value={form.contratoId || ''}
+                onChange={(e) => handleContractSelect(e.target.value)}
+                className="input-base bg-white"
+              >
+                <option value="">Selecione um contrato...</option>
+                {(contratos || []).map((ct) => (
+                  <option key={ct.id} value={ct.id}>{ct.id} - {ct.cliente} ({Array.isArray(ct.equipamentos) ? ct.equipamentos.join(', ') : ct.equipamentos})</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Selecione um contrato para preencher automaticamente os dados do cliente e equipamentos.</p>
+            </div>
+          )}
+
           <div className="p-4 border-b bg-gray-50">
-            <p className="text-sm text-gray-600 mb-2">Importar dados de PDF:</p>
+            <p className="text-sm text-gray-600 mb-2">Ou importar dados de PDF:</p>
             <PdfImportButton onFieldsExtracted={handlePdfImport} />
           </div>
 
@@ -374,7 +461,7 @@ export default function ComprovanteEntrega() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Contrato *</label>
-                  <input type="text" required value={form.contrato} onChange={(e) => updateField('contrato', e.target.value)} className="input-base text-sm" placeholder="Ex: 2024-00158" />
+                  <input type="text" required value={form.contrato} onChange={(e) => updateField('contrato', e.target.value)} className="input-base text-sm" placeholder="Ex: CT-001" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Data</label>

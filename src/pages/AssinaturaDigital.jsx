@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
-import { useComprovantes } from '../hooks/useComprovantes';
+import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
+import { useContratos, useUpdateContrato } from '../hooks/useContratos';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import { formatDateBR } from '../lib/dates';
+import { isConfigured } from '../lib/supabase';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -18,14 +20,26 @@ export default function AssinaturaDigital() {
   const [nomeSignatario, setNomeSignatario] = useState('');
   const [cpfSignatario, setCpfSignatario] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState('gestores@transobra.com.br');
 
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
   const { data: comprovantes, refetch: refetchComprovantes } = useComprovantes();
+  const { data: contratos } = useContratos();
   const createAssinatura = useCreateAssinatura();
+  const updateComprovante = useUpdateComprovante();
+  const updateContrato = useUpdateContrato();
 
   useEffect(() => {
     refetchComprovantes();
   }, [refetchComprovantes]);
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((cfg) => { if (cfg.emailRecipient) setEmailRecipient(cfg.emailRecipient); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -75,6 +89,54 @@ export default function AssinaturaDigital() {
     setHasSignature(false);
   };
 
+  const sendEmailNotification = async (contrato, comprovante, signatario) => {
+    if (!isConfigured()) return;
+    setSendingEmail(true);
+    try {
+      const emailData = {
+        contrato_id: contrato?.id || null,
+        comprovante_id: comprovante?.id || null,
+        destinatario: emailRecipient,
+        assunto: `Contrato ${contrato?.id || comprovante?.contrato} assinado - ${comprovante?.locatario || contrato?.cliente}`,
+        corpo: JSON.stringify({
+          contrato: contrato ? {
+            id: contrato.id,
+            cliente: contrato.cliente,
+            cnpj: contrato.cnpj,
+            equipamentos: contrato.equipamentos,
+            inicio: contrato.inicio,
+            fim: contrato.fim,
+            valorMensal: contrato.valorMensal,
+            valorTotal: contrato.valorTotal,
+          } : null,
+          comprovante: {
+            id: comprovante?.id,
+            contrato: comprovante?.contrato,
+            locatario: comprovante?.locatario,
+            endereco: comprovante?.endereco,
+            cidade: comprovante?.cidade,
+            total: comprovante?.total,
+          },
+          signatario: {
+            nome: signatario,
+            data: new Date().toISOString(),
+          },
+        }),
+        status: 'pendente',
+      };
+
+      await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData),
+      });
+    } catch {
+      // Email failure is non-blocking
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedComprovante) { toast.error('Selecione um comprovante'); return; }
     if (!nomeSignatario) { toast.error('Preencha o nome do signatario'); return; }
@@ -88,6 +150,25 @@ export default function AssinaturaDigital() {
         cpfSignatario,
         assinaturaImagem: imagem,
       });
+
+      const comp = (comprovantes || []).find((c) => c.id === selectedComprovante);
+      if (comp) {
+        await updateComprovante.mutateAsync({
+          id: comp.id,
+          updates: { assinado: true, status: 'assinado', nomeSignatario: nomeSignatario, dataAssinatura: new Date().toISOString() },
+        });
+
+        if (comp.contratoId) {
+          const ct = (contratos || []).find((c) => c.id === comp.contratoId);
+          if (ct) {
+            await updateContrato.mutateAsync({ id: ct.id, updates: { assinado: true } });
+            await sendEmailNotification(ct, comp, nomeSignatario);
+          }
+        } else {
+          await sendEmailNotification(null, comp, nomeSignatario);
+        }
+      }
+
       toast.success('Assinatura salva com sucesso!');
       clearCanvas();
       setNomeSignatario('');
@@ -100,6 +181,9 @@ export default function AssinaturaDigital() {
       setSaving(false);
     }
   };
+
+  const selectedComp = (comprovantes || []).find((c) => c.id === selectedComprovante);
+  const selectedContrato = selectedComp?.contratoId ? (contratos || []).find((c) => c.id === selectedComp.contratoId) : null;
 
   if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
@@ -124,6 +208,38 @@ export default function AssinaturaDigital() {
                 ))}
               </select>
             </div>
+
+            {selectedContrato && (
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-blue-800">Dados do Contrato</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div><span className="text-gray-500">Contrato:</span> <span className="font-medium">{selectedContrato.id}</span></div>
+                  <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{selectedContrato.cliente}</span></div>
+                  <div><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(selectedContrato.equipamentos) ? selectedContrato.equipamentos.join(', ') : '-'}</span></div>
+                  <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(selectedContrato.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
+                </div>
+              </div>
+            )}
+
+            {selectedComp && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm font-semibold text-gray-800">Dados do Comprovante</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>
+                  <div><span className="text-gray-500">Cidade:</span> <span className="font-medium">{selectedComp.cidade}{selectedComp.estado ? `/${selectedComp.estado}` : ''}</span></div>
+                  {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}</span></div>}
+                  {selectedComp.itens && selectedComp.itens.length > 0 && <div><span className="text-gray-500">Itens:</span> <span className="font-medium">{selectedComp.itens.length} item(ns)</span></div>}
+                  <div><span className="text-gray-500">Total:</span> <span className="font-medium text-green-600">R$ {Number(selectedComp.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatario *</label>
               <input type="text" value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
@@ -138,7 +254,7 @@ export default function AssinaturaDigital() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura</label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden">
                 <canvas ref={canvasRef} width={500} height={200}
-                  className="w-full cursor-crosshair touch-none"
+                  className="w-full cursor-crosshair touch-none min-h-[150px] sm:min-h-[200px]"
                   onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
                   onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
               </div>
@@ -146,8 +262,8 @@ export default function AssinaturaDigital() {
             </div>
             <div className="flex gap-3">
               <Button variant="secondary" onClick={clearCanvas} icon={Eraser}>Limpar</Button>
-              <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar Assinatura'}
+              <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving || sendingEmail}>
+                {saving ? 'Salvando...' : sendingEmail ? 'Enviando email...' : 'Salvar Assinatura'}
               </Button>
             </div>
           </div>
@@ -159,21 +275,30 @@ export default function AssinaturaDigital() {
             <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {assinaturas.map((sig) => (
-                <div key={sig.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-gray-900">{sig.nomeSignatario}</span>
-                    <StatusBadge status="assinado" />
+              {assinaturas.map((sig) => {
+                const comp = (comprovantes || []).find((c) => c.id === sig.comprovanteId);
+                return (
+                  <div key={sig.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-gray-900">{sig.nomeSignatario}</span>
+                      <StatusBadge status="assinado" />
+                    </div>
+                    {comp && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <FileText className="w-3 h-3" />
+                        <span>{comp.contrato} - {comp.locatario}</span>
+                      </div>
+                    )}
+                    {sig.cpfSignatario && <p className="text-xs text-gray-500">CPF: {sig.cpfSignatario}</p>}
+                    {sig.assinaturaImagem && (
+                      <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
+                    )}
+                    <p className="text-xs text-gray-400">
+                      {sig.dataAssinatura ? formatDateBR(sig.dataAssinatura) : '-'}
+                    </p>
                   </div>
-                  {sig.cpfSignatario && <p className="text-xs text-gray-500">CPF: {sig.cpfSignatario}</p>}
-                  {sig.assinaturaImagem && (
-                    <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
-                  )}
-                  <p className="text-xs text-gray-400">
-                    {sig.dataAssinatura ? formatDateBR(sig.dataAssinatura) : '-'}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

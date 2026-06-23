@@ -133,7 +133,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
     const rgVal = (fields.rg || '').replace(/^[\s/]+/, '').trim();
 
-    const mappedContato = fields.contato_cliente || fields.contato || prev.contato;
+    const mappedContato = fields.contato_cliente || fields.contato || '';
 
     const valorMensalCalc = (() => {
       if (fields.valores?.total && importedItems && importedItems.length > 0) {

@@ -47,6 +47,9 @@ export default function OrdensServico() {
     setSelectedOS(null);
   };
 
+  if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+
   const statusCounts = {
     all: osList.length,
     pendente: osList.filter((o) => o.status === 'pendente').length,
@@ -54,9 +57,6 @@ export default function OrdensServico() {
     concluido: osList.filter((o) => o.status === 'concluido').length,
     cancelado: osList.filter((o) => o.status === 'cancelado').length,
   };
-
-  if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
     <div className="space-y-6">

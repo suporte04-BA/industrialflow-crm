@@ -12,22 +12,30 @@ export function useRealtime(table, queryClient, queryKey, options = {}) {
       prevKeyRef.current = keyStr;
     }
 
-    const channel = supabase
-      .channel(`${table}-changes`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        (payload) => {
-          if (options.onInsert) options.onInsert(payload);
-          if (options.onUpdate) options.onUpdate(payload);
-          if (options.onDelete) options.onDelete(payload);
-          queryClient.invalidateQueries({ queryKey });
-        }
-      )
-      .subscribe();
+    let channel;
+    try {
+      channel = supabase
+        .channel(`${table}-changes`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table },
+          (payload) => {
+            if (options.onInsert) options.onInsert(payload);
+            if (options.onUpdate) options.onUpdate(payload);
+            if (options.onDelete) options.onDelete(payload);
+            queryClient.invalidateQueries({ queryKey });
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn(`Realtime subscription failed for ${table}:`, err);
+      return;
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel).catch(() => {});
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table, queryClient, keyStr]);

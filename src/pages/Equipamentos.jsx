@@ -42,15 +42,15 @@ export default function Equipamentos() {
     setDeleteTarget(null);
   };
 
+  if (isLoading) return <div className="p-6"><CardSkeleton count={6} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+
   const stats = {
     total: eqList.length,
     locados: eqList.filter((e) => e.status === 'locado').length,
     disponiveis: eqList.filter((e) => e.status === 'disponivel').length,
     manutencao: eqList.filter((e) => e.status === 'manutencao').length,
   };
-
-  if (isLoading) return <div className="p-6"><CardSkeleton count={6} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
     <div className="space-y-6">

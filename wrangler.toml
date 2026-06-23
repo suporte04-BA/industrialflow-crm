@@ -7,6 +7,8 @@ account_id = "3b8a5aa418a5d7ae254ba675291f540c"
 [vars]
 EMAIL_RECIPIENT = "gestores@transobra.com.br"
 EMAIL_FROM = "TransObra <onboarding@resend.dev>"
+SUPABASE_URL = "https://mbcdbclosomqpfboyffj.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iY2RiY2xvc29tcXBmYm95ZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDcxMTksImV4cCI6MjA5NzE4MzExOX0.iNh0wpvpblUGCAo3wOkNxelMTlLUe7RBoFlqPLjxXxE"
 
 [assets]
 directory = "dist"

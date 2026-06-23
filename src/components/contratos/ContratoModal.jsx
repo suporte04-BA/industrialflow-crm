@@ -21,8 +21,8 @@ function getInitialForm(contrato, isRenew) {
       atendente: contrato.atendente || '',
       inicio: isRenew ? new Date().toISOString().split('T')[0] : (contrato.inicio || ''),
       fim: isRenew ? '' : (contrato.fim || ''),
-      valorTotal: isRenew ? '' : (contrato.valorTotal || ''),
-      valorMensal: contrato.valorMensal || '',
+      valorTotal: isRenew ? '' : (contrato.valorTotal != null ? contrato.valorTotal : ''),
+      valorMensal: contrato.valorMensal != null ? contrato.valorMensal : '',
       status: isRenew ? 'ativo' : (contrato.status || 'ativo'),
       assinado: isRenew ? false : (contrato.assinado || false),
       endereco: contrato.endereco || '',
@@ -60,12 +60,12 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
   const isEdit = !!contrato && !isRenew;
   const [saving, setSaving] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [formKey, setFormKey] = useState(contrato?.id || 'new');
   const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
 
-  if (contrato?.id !== formKey || (isOpen && contrato === null && formKey !== 'new')) {
-    setFormKey(contrato?.id || 'new');
-    setForm(getInitialForm(contrato, isRenew));
+  const contratoId = contrato?.id || 'new';
+  const formContratoId = form._contratoId || 'new';
+  if (contratoId !== formContratoId) {
+    setForm({ ...getInitialForm(contrato, isRenew), _contratoId: contratoId });
   }
 
   const addEquipamento = () => setForm({ ...form, equipamentos: [...form.equipamentos, ''] });
@@ -97,7 +97,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       const meses = Math.max(1, Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24 * 30)));
       return meses * Number(form.valorMensal);
     }
-    return form.valorTotal;
+    return Number(form.valorTotal) || 0;
   };
 
   const handlePdfImport = (fields) => {

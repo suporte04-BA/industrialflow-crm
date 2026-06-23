@@ -12,7 +12,8 @@ export default function Dashboard() {
   if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={4} /></div>;
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
-  const { metricas, recentOS, alertasContratos } = data;
+  const { metricas, recentOS, alertasContratos } = data || {};
+  if (!data) return null;
 
   return (
     <div className="space-y-6">

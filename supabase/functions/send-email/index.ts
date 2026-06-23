@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "TransObra <onboarding@resend.dev>";
 const EMAIL_RECIPIENT = Deno.env.get("EMAIL_RECIPIENT") || "gestores@transobra.com.br";
@@ -157,7 +155,7 @@ function buildContratoAssinadoHTML(data) {
     </div>`;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

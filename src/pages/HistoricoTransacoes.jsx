@@ -4,9 +4,9 @@ import { useContratos } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
 import { useAssinaturas } from '../hooks/useAssinaturas';
 import { useOrdensServico } from '../hooks/useOrdensServico';
-import { useEquipamentos } from '../hooks/useEquipamentos';
 import StatusBadge from '../components/ui/StatusBadge';
 import { TableSkeleton } from '../components/ui/Skeleton';
+import ErrorDisplay from '../components/common/ErrorDisplay';
 import { formatDateBR } from '../lib/dates';
 
 const tipoIcons = {
@@ -29,13 +29,15 @@ export default function HistoricoTransacoes() {
   const [filtro, setFiltro] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: contratos, isLoading: l1 } = useContratos();
+  const { data: contratos, isLoading: l1, isError: e1, error: err1, refetch: r1 } = useContratos();
   const { data: comprovantes, isLoading: l2 } = useComprovantes();
   const { data: assinaturas, isLoading: l3 } = useAssinaturas();
   const { data: ordens, isLoading: l4 } = useOrdensServico();
-  const { isLoading: l5 } = useEquipamentos();
 
-  const isLoading = l1 || l2 || l3 || l4 || l5;
+  const isLoading = l1 || l2 || l3 || l4;
+  const isError = e1;
+  const error = err1;
+  const refetch = r1;
 
   const allTransactions = useMemo(() => {
     const items = [];
@@ -123,6 +125,7 @@ export default function HistoricoTransacoes() {
   }), [allTransactions]);
 
   if (isLoading) return <div className="p-6"><TableSkeleton rows={10} cols={5} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
     <div className="space-y-6">

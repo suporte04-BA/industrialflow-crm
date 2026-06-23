@@ -5,6 +5,7 @@ import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useDeleteUsuario }
 import { useAuth } from '../lib/AuthContext';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
+import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 
 const roleLabels = { admin: 'Admin', gestor: 'Gestor', funcionario: 'Funcionario' };
@@ -21,7 +22,7 @@ export default function Usuarios() {
   const [form, setForm] = useState({ fullName: '', password: '', role: 'funcionario' });
   const [creating, setCreating] = useState(false);
 
-  const { data: usuarios, isLoading, refetch } = useUsuarios();
+  const { data: usuarios, isLoading, isError, error, refetch } = useUsuarios();
   const createUsuario = useCreateUsuario();
   const updateRole = useUpdateUsuarioRole();
   const deleteUsuario = useDeleteUsuario();
@@ -96,6 +97,7 @@ export default function Usuarios() {
   };
 
   if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
+  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
     <div className="space-y-6">

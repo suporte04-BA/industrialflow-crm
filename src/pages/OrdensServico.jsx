@@ -74,7 +74,7 @@ export default function OrdensServico() {
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               filters.status === s ? 'bg-yellow-400 text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}>
-            {s === 'all' ? 'Todas' : s.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())} ({statusCounts[s]})
+            {s === 'all' ? 'Todas' : s.replaceAll('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())} ({statusCounts[s]})
           </button>
         ))}
       </div>

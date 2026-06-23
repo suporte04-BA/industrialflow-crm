@@ -16,14 +16,15 @@ const SECURITY_HEADERS = {
 
 function getCorsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowed,
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : null;
+  const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
     'Access-Control-Max-Age': '86400',
     ...SECURITY_HEADERS,
   };
+  if (allowed) headers['Access-Control-Allow-Origin'] = allowed;
+  return headers;
 }
 
 function json(data, status = 200, corsHeaders = null) {
@@ -182,13 +183,13 @@ export default {
           const result = await supabaseRequest(env, 'POST', '/equipamentos', parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'PUT' && id && isValidId(id)) {
+        if (method === 'PUT' && id && id !== 'equipamentos' && isValidId(id)) {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
           const result = await supabaseRequest(env, 'PATCH', `/equipamentos?id=eq.${id}`, parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'DELETE' && id && isValidId(id)) {
+        if (method === 'DELETE' && id && id !== 'equipamentos' && isValidId(id)) {
           const result = await supabaseRequest(env, 'DELETE', `/equipamentos?id=eq.${id}`, null, authHeader);
           return json({ success: true }, result.status, corsHeaders);
         }
@@ -205,13 +206,13 @@ export default {
           const result = await supabaseRequest(env, 'POST', '/contratos', parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'PUT' && id && isValidId(id)) {
+        if (method === 'PUT' && id && id !== 'contratos' && isValidId(id)) {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
           const result = await supabaseRequest(env, 'PATCH', `/contratos?id=eq.${id}`, parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'DELETE' && id && isValidId(id)) {
+        if (method === 'DELETE' && id && id !== 'contratos' && isValidId(id)) {
           const result = await supabaseRequest(env, 'DELETE', `/contratos?id=eq.${id}`, null, authHeader);
           return json({ success: true }, result.status, corsHeaders);
         }
@@ -228,13 +229,13 @@ export default {
           const result = await supabaseRequest(env, 'POST', '/comprovantes_entrega', parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'PUT' && id && isValidId(id)) {
+        if (method === 'PUT' && id && id !== 'comprovantes' && isValidId(id)) {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
           const result = await supabaseRequest(env, 'PATCH', `/comprovantes_entrega?id=eq.${id}`, parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'DELETE' && id && isValidId(id)) {
+        if (method === 'DELETE' && id && id !== 'comprovantes' && isValidId(id)) {
           const result = await supabaseRequest(env, 'DELETE', `/comprovantes_entrega?id=eq.${id}`, null, authHeader);
           return json({ success: true }, result.status, corsHeaders);
         }
@@ -251,13 +252,13 @@ export default {
           const result = await supabaseRequest(env, 'POST', '/notas', parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'PUT' && id && isValidId(id)) {
+        if (method === 'PUT' && id && id !== 'notas' && isValidId(id)) {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
           const result = await supabaseRequest(env, 'PATCH', `/notas?id=eq.${id}`, parsed.data, authHeader);
           return json(result.data, result.status, corsHeaders);
         }
-        if (method === 'DELETE' && id && isValidId(id)) {
+        if (method === 'DELETE' && id && id !== 'notas' && isValidId(id)) {
           const result = await supabaseRequest(env, 'DELETE', `/notas?id=eq.${id}`, null, authHeader);
           return json({ success: true }, result.status, corsHeaders);
         }
@@ -292,8 +293,10 @@ export default {
             body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, destinatario }),
           });
           const edgeData = await edgeRes.json();
-          if (edgeRes.ok && edgeData.success) {
+          if (edgeRes.ok && edgeData.success && !edgeData.skipped) {
             emailStatus = 'enviado';
+          } else if (edgeData.skipped) {
+            emailStatus = 'skipped';
           } else {
             erroMsg = edgeData.error ? JSON.stringify(edgeData.error) : 'Edge function failed';
             emailStatus = 'erro';
@@ -320,7 +323,7 @@ export default {
           });
         } catch { /* email logging is best-effort */ }
 
-        return json({ success: emailStatus === 'enviado', status: emailStatus }, emailStatus === 'enviado' ? 200 : 500, corsHeaders);
+        return json({ success: emailStatus === 'enviado' || emailStatus === 'skipped', status: emailStatus }, emailStatus === 'erro' ? 500 : 200, corsHeaders);
       }
 
       if (path.startsWith('/api/edge/')) {

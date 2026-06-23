@@ -119,22 +119,31 @@ export function useUpdateUsuarioRole() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, role }) => {
-      const users = getLocal();
-      const targetUser = users.find((u) => u.id === id);
-
-      if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
-        const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
-        if (gestorCount <= 1 && role === 'funcionario') {
-          throw new Error('Deve haver pelo menos um gestor no sistema.');
-        }
-      }
-
       if (!isConfigured()) {
+        const users = getLocal();
+        const targetUser = users.find((u) => u.id === id);
+        if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
+          const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1 && role === 'funcionario') {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
         const stored = getLocal();
         const idx = stored.findIndex((u) => u.id === id);
         if (idx >= 0) stored[idx] = { ...stored[idx], role };
         saveLocal(stored);
         return { id, role };
+      }
+
+      const { data: allProfiles } = await supabase.from('profiles').select('id, role');
+      if (allProfiles) {
+        const target = allProfiles.find((u) => u.id === id);
+        if (target && (target.role === 'gestor' || target.role === 'admin')) {
+          const gestorCount = allProfiles.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1 && role === 'funcionario') {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
       }
 
       const { error } = await supabase
@@ -158,19 +167,29 @@ export function useDeleteUsuario() {
         throw new Error('Voce nao pode remover seu proprio usuario.');
       }
 
-      const users = getLocal();
-      const targetUser = users.find((u) => u.id === id);
-      if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
-        const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
-        if (gestorCount <= 1) {
-          throw new Error('Deve haver pelo menos um gestor no sistema.');
-        }
-      }
-
       if (!isConfigured()) {
+        const users = getLocal();
+        const targetUser = users.find((u) => u.id === id);
+        if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
+          const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1) {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
         const stored = getLocal().filter((u) => u.id !== id);
         saveLocal(stored);
         return;
+      }
+
+      const { data: allProfiles } = await supabase.from('profiles').select('id, role');
+      if (allProfiles) {
+        const target = allProfiles.find((u) => u.id === id);
+        if (target && (target.role === 'gestor' || target.role === 'admin')) {
+          const gestorCount = allProfiles.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1) {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
       }
 
       const { error } = await supabase

@@ -78,7 +78,7 @@ export function detectDocumentType(value) {
 }
 
 export function matchCPFWithComprovante(cpfSignatario, comprovante) {
-  if (!comprovante || !comprovante.cpf) return { valid: true, message: '' };
+  if (!cpfSignatario || !comprovante || !comprovante.cpf) return { valid: true, message: '' };
   const cleanSignatario = cpfSignatario.replace(/\D/g, '');
   const cleanComprovante = comprovante.cpf.replace(/\D/g, '');
   if (cleanSignatario === cleanComprovante) return { valid: true, message: '' };

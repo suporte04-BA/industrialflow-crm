@@ -25,7 +25,7 @@ export default function ComprovanteEntrega() {
       (c.contrato || '').toLowerCase().includes(term) ||
       (c.locatario || '').toLowerCase().includes(term) ||
       (c.cpf || '').toLowerCase().includes(term) ||
-      (c.fone || '').toLowerCase().includes(term) ||
+      (c.telefone || '').toLowerCase().includes(term) ||
       (c.cidade || '').toLowerCase().includes(term)
     );
   });
@@ -100,7 +100,7 @@ export default function ComprovanteEntrega() {
                     <h3 className="font-semibold text-gray-900 truncate">{c.locatario}</h3>
                     <div className="text-sm text-gray-500 mt-1 space-y-0.5">
                       {c.endereco && <p className="truncate">{c.endereco}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}</p>}
-                      {c.fone && <p>{c.fone}</p>}
+                      {c.telefone && <p>{c.telefone}</p>}
                       {c.cidade && <p>{c.cidade}{c.estado ? `/${c.estado}` : ''}</p>}
                     </div>
                     {c.itens && c.itens.length > 0 && (

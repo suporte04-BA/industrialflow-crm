@@ -28,7 +28,7 @@ export async function generateComprovantePDF(comprovante) {
         <p style="font-size: 12px; margin: 3px 0;"><strong>Nome:</strong> ${esc(comprovante.locatario) || '-'}</p>
         <p style="font-size: 12px; margin: 3px 0;"><strong>CPF/CNPJ:</strong> ${esc(comprovante.cpf) || '-'}</p>
         <p style="font-size: 12px; margin: 3px 0;"><strong>RG:</strong> ${esc(comprovante.rg) || '-'}</p>
-        <p style="font-size: 12px; margin: 3px 0;"><strong>Telefone:</strong> ${esc(comprovante.fone) || '-'}</p>
+        <p style="font-size: 12px; margin: 3px 0;"><strong>Telefone:</strong> ${esc(comprovante.telefone) || '-'}</p>
         <p style="font-size: 12px; margin: 3px 0;"><strong>Contato:</strong> ${esc(comprovante.contato) || '-'}</p>
       </div>
 

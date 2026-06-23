@@ -16,7 +16,7 @@ import { isValidCPF, isValidCNPJ, formatCPF, formatCNPJ } from '../lib/validatio
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [selectedComprovante, setSelectedComprovante] = useState('');
   const [nomeSignatario, setNomeSignatario] = useState('');
@@ -64,7 +64,7 @@ export default function AssinaturaDigital() {
   };
 
   const startDraw = (e) => {
-    setIsDrawing(true);
+    isDrawingRef.current = true;
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
     ctx.beginPath();
@@ -72,7 +72,7 @@ export default function AssinaturaDigital() {
   };
 
   const draw = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawingRef.current) return;
     e.preventDefault();
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
@@ -81,7 +81,7 @@ export default function AssinaturaDigital() {
   };
 
   const endDraw = () => {
-    setIsDrawing(false);
+    isDrawingRef.current = false;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -212,7 +212,7 @@ export default function AssinaturaDigital() {
       if (comp) {
         await updateComprovante.mutateAsync({
           id: comp.id,
-          updates: { assinado: true, status: 'assinado', nomeSignatario: nomeSignatario, dataAssinatura: new Date().toISOString() },
+          updates: { assinado: true, status: 'assinado', updatedAt: new Date().toISOString() },
         });
 
         if (comp.contratoId) {
@@ -311,7 +311,7 @@ export default function AssinaturaDigital() {
                   <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>
                   <div><span className="text-gray-500">CPF:</span> <span className="font-medium">{selectedComp.cpf || '-'}</span></div>
                   <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg || '-'}</span></div>
-                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.fone || '-'}</span></div>
+                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.telefone || '-'}</span></div>
                   <div><span className="text-gray-500">Cidade:</span> <span className="font-medium">{selectedComp.cidade}{selectedComp.estado ? `/${selectedComp.estado}` : ''}</span></div>
                   <div><span className="text-gray-500">Contato:</span> <span className="font-medium">{selectedComp.contato || '-'}</span></div>
                   {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}{selectedComp.bairro ? ` - ${selectedComp.bairro}` : ''}</span></div>}

@@ -69,7 +69,7 @@ export function useCreateComprovante() {
         locatario: newComp.locatario,
         cpf: newComp.cpf,
         rg: newComp.rg,
-        fone: newComp.fone,
+        telefone: newComp.telefone,
         contato: newComp.contato,
         endereco: newComp.endereco,
         numero: newComp.numero,

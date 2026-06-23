@@ -361,12 +361,41 @@ export default {
     if (env.ASSETS) {
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status !== 404) {
-        return assetResponse;
+        const headers = new Headers(assetResponse.headers);
+        const reqPath = new URL(request.url).pathname;
+        if (reqPath === '/' || reqPath === '/index.html') {
+          headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+          headers.set('Pragma', 'no-cache');
+          headers.set('Expires', '0');
+        } else if (reqPath.startsWith('/assets/')) {
+          headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+        return new Response(assetResponse.body, { status: assetResponse.status, headers });
       }
-      const indexRequest = new Request(new URL('/', request.url), request);
-      return env.ASSETS.fetch(indexRequest);
     }
 
-    return json({ error: 'Not found' }, 404, corsHeaders);
+    const jsFile = env.INDEX_JS_FILE || 'index-Ch1GkO0o.js';
+    const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+    const indexHtml = `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TransObra - Locacao de Equipamentos</title>
+    <meta name="description" content="Sistema CRM para gestao de locacao de equipamentos industriais - TransObra" />
+    <meta property="og:title" content="TransObra - Locacao de Equipamentos" />
+    <meta property="og:description" content="Sistema CRM para gestao de locacao de equipamentos industriais" />
+    <script type="module" crossorigin src="/assets/${jsFile}"></script>
+    <link rel="stylesheet" crossorigin href="/assets/${cssFile}">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
+    return new Response(indexHtml, {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8' },
+    });
   },
 };

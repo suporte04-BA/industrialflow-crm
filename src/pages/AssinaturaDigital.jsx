@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2, Download, CheckCircle } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
@@ -12,7 +12,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { formatDateBR } from '../lib/dates';
 import { isConfigured } from '../lib/supabase';
 import { generateComprovantePDF } from '../lib/pdfExport';
-import { isValidCPF, formatCPF, matchCPFWithComprovante } from '../lib/validation';
+import { isValidCPF, isValidCNPJ, formatCPF, formatCNPJ } from '../lib/validation';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -99,14 +99,8 @@ export default function AssinaturaDigital() {
 
   const handleComprovanteChange = (compId) => {
     setSelectedComprovante(compId);
-    const comp = (comprovantes || []).find((c) => c.id === compId);
-    if (comp) {
-      setCpfSignatario(formatCPF(comp.cpf || ''));
-      setNomeSignatario(comp.contato || comp.locatario || '');
-    } else {
-      setNomeSignatario('');
-      setCpfSignatario('');
-    }
+    setNomeSignatario('');
+    setCpfSignatario('');
     clearCanvas();
   };
 
@@ -184,13 +178,25 @@ export default function AssinaturaDigital() {
     }
   };
 
+  const cpfDigits = cpfSignatario.replace(/\D/g, '');
+  const cpfFieldType = cpfDigits.length > 11 ? 'cnpj' : 'cpf';
+  const isValidDoc = cpfFieldType === 'cnpj' ? isValidCNPJ(cpfSignatario) : isValidCPF(cpfSignatario);
+  const docLabel = cpfFieldType === 'cnpj' ? 'CNPJ' : 'CPF';
+
+  const handleCpfChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    if (raw.length <= 11) {
+      setCpfSignatario(formatCPF(e.target.value));
+    } else {
+      setCpfSignatario(formatCNPJ(e.target.value));
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedComprovante) { toast.error('Selecione um comprovante de entrega'); return; }
     if (!nomeSignatario.trim()) { toast.error('Preencha o nome de quem recebeu o equipamento'); return; }
-    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF de quem recebeu o equipamento'); return; }
-    if (!isValidCPF(cpfSignatario)) { toast.error('CPF invalido. Verifique os digitos.'); return; }
-    const cpfMatch = matchCPFWithComprovante(cpfSignatario, selectedComp);
-    if (!cpfMatch.valid) { toast.error(cpfMatch.message); return; }
+    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF/CNPJ de quem recebeu o equipamento'); return; }
+    if (!isValidDoc) { toast.error(`${docLabel} invalido. Verifique os digitos.`); return; }
     if (!hasSignature) { toast.error('Faca a assinatura de quem recebeu o equipamento'); return; }
     setSaving(true);
     try {
@@ -317,7 +323,7 @@ export default function AssinaturaDigital() {
             )}
 
             <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <p className="text-xs text-yellow-800 font-medium">O signatario e a pessoa que recebeu fisicamente o equipamento. Preencha os dados abaixo com as informacoes do recebedor.</p>
+              <p className="text-xs text-yellow-800 font-medium">O signatario e a pessoa que recebeu fisicamente o equipamento. Preencha os dados abaixo com as informacoes do recebedor (pode ser diferente do contato do contrato).</p>
             </div>
 
             <div>
@@ -326,13 +332,10 @@ export default function AssinaturaDigital() {
                 className="input-base" placeholder="Nome completo de quem recebeu o equipamento" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CPF de Quem Recebeu *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ de Quem Recebeu *</label>
               <input type="text" required value={cpfSignatario}
-                onChange={(e) => setCpfSignatario(formatCPF(e.target.value))}
-                className="input-base" placeholder="000.000.000-00" maxLength={14} />
-              {selectedComp && selectedComp.cpf && cpfSignatario && cpfSignatario.replace(/\D/g, '') === (selectedComp.cpf || '').replace(/\D/g, '') && (
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> CPF confere com o cadastro</p>
-              )}
+                onChange={handleCpfChange}
+                className="input-base" placeholder="000.000.000-00 ou 00.000.000/0000-00" maxLength={18} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura do Recebedor *</label>

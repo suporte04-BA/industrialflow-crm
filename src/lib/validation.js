@@ -84,7 +84,7 @@ export function matchCPFWithComprovante(cpfSignatario, comprovante) {
   if (cleanSignatario === cleanComprovante) return { valid: true, message: '' };
   return {
     valid: false,
-    message: `CPF nao confere com o locatario (${comprovante.cpf})`,
+    message: `Documento nao confere com o cadastro (${comprovante.cpf})`,
   };
 }
 

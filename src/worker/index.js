@@ -358,25 +358,12 @@ export default {
       return json({ error: 'API route not found' }, 404, corsHeaders);
     }
 
-    if (env.ASSETS) {
-      const assetResponse = await env.ASSETS.fetch(request);
-      if (assetResponse.status !== 404) {
-        const headers = new Headers(assetResponse.headers);
-        const reqPath = new URL(request.url).pathname;
-        if (reqPath === '/' || reqPath === '/index.html') {
-          headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-          headers.set('Pragma', 'no-cache');
-          headers.set('Expires', '0');
-        } else if (reqPath.startsWith('/assets/')) {
-          headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-        }
-        return new Response(assetResponse.body, { status: assetResponse.status, headers });
-      }
-    }
+    const reqPath = new URL(request.url).pathname;
 
-    const jsFile = env.INDEX_JS_FILE || 'index-Ch1GkO0o.js';
-    const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
-    const indexHtml = `<!doctype html>
+    if (reqPath === '/' || reqPath === '/index.html') {
+      const jsFile = env.INDEX_JS_FILE || 'index-Ch1GkO0o.js';
+      const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+      const indexHtml = `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -393,6 +380,22 @@ export default {
     <div id="root"></div>
   </body>
 </html>`;
+      return new Response(indexHtml, {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+      });
+    }
+
+    if (env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        const headers = new Headers(assetResponse.headers);
+        if (reqPath.startsWith('/assets/')) {
+          headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+        return new Response(assetResponse.body, { status: assetResponse.status, headers });
+      }
+    }
     return new Response(indexHtml, {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8' },

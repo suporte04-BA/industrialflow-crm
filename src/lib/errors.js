@@ -32,7 +32,7 @@ export class ValidationError extends AppError {
 
 export function handleSupabaseError(error) {
   if (!error) return null;
-  if (error.code === 'PGRST116') return null;
+  if (error.code === 'PGRST116') return new SupabaseQueryError('Registro nao encontrado.', error);
   if (error.message?.includes('new row violates')) {
     return new SupabaseQueryError(
       'Dados invalidos para esta operacao. Verifique os campos obrigatorios.',

@@ -1,13 +1,13 @@
-name = "industrialflow-crm-worker"
+name = "transobras"
 main = "src/worker/index.js"
-compatibility_date = "2026-04-01"
-compatibility_flags = ["nodejs_compat_v2"]
-pages_build_output_dir = "dist"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+account_id = "3b8a5aa418a5d7ae254ba675291f540c"
 
 [vars]
-SUPABASE_URL = "https://mbcdbclosomqpfboyffj.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iY2RiY2xvc29tcXBmYm95ZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDcxMTksImV4cCI6MjA5NzE4MzExOX0.iNh0wpvpblUGCAo3wOkNxelMTlLUe7RBoFlqPLjxXxE"
+EMAIL_RECIPIENT = "gestores@transobra.com.br"
+EMAIL_FROM = "TransObra <onboarding@resend.dev>"
 
-[[routes]]
-pattern = "transobras.suporte04.workers.dev/api/*"
-zone_name = "suporte04.workers.dev"
+[assets]
+directory = "dist"
+binding = "ASSETS"

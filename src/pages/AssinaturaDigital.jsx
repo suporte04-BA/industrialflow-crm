@@ -1,13 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
-import { useComprovantes } from '../hooks/useComprovantes';
+import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
+import { useContratos, useUpdateContrato } from '../hooks/useContratos';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import { formatDateBR } from '../lib/dates';
+import { isConfigured } from '../lib/supabase';
+import { generateComprovantePDF } from '../lib/pdfExport';
+import { isValidCPF, formatCPF, matchCPFWithComprovante } from '../lib/validation';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -17,10 +22,26 @@ export default function AssinaturaDigital() {
   const [nomeSignatario, setNomeSignatario] = useState('');
   const [cpfSignatario, setCpfSignatario] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState('gestores@transobra.com.br');
 
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
-  const { data: comprovantes } = useComprovantes();
+  const { data: comprovantes, refetch: refetchComprovantes } = useComprovantes();
+  const { data: contratos } = useContratos();
   const createAssinatura = useCreateAssinatura();
+  const updateComprovante = useUpdateComprovante();
+  const updateContrato = useUpdateContrato();
+
+  useEffect(() => {
+    refetchComprovantes();
+  }, [refetchComprovantes]);
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((cfg) => { if (cfg.emailRecipient) setEmailRecipient(cfg.emailRecipient); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -44,7 +65,6 @@ export default function AssinaturaDigital() {
 
   const startDraw = (e) => {
     setIsDrawing(true);
-    setHasSignature(true);
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
     ctx.beginPath();
@@ -60,7 +80,14 @@ export default function AssinaturaDigital() {
     ctx.stroke();
   };
 
-  const endDraw = () => setIsDrawing(false);
+  const endDraw = () => {
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const hasPixels = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
+    setHasSignature(hasPixels);
+  };
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -70,10 +97,77 @@ export default function AssinaturaDigital() {
     setHasSignature(false);
   };
 
+  const sendEmailNotification = async (contrato, comprovante, signatario) => {
+    if (!isConfigured()) return;
+    setSendingEmail(true);
+    try {
+      const imagemBase64 = canvasRef.current.toDataURL('image/png');
+      const emailData = {
+        tipo: 'contrato_assinado',
+        contrato_id: contrato?.id || null,
+        comprovante_id: comprovante?.id || null,
+        destinatario: emailRecipient,
+        contrato: contrato ? {
+          id: contrato.id,
+          numero: contrato.numero,
+          cliente: contrato.cliente,
+          cnpj: contrato.cnpj,
+          rg: contrato.rg,
+          equipamentos: contrato.equipamentos,
+          inicio: contrato.inicio,
+          fim: contrato.fim,
+          valorMensal: contrato.valorMensal,
+          valorTotal: contrato.valorTotal,
+          atendente: contrato.atendente,
+          localEntrega: contrato.localEntrega,
+          endereco: contrato.endereco,
+          numero_endereco: contrato.numeroEndereco,
+          bairro: contrato.bairro,
+          cidade: contrato.cidade,
+          estado: contrato.estado,
+          cep: contrato.cep,
+          telefone: contrato.telefone,
+          email: contrato.email,
+          contato: contrato.contato,
+        } : null,
+        comprovante: {
+          id: comprovante?.id,
+          contrato: comprovante?.contrato,
+          locatario: comprovante?.locatario,
+          cpf: comprovante?.cpf,
+          rg: comprovante?.rg,
+          endereco: comprovante?.endereco,
+          cidade: comprovante?.cidade,
+          total: comprovante?.total,
+        },
+        signatario: {
+          nome: signatario,
+          cpf: cpfSignatario,
+          data: new Date().toISOString(),
+          assinaturaImagem: imagemBase64,
+        },
+      };
+
+      await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData),
+      });
+    } catch (err) {
+      console.error('Erro ao enviar email:', err);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedComprovante) { toast.error('Selecione um comprovante'); return; }
-    if (!nomeSignatario) { toast.error('Preencha o nome do signatario'); return; }
-    if (!hasSignature) { toast.error('Faca sua assinatura'); return; }
+    if (!nomeSignatario.trim()) { toast.error('Preencha o nome do signatario'); return; }
+    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF do signatario'); return; }
+    if (!isValidCPF(cpfSignatario)) { toast.error('CPF invalido. Verifique os digitos.'); return; }
+    const cpfMatch = matchCPFWithComprovante(cpfSignatario, selectedComp);
+    if (!cpfMatch.valid) { toast.error(cpfMatch.message); return; }
+    if (!hasSignature) { toast.error('Faca sua assinatura no quadro ao lado'); return; }
     setSaving(true);
     try {
       const imagem = canvasRef.current.toDataURL('image/png');
@@ -83,17 +177,53 @@ export default function AssinaturaDigital() {
         cpfSignatario,
         assinaturaImagem: imagem,
       });
+
+      const comp = (comprovantes || []).find((c) => c.id === selectedComprovante);
+      if (comp) {
+        await updateComprovante.mutateAsync({
+          id: comp.id,
+          updates: { assinado: true, status: 'assinado', nomeSignatario: nomeSignatario, dataAssinatura: new Date().toISOString() },
+        });
+
+        if (comp.contratoId) {
+          const ct = (contratos || []).find((c) => c.id === comp.contratoId);
+          if (ct) {
+            await updateContrato.mutateAsync({ id: ct.id, updates: { assinado: true, status: 'entregue' } });
+          }
+        }
+
+        await sendEmailNotification(
+          comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
+          comp,
+          nomeSignatario
+        );
+
+        try {
+          await generateComprovantePDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString() });
+        } catch {
+          // PDF generation failure is non-blocking
+        }
+      }
+
       toast.success('Assinatura salva com sucesso!');
       clearCanvas();
       setNomeSignatario('');
       setCpfSignatario('');
       setSelectedComprovante('');
+      refetchComprovantes();
     } catch {
       toast.error('Erro ao salvar assinatura');
     } finally {
       setSaving(false);
     }
   };
+
+  const availableComprovantes = (comprovantes || []).filter(
+    (c) => !c.assinado && c.status !== 'assinado' && c.status !== 'cancelado'
+  );
+
+  const selectedComp = (comprovantes || []).find((c) => c.id === selectedComprovante);
+  const selectedContrato = selectedComp?.contratoId ? (contratos || []).find((c) => c.id === selectedComp.contratoId) : null;
 
   if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
@@ -111,28 +241,73 @@ export default function AssinaturaDigital() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Comprovante de Entrega *</label>
-              <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base">
+              <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base" required>
                 <option value="">Selecione...</option>
-                {comprovantes?.map((c) => (
+                {availableComprovantes.map((c) => (
                   <option key={c.id} value={c.id}>{c.contrato} - {c.locatario}</option>
                 ))}
               </select>
+              {availableComprovantes.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">Nenhum comprovante pendente de assinatura</p>
+              )}
             </div>
+
+            {selectedContrato && (
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-blue-800">Dados do Contrato</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div><span className="text-gray-500">Contrato:</span> <span className="font-medium">{selectedContrato.numero || selectedContrato.id}</span></div>
+                  <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{selectedContrato.cliente}</span></div>
+                  <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{selectedContrato.cnpj || '-'}</span></div>
+                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedContrato.rg || '-'}</span></div>
+                  <div><span className="text-gray-500">Atendente:</span> <span className="font-medium">{selectedContrato.atendente || '-'}</span></div>
+                  <div><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(selectedContrato.equipamentos) ? selectedContrato.equipamentos.join(', ') : '-'}</span></div>
+                  <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(selectedContrato.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
+                  <div><span className="text-gray-500">Local Entrega:</span> <span className="font-medium">{selectedContrato.localEntrega || '-'}</span></div>
+                </div>
+              </div>
+            )}
+
+            {selectedComp && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm font-semibold text-gray-800">Dados do Comprovante</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>
+                  <div><span className="text-gray-500">CPF:</span> <span className="font-medium">{selectedComp.cpf || '-'}</span></div>
+                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg || '-'}</span></div>
+                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.fone || '-'}</span></div>
+                  <div><span className="text-gray-500">Cidade:</span> <span className="font-medium">{selectedComp.cidade}{selectedComp.estado ? `/${selectedComp.estado}` : ''}</span></div>
+                  <div><span className="text-gray-500">Contato:</span> <span className="font-medium">{selectedComp.contato || '-'}</span></div>
+                  {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}{selectedComp.bairro ? ` - ${selectedComp.bairro}` : ''}</span></div>}
+                  {selectedComp.localEntrega && <div className="col-span-2"><span className="text-gray-500">Local Entrega:</span> <span className="font-medium">{selectedComp.localEntrega}</span></div>}
+                  {selectedComp.itens && selectedComp.itens.length > 0 && <div><span className="text-gray-500">Itens:</span> <span className="font-medium">{selectedComp.itens.length} item(ns)</span></div>}
+                  <div><span className="text-gray-500">Total:</span> <span className="font-medium text-green-600">R$ {Number(selectedComp.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatario *</label>
-              <input type="text" value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
+              <input type="text" required value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
                 className="input-base" placeholder="Nome completo" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
-              <input type="text" value={cpfSignatario} onChange={(e) => setCpfSignatario(e.target.value)}
-                className="input-base" placeholder="000.000.000-00" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
+              <input type="text" required value={cpfSignatario}
+                onChange={(e) => setCpfSignatario(formatCPF(e.target.value))}
+                className="input-base" placeholder="000.000.000-00" maxLength={14} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura *</label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden">
                 <canvas ref={canvasRef} width={500} height={200}
-                  className="w-full cursor-crosshair touch-none"
+                  className="w-full cursor-crosshair touch-none min-h-[150px] sm:min-h-[200px]"
                   onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
                   onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
               </div>
@@ -140,8 +315,8 @@ export default function AssinaturaDigital() {
             </div>
             <div className="flex gap-3">
               <Button variant="secondary" onClick={clearCanvas} icon={Eraser}>Limpar</Button>
-              <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar Assinatura'}
+              <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving || sendingEmail}>
+                {saving ? 'Salvando...' : sendingEmail ? 'Enviando email...' : 'Salvar Assinatura'}
               </Button>
             </div>
           </div>
@@ -153,21 +328,41 @@ export default function AssinaturaDigital() {
             <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {assinaturas.map((sig) => (
-                <div key={sig.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-gray-900">{sig.nomeSignatario}</span>
-                    <StatusBadge status="assinado" />
+              {assinaturas.map((sig) => {
+                const comp = (comprovantes || []).find((c) => c.id === sig.comprovanteId);
+                return (
+                  <div key={sig.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-gray-900">{sig.nomeSignatario}</span>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status="assinado" />
+                        {comp && (
+                          <button
+                            onClick={() => generateComprovantePDF(comp).catch(() => toast.error('Erro ao gerar PDF'))}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Baixar PDF"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {comp && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <FileText className="w-3 h-3" />
+                        <span>{comp.contrato} - {comp.locatario}</span>
+                      </div>
+                    )}
+                    {sig.cpfSignatario && <p className="text-xs text-gray-500">CPF: {sig.cpfSignatario}</p>}
+                    {sig.assinaturaImagem && (
+                      <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
+                    )}
+                    <p className="text-xs text-gray-400">
+                      {sig.dataAssinatura ? formatDateBR(sig.dataAssinatura) : '-'}
+                    </p>
                   </div>
-                  {sig.cpfSignatario && <p className="text-xs text-gray-500">CPF: {sig.cpfSignatario}</p>}
-                  {sig.assinaturaImagem && (
-                    <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
-                  )}
-                  <p className="text-xs text-gray-400">
-                    {sig.dataAssinatura ? new Date(sig.dataAssinatura).toLocaleString('pt-BR') : '-'}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

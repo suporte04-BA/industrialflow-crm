@@ -7,13 +7,16 @@ import ErrorBoundary from './components/layout/ErrorBoundary';
 import Layout from './components/layout/Layout';
 import LoginPage from './components/auth/LoginPage';
 import PrivateRoute from './components/auth/PrivateRoute';
+import RoleGuard from './components/auth/RoleGuard';
 import Dashboard from './pages/Dashboard';
 import OrdensServico from './pages/OrdensServico';
 import Equipamentos from './pages/Equipamentos';
 import Contratos from './pages/Contratos';
 import AssinaturaDigital from './pages/AssinaturaDigital';
 import ComprovanteEntrega from './pages/ComprovanteEntrega';
-import BlocoNotas from './pages/BlocoNotas';
+import HistoricoTransacoes from './pages/HistoricoTransacoes';
+import Perfil from './pages/Perfil';
+import Usuarios from './pages/Usuarios';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,15 +39,17 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/ordens" element={<OrdensServico />} />
-                <Route path="/equipamentos" element={<Equipamentos />} />
-                <Route path="/contratos" element={<Contratos />} />
-                <Route path="/comprovantes" element={<ComprovanteEntrega />} />
-                <Route path="/assinatura" element={<AssinaturaDigital />} />
-                <Route path="/bloco-notas" element={<BlocoNotas />} />
-              </Route>
+               <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+                 <Route path="/" element={<RoleGuard requiredRole="gestor"><Dashboard /></RoleGuard>} />
+                 <Route path="/ordens" element={<RoleGuard requiredRole="gestor"><OrdensServico /></RoleGuard>} />
+                 <Route path="/equipamentos" element={<RoleGuard requiredRole="gestor"><Equipamentos /></RoleGuard>} />
+                 <Route path="/contratos" element={<RoleGuard requiredRole="gestor"><Contratos /></RoleGuard>} />
+                 <Route path="/comprovantes" element={<ComprovanteEntrega />} />
+                 <Route path="/assinatura" element={<AssinaturaDigital />} />
+                 <Route path="/historico" element={<RoleGuard requiredRole="gestor"><HistoricoTransacoes /></RoleGuard>} />
+                 <Route path="/usuarios" element={<RoleGuard requiredRole="gestor"><Usuarios /></RoleGuard>} />
+                 <Route path="/perfil" element={<Perfil />} />
+               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>

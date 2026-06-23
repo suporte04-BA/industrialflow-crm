@@ -1,4 +1,4 @@
-import { Wrench, TrendingUp, DollarSign, Clock, AlertTriangle, FileText, CheckCircle } from 'lucide-react';
+import { Wrench, DollarSign, Clock, AlertTriangle, FileText, CheckCircle, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDashboard } from '../hooks/useDashboard';
 import MetricCard from '../components/ui/MetricCard';
@@ -24,7 +24,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard icon={TrendingUp} title="Equip. Locados" value={metricas.equipamentosLocados} accent="green" />
+        <MetricCard icon={Package} title="Equip. Locados" value={metricas.equipamentosLocados} accent="green" />
         <MetricCard icon={Wrench} title="Equip. Disponiveis" value={metricas.equipamentosDisponiveis} accent="blue" />
         <MetricCard icon={FileText} title="Contratos Ativos" value={metricas.contratosAtivos} accent="yellow" />
         <MetricCard icon={AlertTriangle} title="Contratos Vencendo" value={metricas.contratosVencendo} accent="red" />

@@ -1,8 +1,23 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button';
 
 export default function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Confirmar', danger = false }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch {
+      // Error handled by caller's toast
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -28,12 +43,13 @@ export default function ConfirmDialog({ isOpen, onClose, onConfirm, title, messa
             </div>
             <p className="text-gray-600 mb-6">{message}</p>
             <div className="flex gap-3 justify-end">
-              <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+              <Button variant="secondary" onClick={onClose} disabled={loading}>Cancelar</Button>
               <Button
                 variant={danger ? 'danger' : 'primary'}
-                onClick={() => { onConfirm(); onClose(); }}
+                onClick={handleConfirm}
+                disabled={loading}
               >
-                {confirmLabel}
+                {loading ? 'Processando...' : confirmLabel}
               </Button>
             </div>
           </motion.div>

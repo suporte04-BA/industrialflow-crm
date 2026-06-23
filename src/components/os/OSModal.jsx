@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import Button from '../ui/Button';
 import { useEquipamentos } from '../../hooks/useEquipamentos';
 
@@ -48,7 +49,7 @@ export default function OSModal({ isOpen, onClose, onSave, os = null }) {
       });
       onClose();
     } catch (err) {
-      console.error(err);
+      toast.error('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);
     }

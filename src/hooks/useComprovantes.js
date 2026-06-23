@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
-import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
+import { comprovantes as mockComprovantes } from '../data/mockData';
 
 export function useComprovantes() {
   const queryClient = useQueryClient();
@@ -11,12 +11,22 @@ export function useComprovantes() {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      if (!isConfigured()) return [];
-      const { data, error } = await supabase.from('comprovantes_entrega').select('*').order('created_at', { ascending: false });
-      if (error) throw handleSupabaseError(error);
-      return (data || []).map(toCamel);
+      if (!isConfigured()) {
+        return JSON.parse(localStorage.getItem('comprovantes_local') || 'null') || mockComprovantes;
+      }
+      const { data, error } = await supabase
+        .from('comprovantes_entrega')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        return JSON.parse(localStorage.getItem('comprovantes_local') || 'null') || mockComprovantes;
+      }
+      const items = (data || []).map(toCamel);
+      localStorage.setItem('comprovantes_local', JSON.stringify(items));
+      return items;
     },
-    staleTime: 30000,
+    staleTime: 5000,
+    retry: 1,
   });
 
   useRealtime('comprovantes_entrega', queryClient, queryKey);
@@ -30,12 +40,30 @@ export function useComprovantes() {
   };
 }
 
+function saveToLocal(item) {
+  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+  stored.unshift(item);
+  localStorage.setItem('comprovantes_local', JSON.stringify(stored));
+}
+
+function updateLocal(id, updates) {
+  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+  const idx = stored.findIndex((c) => c.id === id);
+  if (idx >= 0) stored[idx] = { ...stored[idx], ...updates };
+  localStorage.setItem('comprovantes_local', JSON.stringify(stored));
+}
+
+function deleteLocal(id) {
+  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
+  localStorage.setItem('comprovantes_local', JSON.stringify(stored.filter((c) => c.id !== id)));
+}
+
 export function useCreateComprovante() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (newComp) => {
-      if (!isConfigured()) return { id: crypto.randomUUID(), ...newComp };
       const payload = toSnake({
+        contratoId: newComp.contratoId,
         contrato: newComp.contrato,
         atendente: newComp.atendente,
         locatario: newComp.locatario,
@@ -59,11 +87,28 @@ export function useCreateComprovante() {
         status: newComp.status || 'pendente',
         assinado: newComp.assinado || false,
       });
-      const { data, error } = await supabase.from('comprovantes_entrega').insert(payload).select().single();
-      if (error) throw handleSupabaseError(error);
-      return toCamel(data);
+
+      if (isConfigured()) {
+        try {
+          const { data, error } = await supabase
+            .from('comprovantes_entrega')
+            .insert(payload)
+            .select()
+            .single();
+          if (error) throw error;
+          return toCamel(data);
+        } catch {
+          const local = { id: crypto.randomUUID(), ...newComp, createdAt: new Date().toISOString() };
+          saveToLocal(local);
+          return local;
+        }
+      }
+
+      const local = { id: crypto.randomUUID(), ...newComp, createdAt: new Date().toISOString() };
+      saveToLocal(local);
+      return local;
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
     },
   });
@@ -73,13 +118,49 @@ export function useUpdateComprovante() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, updates }) => {
-      if (!isConfigured()) return { id, ...updates };
-      const payload = toSnake(updates);
-      const { data, error } = await supabase.from('comprovantes_entrega').update(payload).eq('id', id).select().single();
-      if (error) throw handleSupabaseError(error);
-      return toCamel(data);
+      if (isConfigured()) {
+        try {
+          const payload = toSnake(updates);
+          const { data, error } = await supabase
+            .from('comprovantes_entrega')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .single();
+          if (error) throw error;
+          return toCamel(data);
+        } catch {
+          updateLocal(id, updates);
+          return { id, ...updates };
+        }
+      }
+      updateLocal(id, updates);
+      return { id, ...updates };
     },
-    onSuccess: () => {
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['assinaturas'] });
+      queryClient.invalidateQueries({ queryKey: ['contratos'] });
+    },
+  });
+}
+
+export function useDeleteComprovante() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      if (isConfigured()) {
+        try {
+          const { error } = await supabase.from('comprovantes_entrega').delete().eq('id', id);
+          if (error) throw error;
+        } catch {
+          deleteLocal(id);
+        }
+      } else {
+        deleteLocal(id);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
     },
   });

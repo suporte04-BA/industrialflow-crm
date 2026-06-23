@@ -2,7 +2,7 @@ import { Menu, Bell, Search } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Header({ title, subtitle, setMobileOpen }) {
-  const [hasNotif] = useState(true);
+  const [hasNotif] = useState(false);
   return (
     <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 lg:px-8 py-4 flex items-center gap-4">
       <button className="lg:hidden text-gray-600 hover:text-gray-900" onClick={() => setMobileOpen(true)}>

@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Trash2, FileText, Search, Edit3, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
+import { Trash2, FileText, Search, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useComprovantes, useUpdateComprovante, useDeleteComprovante } from '../hooks/useComprovantes';
+import { useComprovantes, useDeleteComprovante } from '../hooks/useComprovantes';
 import { useContratos } from '../hooks/useContratos';
 import StatusBadge from '../components/ui/StatusBadge';
-import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
@@ -17,7 +16,6 @@ export default function ComprovanteEntrega() {
 
   const { data: comprovantes, isLoading, isError, error, refetch } = useComprovantes();
   const { data: contratos } = useContratos();
-  const updateComprovante = useUpdateComprovante();
   const deleteComprovante = useDeleteComprovante();
 
   const filteredComprovantes = (comprovantes || []).filter((c) => {

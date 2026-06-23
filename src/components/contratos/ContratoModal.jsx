@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -8,13 +8,44 @@ import { isValidCPF, isValidCNPJ, formatCPFCNPJ, detectDocumentType } from '../.
 
 const emptyItem = { quantidade: 1, descricao: '', patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 };
 
-export default function ContratoModal({ isOpen, onClose, onSave, contrato = null, isRenew = false }) {
-  const isEdit = !!contrato && !isRenew;
-  const [saving, setSaving] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [form, setForm] = useState({
+function getInitialForm(contrato, isRenew) {
+  if (contrato) {
+    return {
+      cliente: contrato.cliente || '',
+      cnpj: contrato.cnpj || '',
+      rg: contrato.rg || '',
+      equipamentos: Array.isArray(contrato.equipamentos) ? contrato.equipamentos : [contrato.equipamentos || ''],
+      numero: contrato.numero || '',
+      dataContrato: contrato.dataContrato || '',
+      horaContrato: contrato.horaContrato || '',
+      atendente: contrato.atendente || '',
+      inicio: isRenew ? new Date().toISOString().split('T')[0] : (contrato.inicio || ''),
+      fim: isRenew ? '' : (contrato.fim || ''),
+      valorTotal: isRenew ? '' : (contrato.valorTotal || ''),
+      valorMensal: contrato.valorMensal || '',
+      status: isRenew ? 'ativo' : (contrato.status || 'ativo'),
+      assinado: isRenew ? false : (contrato.assinado || false),
+      endereco: contrato.endereco || '',
+      numeroEndereco: contrato.numeroEndereco || '',
+      bairro: contrato.bairro || '',
+      cidade: contrato.cidade || '',
+      estado: contrato.estado || '',
+      cep: contrato.cep || '',
+      telefone: contrato.telefone || '',
+      email: contrato.email || '',
+      contato: contrato.contato || '',
+      localEntrega: contrato.localEntrega || '',
+      telefoneEntrega: contrato.telefoneEntrega || '',
+      itens: Array.isArray(contrato.itens) && contrato.itens.length > 0
+        ? contrato.itens.map(it => ({ ...emptyItem, ...it }))
+        : [{ ...emptyItem }],
+      observacao: contrato.observacao || '',
+    };
+  }
+  const now = new Date();
+  return {
     cliente: '', cnpj: '', rg: '', equipamentos: [''],
-    numero: '', dataContrato: '', horaContrato: '', atendente: '',
+    numero: '', dataContrato: now.toISOString().split('T')[0], horaContrato: now.toTimeString().slice(0, 5), atendente: '',
     inicio: '', fim: '', valorTotal: '', valorMensal: '',
     status: 'ativo', assinado: false,
     endereco: '', numeroEndereco: '', bairro: '', cidade: '', estado: '', cep: '',
@@ -22,58 +53,20 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     localEntrega: '', telefoneEntrega: '',
     itens: [{ ...emptyItem }],
     observacao: '',
-  });
+  };
+}
 
-  useEffect(() => {
-    if (contrato) {
-      setForm({
-        cliente: contrato.cliente || '',
-        cnpj: contrato.cnpj || '',
-        rg: contrato.rg || '',
-        equipamentos: Array.isArray(contrato.equipamentos) ? contrato.equipamentos : [contrato.equipamentos || ''],
-        numero: contrato.numero || '',
-        dataContrato: contrato.dataContrato || '',
-        horaContrato: contrato.horaContrato || '',
-        atendente: contrato.atendente || '',
-        inicio: isRenew ? new Date().toISOString().split('T')[0] : (contrato.inicio || ''),
-        fim: isRenew ? '' : (contrato.fim || ''),
-        valorTotal: isRenew ? '' : (contrato.valorTotal || ''),
-        valorMensal: contrato.valorMensal || '',
-        status: isRenew ? 'ativo' : (contrato.status || 'ativo'),
-        assinado: isRenew ? false : (contrato.assinado || false),
-        endereco: contrato.endereco || '',
-        numeroEndereco: contrato.numeroEndereco || '',
-        bairro: contrato.bairro || '',
-        cidade: contrato.cidade || '',
-        estado: contrato.estado || '',
-        cep: contrato.cep || '',
-        telefone: contrato.telefone || '',
-        email: contrato.email || '',
-        contato: contrato.contato || '',
-        localEntrega: contrato.localEntrega || '',
-        telefoneEntrega: contrato.telefoneEntrega || '',
-        itens: Array.isArray(contrato.itens) && contrato.itens.length > 0
-          ? contrato.itens.map(it => ({ ...emptyItem, ...it }))
-          : [{ ...emptyItem }],
-        observacao: contrato.observacao || '',
-      });
-    } else {
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const time = now.toTimeString().slice(0, 5);
-      setForm({
-        cliente: '', cnpj: '', rg: '', equipamentos: [''],
-        numero: '', dataContrato: today, horaContrato: time, atendente: '',
-        inicio: '', fim: '', valorTotal: '', valorMensal: '',
-        status: 'ativo', assinado: false,
-        endereco: '', numeroEndereco: '', bairro: '', cidade: '', estado: '', cep: '',
-        telefone: '', email: '', contato: '',
-        localEntrega: '', telefoneEntrega: '',
-        itens: [{ ...emptyItem }],
-        observacao: '',
-      });
-    }
-  }, [contrato, isOpen, isRenew]);
+export default function ContratoModal({ isOpen, onClose, onSave, contrato = null, isRenew = false }) {
+  const isEdit = !!contrato && !isRenew;
+  const [saving, setSaving] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [formKey, setFormKey] = useState(contrato?.id || 'new');
+  const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
+
+  if (contrato?.id !== formKey || (isOpen && contrato === null && formKey !== 'new')) {
+    setFormKey(contrato?.id || 'new');
+    setForm(getInitialForm(contrato, isRenew));
+  }
 
   const addEquipamento = () => setForm({ ...form, equipamentos: [...form.equipamentos, ''] });
   const removeEquipamento = (idx) => setForm({ ...form, equipamentos: form.equipamentos.filter((_, i) => i !== idx) });

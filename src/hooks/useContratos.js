@@ -3,7 +3,7 @@ import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
-import { contratos as mockContratos, comprovantes as mockComprovantes } from '../data/mockData';
+import { contratos as mockContratos } from '../data/mockData';
 
 const LOCAL_KEY = 'contratos_local';
 const COMP_LOCAL_KEY = 'comprovantes_local';
@@ -101,6 +101,7 @@ export function useContratos(filters = {}) {
 
 export function useCreateContrato() {
   const queryClient = useQueryClient();
+  const emailRecipient = 'gestores@transobra.com.br';
   return useMutation({
     mutationFn: async (newCt) => {
       const now = new Date();
@@ -219,33 +220,39 @@ export function useCreateContrato() {
           assinado: false,
         });
         try {
-          const { error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload);
+          const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
           if (compErr) console.error('Erro ao criar comprovante:', compErr);
+          else {
+            try {
+              await fetch('/api/email/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  tipo: 'contrato_criado',
+                  contrato_id: ctSaved.id,
+                  comprovante_id: compData.id,
+                  destinatario: emailRecipient,
+                  contrato: {
+                    id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg,
+                    equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
+                    valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
+                    atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
+                    endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
+                    cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
+                    telefone: ctSaved.telefone, email: ctSaved.email, contato: ctSaved.contato,
+                  },
+                  comprovante: {
+                    id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg,
+                    endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
+                    itens: ctSaved.itens, localEntrega: ctSaved.localEntrega,
+                  },
+                }),
+              });
+            } catch { /* email non-blocking */ }
+          }
         } catch (e) {
           console.error('Falha ao criar comprovante:', e);
         }
-
-        try {
-          await fetch('/api/email/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tipo: 'contrato_criado',
-              contrato_id: ctSaved.id,
-              contrato: {
-                id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg,
-                equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
-                valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
-                atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
-                endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
-              },
-              comprovante: {
-                id: compPayload.contrato_id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg,
-                endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
-              },
-            }),
-          });
-        } catch { /* email non-blocking */ }
 
         return ctSaved;
       }

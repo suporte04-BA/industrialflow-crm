@@ -24,56 +24,32 @@ const funcionarioNav = [
   { label: 'Meu Perfil', icon: User, path: '/perfil' },
 ];
 
-export default function Sidebar({ mobileOpen, setMobileOpen }) {
+function NavLink({ item, onNavigate }) {
   const location = useLocation();
-  const { user, profile, logout, isGestor, viewRole, setViewRole } = useAuth();
-  const currentRole = viewRole || profile?.role || 'gestor';
-  const navItems = isGestor ? gestorNav : funcionarioNav;
-  const navItemsSec = isGestor ? gestorNavSec : [];
-  const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
-  const userEmail = profile?.email || user?.email || 'admin@transobra.com';
-  const userRole = currentRole === 'admin' ? 'Admin' : currentRole === 'gestor' ? 'Gestor' : 'Funcionario';
-  const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  const isActive = location.pathname === item.path;
+  return (
+    <Link to={item.path} onClick={onNavigate}
+      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg mx-3 transition-all duration-150 group ${isActive ? 'bg-yellow-400 text-[#1C1C1C] font-semibold shadow-sm' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+      <item.icon size={16} className={isActive ? 'text-[#1C1C1C]' : 'text-gray-500 group-hover:text-white flex-shrink-0'} />
+      <span className="text-[13px]">{item.label}</span>
+      {isActive && <ChevronRight size={12} className="ml-auto text-[#1C1C1C] opacity-60" />}
+    </Link>
+  );
+}
 
-  const handleLogout = async () => {
-    await logout();
-    toast.success('Logout realizado!');
-    window.location.href = '/login';
-  };
-
-  const switchRole = (newRole) => {
-    setViewRole(newRole);
-    toast.success(`Visualizando como ${newRole === 'gestor' ? 'Gestor' : 'Funcionario'}`);
-  };
-
-  const NavLink = ({ item }) => {
-    const isActive = location.pathname === item.path;
-    return (
-      <Link to={item.path} onClick={() => setMobileOpen(false)}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-lg mx-3 transition-all duration-150 group ${isActive ? 'bg-yellow-400 text-[#1C1C1C] font-semibold shadow-sm' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-        <item.icon size={16} className={isActive ? 'text-[#1C1C1C]' : 'text-gray-500 group-hover:text-white flex-shrink-0'} />
-        <span className="text-[13px]">{item.label}</span>
-        {isActive && <ChevronRight size={12} className="ml-auto text-[#1C1C1C] opacity-60" />}
-      </Link>
-    );
-  };
-
-  const SidebarContent = () => (
+function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate }) {
+  return (
     <>
-      <div className="flex items-center justify-center px-4 py-4 border-b border-white/5">
-        <img src="/logo.jpg" alt="TransObra" className="h-9 w-auto" />
-      </div>
-
       <div className="flex-1 overflow-y-auto py-3">
         <nav className="space-y-0.5">
-          {navItems.map(item => <NavLink key={item.path} item={item} />)}
+          {navItems.map(item => <NavLink key={item.path} item={item} onNavigate={onNavigate} />)}
         </nav>
 
         {navItemsSec.length > 0 && (
           <>
             <div className="mx-5 my-3 border-t border-white/5" />
             <nav className="space-y-0.5">
-              {navItemsSec.map(item => <NavLink key={item.path} item={item} />)}
+              {navItemsSec.map(item => <NavLink key={item.path} item={item} onNavigate={onNavigate} />)}
             </nav>
           </>
         )}
@@ -112,11 +88,40 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
       </div>
     </>
   );
+}
+
+export default function Sidebar({ mobileOpen, setMobileOpen }) {
+  const { user, profile, logout, isGestor, viewRole, setViewRole } = useAuth();
+  const currentRole = viewRole || profile?.role || 'gestor';
+  const navItems = isGestor ? gestorNav : funcionarioNav;
+  const navItemsSec = isGestor ? gestorNavSec : [];
+  const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
+  const userEmail = profile?.email || user?.email || 'admin@transobra.com';
+  const userRole = currentRole === 'admin' ? 'Admin' : currentRole === 'gestor' ? 'Gestor' : 'Funcionario';
+  const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const handleLogout = async () => {
+    await logout();
+    toast.success('Logout realizado!');
+    window.location.href = '/login';
+  };
+
+  const switchRole = (newRole) => {
+    setViewRole(newRole);
+    toast.success(`Visualizando como ${newRole === 'gestor' ? 'Gestor' : 'Funcionario'}`);
+  };
+
+  const onNavigate = () => setMobileOpen(false);
+
+  const sidebarProps = { navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate };
 
   return (
     <>
       <aside className="hidden lg:flex flex-col w-60 min-h-screen bg-[#1C1C1C] fixed left-0 top-0 z-30">
-        <SidebarContent />
+        <div className="flex items-center justify-center px-4 py-4 border-b border-white/5">
+          <img src="/logo.jpg" alt="TransObra" className="h-9 w-auto" />
+        </div>
+        <SidebarContent {...sidebarProps} />
       </aside>
 
       {mobileOpen && <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />}
@@ -126,7 +131,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           <img src="/logo.jpg" alt="TransObra" className="h-8 w-auto" />
           <button onClick={() => setMobileOpen(false)} className="text-gray-400 hover:text-white p-1"><X size={18} /></button>
         </div>
-        <SidebarContent />
+        <SidebarContent {...sidebarProps} />
       </aside>
     </>
   );

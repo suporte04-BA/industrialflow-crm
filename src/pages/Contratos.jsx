@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';

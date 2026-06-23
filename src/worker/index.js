@@ -308,18 +308,19 @@ export default {
           : `Contrato ${contrato?.numero || contrato?.id || comprovante?.contrato || ''} assinado`;
 
         try {
+          const logSignatario = signatario ? { nome: signatario.nome, cpf: signatario.cpf, data: signatario.data } : null;
           await supabaseRequest(env, 'POST', '/email_logs', {
             contrato_id: contrato_id || null,
             comprovante_id: comprovante_id || null,
             destinatario,
             assunto,
-            corpo: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario }),
+            corpo: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario: logSignatario }),
             status: emailStatus,
             erro_msg: erroMsg,
           });
         } catch { /* email logging is best-effort */ }
 
-        return json({ success: true, status: emailStatus }, 200, corsHeaders);
+        return json({ success: emailStatus === 'enviado', status: emailStatus }, emailStatus === 'enviado' ? 200 : 500, corsHeaders);
       }
 
       if (path.startsWith('/api/edge/')) {

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Trash2, FileText, Search, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
+import { Trash2, FileText, Search, ChevronDown, ChevronUp, Building2, Download, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useComprovantes, useDeleteComprovante } from '../hooks/useComprovantes';
 import { useContratos } from '../hooks/useContratos';
+import { useDevolucoes } from '../hooks/useDevolucoes';
+import { generateEntregaPDF } from '../lib/pdfExport';
 import StatusBadge from '../components/ui/StatusBadge';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
@@ -16,6 +18,7 @@ export default function ComprovanteEntrega() {
 
   const { data: comprovantes, isLoading, isError, error, refetch } = useComprovantes();
   const { data: contratos } = useContratos();
+  const { data: devolucoes } = useDevolucoes();
   const deleteComprovante = useDeleteComprovante();
 
   const filteredComprovantes = (comprovantes || []).filter((c) => {
@@ -31,6 +34,7 @@ export default function ComprovanteEntrega() {
   });
 
   const getContrato = (contratoId) => (contratos || []).find((c) => c.id === contratoId);
+  const hasDevolucao = (comprovanteId) => (devolucoes || []).some((d) => d.comprovanteId === comprovanteId);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -40,6 +44,15 @@ export default function ComprovanteEntrega() {
       setDeleteTarget(null);
     } catch {
       toast.error('Erro ao excluir');
+    }
+  };
+
+  const handleGeneratePDF = async (comprovante) => {
+    try {
+      await generateEntregaPDF(comprovante);
+      toast.success('PDF gerado com sucesso!');
+    } catch {
+      toast.error('Erro ao gerar PDF');
     }
   };
 
@@ -79,6 +92,7 @@ export default function ComprovanteEntrega() {
           {filteredComprovantes.map((c) => {
             const contratoData = c.contratoId ? getContrato(c.contratoId) : null;
             const isExpanded = expandedId === c.id;
+            const jaDevolvido = hasDevolucao(c.id);
             return (
               <div key={c.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
@@ -87,6 +101,7 @@ export default function ComprovanteEntrega() {
                       <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.contrato}</span>
                       <StatusBadge status={c.status} />
                       {c.assinado && <StatusBadge status="assinado" />}
+                      {jaDevolvido && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Devolvido</span>}
                       {contratoData && (
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : c.id)}
@@ -102,6 +117,7 @@ export default function ComprovanteEntrega() {
                       {c.endereco && <p className="truncate">{c.endereco}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}</p>}
                       {c.telefone && <p>{c.telefone}</p>}
                       {c.cidade && <p>{c.cidade}{c.estado ? `/${c.estado}` : ''}</p>}
+                      {c.signatarioNome && <p className="text-xs text-green-600">Assinado por: {c.signatarioNome}</p>}
                     </div>
                     {c.itens && c.itens.length > 0 && (
                       <p className="text-xs text-gray-400 mt-1">{c.itens.length} item(ns)</p>
@@ -110,6 +126,14 @@ export default function ComprovanteEntrega() {
                   <div className="text-right flex-shrink-0">
                     <p className="text-lg font-bold text-green-600">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     <div className="flex gap-1 mt-2">
+                      <button onClick={() => handleGeneratePDF(c)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Gerar PDF Entrega">
+                        <Download className="w-4 h-4" />
+                      </button>
+                      {c.assinado && !jaDevolvido && (
+                        <span className="p-1.5 text-gray-300" title="Nao assinado - devolucao indisponivel">
+                          <RotateCcw className="w-4 h-4" />
+                        </span>
+                      )}
                       <button onClick={() => setDeleteTarget(c)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -128,6 +152,9 @@ export default function ComprovanteEntrega() {
                       <div><span className="text-gray-500">Fim:</span> <span className="font-medium">{contratoData.fim || '-'}</span></div>
                       <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(contratoData.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
                       <div className="sm:col-span-3"><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(contratoData.equipamentos) ? contratoData.equipamentos.join(', ') : '-'}</span></div>
+                      {contratoData.numero && <div><span className="text-gray-500">Numero:</span> <span className="font-medium">{contratoData.numero}</span></div>}
+                      {contratoData.metodoEntrega && <div><span className="text-gray-500">Metodo:</span> <span className="font-medium">{contratoData.metodoEntrega === 'cliente_retirada' ? 'Cliente retira' : 'Locadora entrega'}</span></div>}
+                      {contratoData.referencia && <div><span className="text-gray-500">Referencia:</span> <span className="font-medium">{contratoData.referencia}</span></div>}
                     </div>
                   </div>
                 )}

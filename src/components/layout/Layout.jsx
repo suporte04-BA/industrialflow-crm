@@ -9,6 +9,7 @@ const pageTitles = {
   '/equipamentos': { title: 'Equipamentos', subtitle: 'Locacoes e disponibilidade' },
   '/contratos': { title: 'Contratos', subtitle: 'Contratos ativos, vencendo e vencidos' },
   '/comprovantes': { title: 'Comprovantes de Entrega', subtitle: 'Bens locados entregues e registrados' },
+  '/devolucoes': { title: 'Devolucoes', subtitle: 'Devolucao de bens locados' },
   '/assinatura': { title: 'Assinatura Digital', subtitle: 'Assine contratos e documentos' },
   '/historico': { title: 'Historico de Transacoes', subtitle: 'Todas as movimentacoes do sistema' },
   '/usuarios': { title: 'Gestao de Usuarios', subtitle: 'Cadastrar e gerenciar funcoes' },

@@ -11,7 +11,7 @@ import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import { formatDateBR } from '../lib/dates';
 import { isConfigured } from '../lib/supabase';
-import { generateComprovantePDF } from '../lib/pdfExport';
+import { generateEntregaPDF } from '../lib/pdfExport';
 import { isValidCPF, isValidCNPJ, formatCPF, formatCNPJ } from '../lib/validation';
 
 export default function AssinaturaDigital() {
@@ -229,7 +229,7 @@ export default function AssinaturaDigital() {
         );
 
         try {
-          await generateComprovantePDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString() });
+          await generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString() });
         } catch {
           // PDF generation failure is non-blocking
         }
@@ -372,7 +372,7 @@ export default function AssinaturaDigital() {
                         <StatusBadge status="assinado" />
                         {comp && (
                           <button
-                            onClick={() => generateComprovantePDF(comp).catch(() => toast.error('Erro ao gerar PDF'))}
+                            onClick={() => generateEntregaPDF(comp).catch(() => toast.error('Erro ao gerar PDF'))}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Baixar PDF"
                           >

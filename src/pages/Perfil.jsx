@@ -6,7 +6,7 @@ import { useContratos } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
-import { generateComprovantePDF } from '../lib/pdfExport';
+import { generateEntregaPDF } from '../lib/pdfExport';
 
 export default function Perfil() {
   const { user, profile, viewRole, setViewRole } = useAuth();
@@ -25,7 +25,7 @@ export default function Perfil() {
 
   const handleExportPDF = async (comprovante) => {
     try {
-      await generateComprovantePDF(comprovante);
+      await generateEntregaPDF(comprovante);
       toast.success('PDF gerado com sucesso!');
     } catch {
       toast.error('Erro ao gerar PDF');

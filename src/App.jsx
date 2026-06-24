@@ -6,6 +6,7 @@ import ErrorBoundary from './components/layout/ErrorBoundary';
 
 import Layout from './components/layout/Layout';
 import LoginPage from './components/auth/LoginPage';
+import RegisterPage from './components/auth/RegisterPage';
 import PrivateRoute from './components/auth/PrivateRoute';
 import RoleGuard from './components/auth/RoleGuard';
 import Dashboard from './pages/Dashboard';
@@ -14,6 +15,7 @@ import Equipamentos from './pages/Equipamentos';
 import Contratos from './pages/Contratos';
 import AssinaturaDigital from './pages/AssinaturaDigital';
 import ComprovanteEntrega from './pages/ComprovanteEntrega';
+import DevolucaoEntrega from './pages/DevolucaoEntrega';
 import HistoricoTransacoes from './pages/HistoricoTransacoes';
 import Perfil from './pages/Perfil';
 import Usuarios from './pages/Usuarios';
@@ -39,12 +41,14 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/cadastro" element={<RegisterPage />} />
                <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
                  <Route path="/" element={<RoleGuard requiredRole="gestor"><Dashboard /></RoleGuard>} />
                  <Route path="/ordens" element={<RoleGuard requiredRole="gestor"><OrdensServico /></RoleGuard>} />
                  <Route path="/equipamentos" element={<RoleGuard requiredRole="gestor"><Equipamentos /></RoleGuard>} />
                  <Route path="/contratos" element={<RoleGuard requiredRole="gestor"><Contratos /></RoleGuard>} />
                  <Route path="/comprovantes" element={<ComprovanteEntrega />} />
+                 <Route path="/devolucoes" element={<RoleGuard requiredRole="gestor"><DevolucaoEntrega /></RoleGuard>} />
                  <Route path="/assinatura" element={<AssinaturaDigital />} />
                  <Route path="/historico" element={<RoleGuard requiredRole="gestor"><HistoricoTransacoes /></RoleGuard>} />
                  <Route path="/usuarios" element={<RoleGuard requiredRole="gestor"><Usuarios /></RoleGuard>} />

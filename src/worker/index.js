@@ -277,34 +277,55 @@ export default {
         const parsed = await parseBody(request);
         if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
         const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
-        const destinatario = reqDest || env.EMAIL_RECIPIENT || 'gestores@transobra.com.br';
         const emailTipo = tipo || 'contrato_assinado';
 
-        let emailStatus = 'pendente';
-        let erroMsg = null;
-
-        try {
-          const edgeRes = await fetch(`${env.SUPABASE_URL}/functions/v1/send-email`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, destinatario }),
-          });
-          const edgeData = await edgeRes.json();
-          if (edgeRes.ok && edgeData.success && !edgeData.skipped) {
-            emailStatus = 'enviado';
-          } else if (edgeData.skipped) {
-            emailStatus = 'skipped';
-          } else {
-            erroMsg = edgeData.error ? JSON.stringify(edgeData.error) : 'Edge function failed';
-            emailStatus = 'erro';
+        let recipients = [];
+        if (reqDest) {
+          recipients = [reqDest];
+        } else {
+          try {
+            const profilesResult = await supabaseRequest(env, 'GET', '/profiles?role=eq.gestor&select=email', null, authHeader);
+            if (profilesResult.data && Array.isArray(profilesResult.data) && profilesResult.data.length > 0) {
+              recipients = profilesResult.data.map((p) => p.email).filter(Boolean);
+            }
+          } catch { /* fallback below */ }
+          if (recipients.length === 0) {
+            recipients = [env.EMAIL_RECIPIENT || 'suporte04@baeletrica.com.br'];
           }
-        } catch (e) {
-          erroMsg = e.message;
-          emailStatus = 'erro';
         }
+
+        let lastStatus = 'pendente';
+        let lastError = null;
+        let sentCount = 0;
+
+        for (const recipient of recipients) {
+          try {
+            const edgeRes = await fetch(`${env.SUPABASE_URL}/functions/v1/send-email`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, destinatario: recipient }),
+            });
+            const edgeData = await edgeRes.json();
+            if (edgeRes.ok && edgeData.success && !edgeData.skipped) {
+              sentCount++;
+              lastStatus = 'enviado';
+            } else if (edgeData.skipped) {
+              lastStatus = 'skipped';
+            } else {
+              lastError = edgeData.error ? JSON.stringify(edgeData.error) : 'Edge function failed';
+              lastStatus = 'erro';
+            }
+          } catch (e) {
+            lastError = e.message;
+            lastStatus = 'erro';
+          }
+        }
+
+        const emailStatus = sentCount > 0 ? 'enviado' : lastStatus;
+        const erroMsg = sentCount > 0 ? null : lastError;
 
         const assunto = emailTipo === 'contrato_criado'
           ? `Novo Contrato ${contrato?.numero || contrato?.id || ''} - ${contrato?.cliente || ''}`
@@ -315,7 +336,7 @@ export default {
           await supabaseRequest(env, 'POST', '/email_logs', {
             contrato_id: contrato_id || null,
             comprovante_id: comprovante_id || null,
-            destinatario,
+            destinatario: recipients.join(', '),
             assunto,
             corpo: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario: logSignatario }),
             status: emailStatus,
@@ -323,7 +344,7 @@ export default {
           });
         } catch { /* email logging is best-effort */ }
 
-        return json({ success: emailStatus === 'enviado' || emailStatus === 'skipped', status: emailStatus }, emailStatus === 'erro' ? 500 : 200, corsHeaders);
+        return json({ success: emailStatus === 'enviado' || emailStatus === 'skipped', status: emailStatus, sentTo: sentCount }, emailStatus === 'erro' ? 500 : 200, corsHeaders);
       }
 
       if (path.startsWith('/api/edge/')) {
@@ -360,10 +381,9 @@ export default {
 
     const reqPath = new URL(request.url).pathname;
 
-    if (reqPath === '/' || reqPath === '/index.html') {
-      const jsFile = env.INDEX_JS_FILE || 'index-Ch1GkO0o.js';
-      const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
-      const indexHtml = `<!doctype html>
+    const jsFile = env.INDEX_JS_FILE || 'index-BrcjcaDv.js';
+    const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+    const indexHtml = `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -380,6 +400,8 @@ export default {
     <div id="root"></div>
   </body>
 </html>`;
+
+    if (reqPath === '/' || reqPath === '/index.html') {
       return new Response(indexHtml, {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' },

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, LogOut, User, History, Users } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, LogOut, User, History, Users, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
 
@@ -9,6 +9,7 @@ const gestorNav = [
   { label: 'Equipamentos', icon: Package, path: '/equipamentos' },
   { label: 'Contratos', icon: FileText, path: '/contratos' },
   { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
+  { label: 'Devolucoes', icon: RotateCcw, path: '/devolucoes' },
   { label: 'Assinatura Digital', icon: PenLine, path: '/assinatura' },
 ];
 

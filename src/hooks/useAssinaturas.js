@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isConfigured, storage } from '../lib/supabase';
+import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
 import { useRealtime } from './useRealtime';
 
@@ -43,20 +43,11 @@ export function useCreateAssinatura() {
     mutationFn: async ({ comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem }) => {
       if (isConfigured()) {
         try {
-          let imagemUrl = assinaturaImagem;
-          if (assinaturaImagem && assinaturaImagem.startsWith('data:image')) {
-            const blob = await fetch(assinaturaImagem).then((r) => r.blob());
-            const fileName = `assinaturas/${comprovanteId || 'temp'}_${Date.now()}.png`;
-            const uploadResult = await storage.upload('assinaturas', fileName, blob);
-            if (!uploadResult.error) {
-              imagemUrl = await storage.getUrl('assinaturas', fileName);
-            }
-          }
           const payload = toSnake({
             comprovanteId,
             nomeSignatario,
             cpfSignatario,
-            assinaturaImagem: imagemUrl,
+            assinaturaImagem: assinaturaImagem || null,
             ipAddress: null,
           });
           const { data, error } = await supabase.from('assinaturas').insert(payload).select().single();

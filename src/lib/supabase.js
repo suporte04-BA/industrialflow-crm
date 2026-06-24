@@ -47,15 +47,19 @@ export const signIn = async (email, password) => {
 };
 
 export const signInByName = async (name, password) => {
-  const email = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, '')
-    .trim() + '@transobra.local';
+  if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('email')
+    .ilike('full_name', `%${name}%`)
+    .limit(1);
+
+  if (!profiles || profiles.length === 0) {
+    return { data: null, error: { message: 'Usuario nao encontrado. Use o email para entrar.' } };
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email: profiles[0].email, password });
   return { data, error };
 };
 

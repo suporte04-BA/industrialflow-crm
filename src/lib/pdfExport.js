@@ -1,4 +1,11 @@
-import html2pdf from 'html2pdf.js';
+let html2pdfModule = null;
+
+async function getHtml2pdf() {
+  if (!html2pdfModule) {
+    html2pdfModule = await import('html2pdf.js');
+  }
+  return html2pdfModule.default;
+}
 
 const EMPRESA = {
   nome: 'EQUILOC LTDA - TRANS OBRA',
@@ -173,7 +180,7 @@ export async function generateEntregaPDF(comprovante) {
       <p style="margin-top:12px;font-size:10px;font-style:italic;">${esc(getMetodoEntregaText(c.metodoEntrega))}</p>` : ''}
     </div>`;
 
-  await html2pdf()
+  await (await getHtml2pdf())()
     .set({
       margin: [10, 10, 15, 10],
       filename: `comprovante-entrega-${c.numero || c.contrato || 'doc'}.pdf`,
@@ -264,7 +271,7 @@ export async function generateDevolucaoPDF(devolucao) {
       <p style="margin-top:12px;font-size:10px;font-style:italic;">${esc(getMetodoEntregaText(d.metodoEntrega))}</p>` : ''}
     </div>`;
 
-  await html2pdf()
+  await (await getHtml2pdf())()
     .set({
       margin: [10, 10, 15, 10],
       filename: `comprovante-devolucao-${d.numero || 'doc'}.pdf`,
@@ -352,7 +359,7 @@ export async function generateContratoPDF(contrato) {
       <p style="margin-top:12px;font-size:10px;font-style:italic;">${esc(getMetodoEntregaText(contrato.metodoEntrega))}</p>` : ''}
     </div>`;
 
-  await html2pdf()
+  await (await getHtml2pdf())()
     .set({
       margin: [10, 10, 15, 10],
       filename: `contrato-${contrato.numero || contrato.id || 'doc'}.pdf`,

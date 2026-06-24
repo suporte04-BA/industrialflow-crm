@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { supabase, isConfigured } from '../lib/supabase';
 
 export function useRealtime(table, queryClient, queryKey, options = {}) {
-  const keyStr = JSON.stringify(queryKey);
+  const keyStr = useMemo(() => JSON.stringify(queryKey), [queryKey]);
   const prevKeyRef = useRef(keyStr);
 
   useEffect(() => {

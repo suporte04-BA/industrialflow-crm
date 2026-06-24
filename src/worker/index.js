@@ -392,7 +392,7 @@ export default {
           return new Response(assetResponse.body, { status: 200, headers });
         }
       }
-      const jsFile = env.INDEX_JS_FILE || 'index-p7LP6f54.js';
+      const jsFile = env.INDEX_JS_FILE || 'index-C9ZDZRgn.js';
       const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
       const indexHtml = `<!doctype html>
 <html lang="pt-BR">
@@ -427,7 +427,7 @@ export default {
         return new Response(assetResponse.body, { status: assetResponse.status, headers });
       }
     }
-    const jsFile = env.INDEX_JS_FILE || 'index-p7LP6f54.js';
+    const jsFile = env.INDEX_JS_FILE || 'index-C9ZDZRgn.js';
     const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
     const spaHtml = `<!doctype html>
 <html lang="pt-BR">

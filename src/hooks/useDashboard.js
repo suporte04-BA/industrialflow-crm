@@ -56,7 +56,7 @@ export function useDashboard() {
         if (i === 0) {
           receitaMesData.push(receitaMensal);
         } else {
-          const variacao = 0.85 + Math.random() * 0.3;
+          const variacao = 0.85 + (i * 0.05);
           receitaMesData.push(Math.round(receitaMensal * variacao));
         }
       }

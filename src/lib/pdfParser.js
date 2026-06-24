@@ -1,13 +1,20 @@
-import * as pdfjsLib from 'pdfjs-dist';
+let pdfjsLib = null;
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+async function getPdfjs() {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  }
+  return pdfjsLib;
+}
 
 export async function extractTextFromPDF(file) {
+  const lib = await getPdfjs();
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
 
   let fullText = '';
   const maxPages = Math.min(pdf.numPages, 5);

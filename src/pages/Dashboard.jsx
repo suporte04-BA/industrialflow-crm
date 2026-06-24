@@ -1,10 +1,12 @@
+import { lazy, Suspense } from 'react';
 import { Wrench, DollarSign, Clock, AlertTriangle, FileText, CheckCircle, Package } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDashboard } from '../hooks/useDashboard';
 import MetricCard from '../components/ui/MetricCard';
 import StatusBadge from '../components/ui/StatusBadge';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
+
+const RevenueChart = lazy(() => import('../components/charts/RevenueChart'));
 
 export default function Dashboard() {
   const { data, isLoading, isError, error, refetch } = useDashboard();
@@ -34,15 +36,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Receita Mensal</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={metricas.receitaMes.map((v, i) => ({ name: metricas.meses[i], valor: v }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(v) => `R$ ${v.toLocaleString('pt-BR')}`} />
-              <Bar dataKey="valor" fill="#FFC107" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Carregando grafico...</div>}>
+            <RevenueChart data={metricas.receitaMes.map((v, i) => ({ name: metricas.meses[i], valor: v }))} />
+          </Suspense>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">

@@ -382,24 +382,17 @@ export default {
     const reqPath = new URL(request.url).pathname;
 
     if (reqPath === '/' || reqPath === '/index.html') {
-      if (env.ASSETS) {
-        const assetResponse = await env.ASSETS.fetch(new Request(new URL('/index.html', request.url).toString(), request));
-        if (assetResponse.ok) {
-          const headers = new Headers(assetResponse.headers);
-          headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-          headers.set('Content-Type', 'text/html;charset=UTF-8');
-          Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
-          return new Response(assetResponse.body, { status: 200, headers });
-        }
-      }
-      const jsFile = env.INDEX_JS_FILE || 'index-C9ZDZRgn.js';
-      const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+      const jsFile = env.INDEX_JS_FILE || 'index-DGoixlXO.js';
+      const cssFile = env.INDEX_CSS_FILE || 'index-RAn_iVks.css';
       const indexHtml = `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>TransObra - Locacao de Equipamentos</title>
     <meta name="description" content="Sistema CRM para gestao de locacao de equipamentos industriais - TransObra" />
     <meta property="og:title" content="TransObra - Locacao de Equipamentos" />
@@ -417,24 +410,40 @@ export default {
       });
     }
 
-    if (env.ASSETS) {
-      const assetResponse = await env.ASSETS.fetch(request);
-      if (assetResponse.status !== 404) {
-        const headers = new Headers(assetResponse.headers);
-        if (reqPath.startsWith('/assets/')) {
+    if (reqPath.startsWith('/assets/')) {
+      if (env.ASSETS) {
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status !== 404) {
+          const headers = new Headers(assetResponse.headers);
           headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+          return new Response(assetResponse.body, { status: assetResponse.status, headers });
         }
-        return new Response(assetResponse.body, { status: assetResponse.status, headers });
+      }
+      return new Response('Not found', { status: 404 });
+    }
+
+    if (reqPath === '/logo.jpg' || reqPath === '/icons.svg' || reqPath === '/favicon.svg') {
+      if (env.ASSETS) {
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status !== 404) {
+          const headers = new Headers(assetResponse.headers);
+          headers.set('Cache-Control', 'public, max-age=86400');
+          return new Response(assetResponse.body, { status: assetResponse.status, headers });
+        }
       }
     }
-    const jsFile = env.INDEX_JS_FILE || 'index-C9ZDZRgn.js';
-    const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+
+    const jsFile = env.INDEX_JS_FILE || 'index-DGoixlXO.js';
+    const cssFile = env.INDEX_CSS_FILE || 'index-RAn_iVks.css';
     const spaHtml = `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>TransObra - Locacao de Equipamentos</title>
     <script type="module" crossorigin src="/assets/${jsFile}"></script>
     <link rel="stylesheet" crossorigin href="/assets/${cssFile}">
@@ -445,7 +454,7 @@ export default {
 </html>`;
     return new Response(spaHtml, {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8' },
+      headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
   },
 };

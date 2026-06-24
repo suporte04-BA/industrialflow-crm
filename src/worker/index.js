@@ -381,9 +381,20 @@ export default {
 
     const reqPath = new URL(request.url).pathname;
 
-    const jsFile = env.INDEX_JS_FILE || 'index-BrcjcaDv.js';
-    const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
-    const indexHtml = `<!doctype html>
+    if (reqPath === '/' || reqPath === '/index.html') {
+      if (env.ASSETS) {
+        const assetResponse = await env.ASSETS.fetch(new Request(new URL('/index.html', request.url).toString(), request));
+        if (assetResponse.ok) {
+          const headers = new Headers(assetResponse.headers);
+          headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+          headers.set('Content-Type', 'text/html;charset=UTF-8');
+          Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
+          return new Response(assetResponse.body, { status: 200, headers });
+        }
+      }
+      const jsFile = env.INDEX_JS_FILE || 'index-p7LP6f54.js';
+      const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+      const indexHtml = `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -400,8 +411,6 @@ export default {
     <div id="root"></div>
   </body>
 </html>`;
-
-    if (reqPath === '/' || reqPath === '/index.html') {
       return new Response(indexHtml, {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
@@ -418,7 +427,23 @@ export default {
         return new Response(assetResponse.body, { status: assetResponse.status, headers });
       }
     }
-    return new Response(indexHtml, {
+    const jsFile = env.INDEX_JS_FILE || 'index-p7LP6f54.js';
+    const cssFile = env.INDEX_CSS_FILE || 'index-B7r_zAMl.css';
+    const spaHtml = `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TransObra - Locacao de Equipamentos</title>
+    <script type="module" crossorigin src="/assets/${jsFile}"></script>
+    <link rel="stylesheet" crossorigin href="/assets/${cssFile}">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
+    return new Response(spaHtml, {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'text/html;charset=UTF-8' },
     });

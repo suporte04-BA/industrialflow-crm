@@ -28,22 +28,25 @@ export default function RegisterPage() {
       const { data, error } = await signUp(form.email, form.password, form.fullName);
       if (error) throw error;
 
-      if (data.user) {
+      if (data.session) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
+          .upsert({
             id: data.user.id,
             full_name: form.fullName,
             email: form.email,
             role: 'funcionario',
-          });
-        if (profileError) {
-          console.error('Profile insert error:', profileError);
-        }
+          }, { onConflict: 'id' });
+        if (profileError) console.error('Profile insert error:', profileError);
+        toast.success('Conta criada com sucesso!');
+        navigate('/');
+      } else if (data.user) {
+        toast.success('Conta criada! Verifique seu email para confirmar e depois faca login.');
+        navigate('/login');
+      } else {
+        toast.success('Conta criada! Faca login para acessar.');
+        navigate('/login');
       }
-
-      toast.success('Conta criada com sucesso! Faca login para acessar.');
-      navigate('/login');
     } catch (err) {
       if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
         toast.error('Este email ja esta cadastrado. Faca login.');

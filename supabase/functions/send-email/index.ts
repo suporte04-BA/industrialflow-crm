@@ -155,6 +155,59 @@ function buildContratoAssinadoHTML(data) {
     </div>`;
 }
 
+
+function buildDevolucaoHTML(data: any): string {
+  const d = data.devolucao || {};
+  const itens = d.itens || [];
+  
+  let itensHtml = '';
+  for (const it of itens) {
+    itensHtml += `<tr>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px">${it.descricao || '-'}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px;text-align:center">${it.quantidade || 0}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px;text-align:center">${it.qtdDevolvida || 0}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px">${it.patrimonio || '-'}</td>
+    </tr>`;
+  }
+
+  const condicoes = d.condicoes || {};
+  let condicoesHtml = '';
+  if (condicoes.danificado) condicoesHtml += '<span style="color:#ea580c">Danificado/Sujo </span>';
+  if (condicoes.extraviado) condicoesHtml += '<span style="color:#dc2626">Extraviado/Roubado </span>';
+  if (condicoes.testarEmpresa) condicoesHtml += '<span style="color:#2563eb">Testar na empresa </span>';
+
+  return `
+  <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+    <div style="background:#1C1C1C;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+      <h1 style="margin:0;font-size:18px">Devolucao Registrada - TransObra</h1>
+      <p style="margin:4px 0 0;font-size:13px;opacity:0.8">Comprovante de devolucao dos bens locados</p>
+    </div>
+    <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+      <h2 style="margin:0 0 12px;font-size:15px;color:#1C1C1C">Dados da Devolucao</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><td style="padding:4px 0;color:#6b7280;width:120px">Numero</td><td style="padding:4px 0;font-weight:600">${d.numero || '-'}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Contrato</td><td style="padding:4px 0;font-weight:600">${d.contratoId || '-'}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Locatario</td><td style="padding:4px 0">${d.locatario || '-'}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Data</td><td style="padding:4px 0">${d.data || '-'} ${d.hora || ''}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Signatario</td><td style="padding:4px 0">${d.signatarioNome || '-'}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Local</td><td style="padding:4px 0">${d.localObra || '-'}</td></tr>
+      </table>
+      ${itens.length > 0 ? `
+      <h2 style="margin:20px 0 12px;font-size:15px;color:#1C1C1C">Itens Devolvidos</h2>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#f3f4f6">
+          <th style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;text-align:left">Descricao</th>
+          <th style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;text-align:center">Qtd</th>
+          <th style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;text-align:center">Devolvida</th>
+          <th style="padding:6px 8px;border:1px solid #e5e7eb;font-size:12px;text-align:left">Patrimonio</th>
+        </tr></thead>
+        <tbody>${itensHtml}</tbody>
+      </table>` : ''}
+      ${condicoesHtml ? `<div style="margin-top:16px;padding:12px;background:#fef3c7;border-radius:8px;font-size:13px"><strong>Condicoes:</strong> ${condicoesHtml}</div>` : ''}
+    </div>
+  </div>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -172,6 +225,10 @@ Deno.serve(async (req) => {
       const c = body.contrato || {};
       subject = `Novo Contrato ${c.numero || c.id || ""} - ${c.cliente || ""}`;
       htmlContent = buildContratoCriadoHTML(body);
+    } else if (tipo === "devolucao_registrada") {
+      const dev = body.devolucao || {};
+      subject = `Devolucao ${dev.numero || ''} - ${dev.locatario || ''}`;
+      htmlContent = buildDevolucaoHTML(body);
     } else {
       const c = body.contrato || {};
       const comp = body.comprovante || {};

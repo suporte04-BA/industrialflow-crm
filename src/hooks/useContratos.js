@@ -101,7 +101,7 @@ export function useContratos(filters = {}) {
 
 export function useCreateContrato() {
   const queryClient = useQueryClient();
-  const emailRecipient = 'gestores@transobra.com.br';
+  const emailRecipient = '';
   return useMutation({
     mutationFn: async (newCt) => {
       const now = new Date();

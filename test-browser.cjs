@@ -1,8 +1,8 @@
 const { chromium } = require('playwright');
 
 const URL = 'https://transobras.suporte04.workers.dev';
-const EMAIL = 'suporte04@baeletrica.com.br';
-const PASSWORD = 'sjr183039';
+const EMAIL = process.env.TEST_EMAIL || 'suporte04@baeletrica.com.br';
+const PASSWORD = process.env.TEST_PASSWORD || 'sjr183039';
 
 let passed = 0;
 let failed = 0;
@@ -35,6 +35,14 @@ function log(test, ok, detail = '') {
 
     // ===== TEST 2: Login page renders =====
     console.log('\n=== TEST 2: Login page renders ===');
+    // Wait for React to render and redirect to login
+    await page.waitForTimeout(2000);
+    // If we're still on root, wait for redirect
+    if (!page.url().includes('/login')) {
+      await page.waitForURL('**/login', { timeout: 10000 }).catch(() => {});
+    }
+    // Wait for login elements to be visible
+    await page.locator('button:has-text("Entrar")').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
     log('Login button visible', await page.locator('button:has-text("Entrar")').first().isVisible());
     log('Name/email input visible', await page.locator('input[placeholder*="nome"]').first().isVisible());
     log('Password input visible', await page.locator('input[type="password"]').first().isVisible());

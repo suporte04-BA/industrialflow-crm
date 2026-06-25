@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
@@ -120,7 +120,7 @@ export default function Contratos() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {ctList.map((ct) => {
-            const isEntregue = comprovantes?.some(c => c.contratoId === ct.id && c.assinado);
+            const isEntregue = ct.status !== 'entregue' && comprovantes?.some(c => c.contratoId === ct.id && c.assinado);
             return (
               <div key={ct.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -60,13 +60,16 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
   const isEdit = !!contrato && !isRenew;
   const [saving, setSaving] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [importedTipo, setImportedTipo] = useState(null);
   const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
 
-  const contratoId = contrato?.id || 'new';
-  const formContratoId = form._contratoId || 'new';
-  if (contratoId !== formContratoId) {
-    setForm({ ...getInitialForm(contrato, isRenew), _contratoId: contratoId });
-  }
+  useEffect(() => {
+    const contratoId = contrato?.id || 'new';
+    const formContratoId = form._contratoId || 'new';
+    if (contratoId !== formContratoId) {
+      setForm({ ...getInitialForm(contrato, isRenew), _contratoId: contratoId });
+    }
+  }, [contrato?.id, isRenew]);
 
   const addEquipamento = () => setForm({ ...form, equipamentos: [...form.equipamentos, ''] });
   const removeEquipamento = (idx) => setForm({ ...form, equipamentos: form.equipamentos.filter((_, i) => i !== idx) });
@@ -116,6 +119,10 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       ? fields.equipamentos.filter(e => e && e.trim().length > 2)
       : undefined;
 
+    if (fields.tipo_documento) {
+      setImportedTipo(fields.tipo_documento);
+    }
+
     let cnpjVal = (fields.cpf_cnpj || '').replace(/^[\s/]+/, '').trim();
     const detectedType = detectDocumentType(cnpjVal);
     if (detectedType === 'cpf' && !isValidCPF(cnpjVal)) {
@@ -129,11 +136,11 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     const mappedContato = fields.contato_cliente || fields.contato || '';
 
     const valorMensalCalc = (() => {
-      if (fields.valores?.total && importedItems && importedItems.length > 0) {
+      if (fields.valores?.total && fields.valores.total > 0 && importedItems && importedItems.length > 0) {
         const itensTotal = importedItems.reduce((s, it) => s + (Number(it.quantidade || 1) * Number(it.valorUnitario || 0)), 0);
         if (itensTotal > 0) return itensTotal;
       }
-      if (fields.valores?.total) return fields.valores.total;
+      if (fields.valores?.total && fields.valores.total > 0) return fields.valores.total;
       return undefined;
     })();
 
@@ -167,14 +174,14 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     setShowImport(false);
 
     const count = (fields.itens?.length || 0) + (fields.equipamentos?.length || 0);
-    toast.success(count > 0 ? `${count} campo(s) importado(s) do PDF!` : 'Dados importados do PDF!');
+    const tipoLabel = fields.tipo_documento === 'devolucao' ? 'Devolução' : 'Entrega';
+    toast.success(count > 0 ? `${count} campo(s) importado(s) do PDF (${tipoLabel})!` : `Dados importados do PDF (${tipoLabel})!`);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.cliente.trim()) { toast.error('Preencha o nome do locatário'); return; }
     if (!form.cnpj.trim()) { toast.error('Preencha o CPF/CNPJ'); return; }
-    if (!form.rg.trim()) { toast.error('Preencha o RG'); return; }
     if (!form.telefone.trim()) { toast.error('Preencha o telefone'); return; }
     if (!form.contato.trim()) { toast.error('Preencha o contato'); return; }
     if (!form.endereco.trim()) { toast.error('Preencha o endereço'); return; }
@@ -236,7 +243,15 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </div>
                 {showImport && (
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 mb-4">
-                    <p className="text-sm text-gray-600 mb-3">Importe um PDF de pedido/contrato para preencher automaticamente:</p>
+                    <p className="text-sm text-gray-600 mb-3">Importe um PDF de comprovante de entrega ou devolução:</p>
+                    {importedTipo && (
+                      <div className={`mb-3 px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 ${
+                        importedTipo === 'devolucao' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: importedTipo === 'devolucao' ? '#f97316' : '#3b82f6' }} />
+                        {importedTipo === 'devolucao' ? 'Comprovante de Devolução detectado' : 'Comprovante de Entrega detectado'}
+                      </div>
+                    )}
                     <PdfImportButton onFieldsExtracted={handlePdfImport} />
                   </div>
                 )}
@@ -293,8 +308,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                       className="input-base" placeholder="00.000.000/0001-00" maxLength={18} />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">RG *</label>
-                    <input type="text" required value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })}
+                    <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
+                    <input type="text" value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })}
                       className="input-base" placeholder="00.000.000-0" />
                   </div>
                   <div>

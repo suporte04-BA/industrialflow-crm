@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { FileUp, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { importarPDF } from '../../lib/pdfImporter';
 
@@ -31,6 +31,7 @@ export default function PdfImportButton({ onFieldsExtracted }) {
       const textFields = { ...fields };
       delete textFields.itens;
       delete textFields.valores;
+      delete textFields.condicoes;
       const filledCount = Object.values(textFields).filter(v => typeof v === 'string' && v.length > 0).length;
       const itemCount = Array.isArray(fields.itens) ? fields.itens.length : 0;
 
@@ -38,13 +39,15 @@ export default function PdfImportButton({ onFieldsExtracted }) {
         setStatus({ type: 'error', message: 'Nenhum campo detectado no PDF. Verifique o arquivo.' });
       } else {
         onFieldsExtracted(fields);
+        const tipoLabel = fields.tipo_documento === 'devolucao' ? 'Devolução' : 'Entrega';
         const msg = itemCount > 0
-          ? `${filledCount} campos e ${itemCount} item(ns) importados!`
-          : `${filledCount} campos importados com sucesso!`;
+          ? `${filledCount} campos e ${itemCount} item(ns) importados (${tipoLabel})!`
+          : `${filledCount} campos importados (${tipoLabel})!`;
         setStatus({ type: 'success', message: msg });
       }
-    } catch {
-      setStatus({ type: 'error', message: 'Erro ao processar PDF. Verifique se o arquivo e valido.' });
+    } catch (err) {
+      console.error('PDF import error:', err);
+      setStatus({ type: 'error', message: `Erro ao processar PDF: ${err.message || 'Verifique se o arquivo e valido.'}` });
     } finally {
       setLoading(false);
       if (fileRef.current) fileRef.current.value = '';

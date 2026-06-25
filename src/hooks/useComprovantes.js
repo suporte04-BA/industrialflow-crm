@@ -162,6 +162,8 @@ export function useDeleteComprovante() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['assinaturas'] });
+      queryClient.invalidateQueries({ queryKey: ['contratos'] });
     },
   });
 }

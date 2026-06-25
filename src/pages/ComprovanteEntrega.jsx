@@ -130,7 +130,7 @@ export default function ComprovanteEntrega() {
                         <Download className="w-4 h-4" />
                       </button>
                       {c.assinado && !jaDevolvido && (
-                        <span className="p-1.5 text-gray-300" title="Nao assinado - devolucao indisponivel">
+                        <span className="p-1.5 text-gray-300" title="Ainda nao devolvido">
                           <RotateCcw className="w-4 h-4" />
                         </span>
                       )}

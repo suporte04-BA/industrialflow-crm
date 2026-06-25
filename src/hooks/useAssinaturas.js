@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
 import { useRealtime } from './useRealtime';
@@ -49,6 +49,7 @@ export function useCreateAssinatura() {
             cpfSignatario,
             assinaturaImagem: assinaturaImagem || null,
             ipAddress: null,
+            dataAssinatura: new Date().toISOString(),
           });
           const { data, error } = await supabase.from('assinaturas').insert(payload).select().single();
           if (error) throw error;

@@ -13,11 +13,12 @@ export const isConfigured = () => {
 };
 
 export const signUp = async (email, password, fullName) => {
+  if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: { full_name: fullName, role: 'funcionario' },
       emailRedirectTo: window.location.origin,
     },
   });
@@ -25,6 +26,7 @@ export const signUp = async (email, password, fullName) => {
 };
 
 export const signUpByName = async (name, password, role) => {
+  if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
   const email = name
     .toLowerCase()
     .normalize('NFD')
@@ -45,6 +47,7 @@ export const signUpByName = async (name, password, role) => {
 };
 
 export const signIn = async (email, password) => {
+  if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   return { data, error };
 };
@@ -55,7 +58,7 @@ export const signInByName = async (name, password) => {
   const { data: profiles } = await supabase
     .from('profiles')
     .select('email')
-    .ilike('full_name', `%${name}%`)
+    .ilike('full_name', name)
     .limit(1);
 
   if (!profiles || profiles.length === 0) {
@@ -72,6 +75,7 @@ export const signOut = async () => {
 };
 
 export const getCurrentUser = async () => {
+  if (!isConfigured()) return { user: null, error: { message: 'Supabase nao configurado' } };
   const { data: { user }, error } = await supabase.auth.getUser();
   return { user, error };
 };

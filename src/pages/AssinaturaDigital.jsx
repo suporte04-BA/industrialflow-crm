@@ -23,7 +23,6 @@ export default function AssinaturaDigital() {
   const [cpfSignatario, setCpfSignatario] = useState('');
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailRecipient, setEmailRecipient] = useState('gestores@transobra.com.br');
 
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
   const { data: comprovantes, refetch: refetchComprovantes } = useComprovantes();
@@ -35,13 +34,6 @@ export default function AssinaturaDigital() {
   useEffect(() => {
     refetchComprovantes();
   }, [refetchComprovantes]);
-
-  useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
-      .then((cfg) => { if (cfg.emailRecipient) setEmailRecipient(cfg.emailRecipient); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -116,7 +108,7 @@ export default function AssinaturaDigital() {
         tipo: 'contrato_assinado',
         contrato_id: contrato?.id || null,
         comprovante_id: comprovante?.id || null,
-        destinatario: emailRecipient,
+        destinatario: '',
         contrato: contrato ? {
           id: contrato.id,
           numero: contrato.numero,
@@ -222,11 +214,15 @@ export default function AssinaturaDigital() {
           }
         }
 
-        await sendEmailNotification(
-          comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
-          comp,
-          nomeSignatario
-        );
+        try {
+          await sendEmailNotification(
+            comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
+            comp,
+            nomeSignatario
+          );
+        } catch {
+          toast.error('Falha ao enviar email de notificacao ao gestor.');
+        }
 
         try {
           await generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString() });
@@ -262,7 +258,7 @@ export default function AssinaturaDigital() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Assinatura Digital</h2>
-        <p className="text-sm text-gray-500">{assinaturas.length} assinaturas registradas</p>
+        <p className="text-sm text-gray-500">{(assinaturas || []).length} assinaturas registradas</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -358,7 +354,7 @@ export default function AssinaturaDigital() {
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Assinaturas Registradas</h3>
-          {assinaturas.length === 0 ? (
+          {(assinaturas || []).length === 0 ? (
             <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto">

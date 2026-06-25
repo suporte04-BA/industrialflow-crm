@@ -3,6 +3,8 @@ import { Search, Trash2, Plus, X, Loader2, PackageCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDevolucoes, useCreateDevolucao, useDeleteDevolucao } from '../hooks/useDevolucoes';
 import { useComprovantes } from '../hooks/useComprovantes';
+import { useUpdateComprovante } from '../hooks/useComprovantes';
+import { useUpdateContrato } from '../hooks/useContratos';
 import { generateDevolucaoPDF } from '../lib/pdfExport';
 import StatusBadge from '../components/ui/StatusBadge';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -34,16 +36,19 @@ export default function DevolucaoEntrega() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
   const devCounterRef = useRef(100000);
 
   const { data: devolucoes, isLoading, isError, error, refetch } = useDevolucoes();
   const { data: comprovantes } = useComprovantes();
   const createDevolucao = useCreateDevolucao();
   const deleteDevolucao = useDeleteDevolucao();
+  const updateComprovante = useUpdateComprovante();
+  const updateContrato = useUpdateContrato();
 
   const assinados = (comprovantes || []).filter((c) => c.assinado && c.status === 'assinado');
 
@@ -62,6 +67,7 @@ export default function DevolucaoEntrega() {
     if (!comp) return;
     setForm({
       comprovanteId: comp.id,
+      contratoId: comp.contratoId || comp.contrato || '',
       locatario: comp.locatario || '',
       cnpjLocatario: comp.cnpjLocatario || comp.cpf || '',
       cpfSignatario: comp.cpfSignatario || '',
@@ -91,7 +97,8 @@ export default function DevolucaoEntrega() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, []);
 
   const getPos = (e) => {
@@ -104,26 +111,26 @@ export default function DevolucaoEntrega() {
 
   const startDraw = (e) => {
     e.preventDefault();
-    setIsDrawing(true);
+    isDrawingRef.current = true;
     const ctx = canvasRef.current.getContext('2d');
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000';
     const pos = getPos(e);
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
   };
 
   const draw = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawingRef.current) return;
     e.preventDefault();
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#000';
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
   };
 
-  const stopDraw = () => setIsDrawing(false);
+  const stopDraw = () => { isDrawingRef.current = false; };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -137,7 +144,7 @@ export default function DevolucaoEntrega() {
       canvas.removeEventListener('touchend', stopDraw);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDrawing]);
+  }, []);
 
   const handleSave = async () => {
     if (!form.comprovanteId) { toast.error('Selecione um comprovante de entrega'); return; }
@@ -155,7 +162,7 @@ export default function DevolucaoEntrega() {
       const devolucao = {
         ...form,
         numero: `DEV-${String(devCounterRef.current++).slice(-6)}`,
-        atendente: 'Edson Junio Paiva',
+        atendente: 'TransObra',
         data: `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`,
         hora: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
         condicoes: form.condicoes,
@@ -164,6 +171,47 @@ export default function DevolucaoEntrega() {
       };
 
       const saved = await createDevolucao.mutateAsync(devolucao);
+
+      // Update comprovante status
+      try {
+        await updateComprovante.mutateAsync({
+          id: form.comprovanteId,
+          updates: { status: 'devolvido', devolvido: true },
+        });
+      } catch { /* non-blocking */ }
+
+      // Update contrato status
+      if (form.contratoId) {
+        try {
+          await updateContrato.mutateAsync({
+            id: form.contratoId,
+            updates: { status: 'devolvido' },
+          });
+        } catch { /* non-blocking */ }
+      }
+
+      try {
+        await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: 'devolucao_registrada',
+            destinatario: '',
+            devolucao: {
+              numero: devolucao.numero,
+              locatario: devolucao.locatario,
+              contratoId: devolucao.contratoId,
+              comprovanteId: devolucao.comprovanteId,
+              itens: devolucao.itens,
+              data: devolucao.data,
+              hora: devolucao.hora,
+              signatarioNome: devolucao.signatarioNome,
+              localObra: devolucao.localObra,
+              condicoes: devolucao.condicoes,
+            },
+          }),
+        });
+      } catch { /* email non-blocking */ }
       toast.success('Devolucao registrada com sucesso!');
       setShowForm(false);
       setForm(EMPTY_FORM);
@@ -189,8 +237,6 @@ export default function DevolucaoEntrega() {
       toast.error('Erro ao excluir');
     }
   };
-
-  const [saving, setSaving] = useState(false);
 
   if (isLoading) return <div className="p-4 sm:p-6"><TableSkeleton rows={5} cols={4} /></div>;
   if (isError) return <div className="p-4 sm:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;

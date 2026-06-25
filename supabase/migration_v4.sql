@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
   destinatario TEXT NOT NULL,
   assunto TEXT NOT NULL,
   corpo TEXT NOT NULL,
-  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'enviado', 'erro')),
+  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'enviado', 'erro', 'skipped')),
   erro_msg TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -60,5 +60,48 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'el_anon' AND tablename = 'email_logs') THEN
     CREATE POLICY "el_anon" ON email_logs FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- 9. Create devolucoes table
+CREATE TABLE IF NOT EXISTS devolucoes (
+  id TEXT PRIMARY KEY,
+  numero TEXT,
+  comprovante_id UUID REFERENCES comprovantes_entrega(id) ON DELETE SET NULL,
+  contrato_id TEXT REFERENCES contratos(id) ON DELETE SET NULL,
+  locatario TEXT,
+  cnpj_locatario TEXT,
+  cpf_signatario TEXT,
+  rg_signatario TEXT,
+  signatario_nome TEXT,
+  local_obra TEXT,
+  referencia TEXT,
+  cidade TEXT,
+  estado TEXT,
+  cep TEXT,
+  telefone TEXT,
+  endereco TEXT,
+  bairro TEXT,
+  itens JSONB DEFAULT '[]',
+  condicoes JSONB DEFAULT '{}',
+  metodo_entrega TEXT DEFAULT 'locadora_entrega',
+  assinatura_imagem TEXT,
+  status TEXT DEFAULT 'pendente',
+  atendente TEXT,
+  data TEXT,
+  hora TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. RLS for devolucoes
+ALTER TABLE devolucoes ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'dev_all' AND tablename = 'devolucoes') THEN
+    CREATE POLICY "dev_all" ON devolucoes FOR ALL TO authenticated USING ((select auth.uid()) IS NOT NULL);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'dev_anon' AND tablename = 'devolucoes') THEN
+    CREATE POLICY "dev_anon" ON devolucoes FOR ALL TO anon USING (true) WITH CHECK (true);
   END IF;
 END $$;

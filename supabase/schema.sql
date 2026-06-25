@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS contratos (
   fim DATE NOT NULL,
   valor_total DECIMAL(10,2) DEFAULT 0,
   valor_mensal DECIMAL(10,2) DEFAULT 0,
-  status TEXT DEFAULT 'ativo' CHECK (status IN ('ativo', 'vencendo', 'vencido', 'cancelado', 'entregue')),
+  status TEXT DEFAULT 'ativo' CHECK (status IN ('ativo', 'vencendo', 'vencido', 'cancelado', 'entregue', 'assinado', 'devolvido')),
   assinado BOOLEAN DEFAULT FALSE,
   endereco TEXT,
   bairro TEXT,
@@ -175,10 +175,49 @@ CREATE TABLE IF NOT EXISTS email_logs (
   destinatario TEXT NOT NULL,
   assunto TEXT NOT NULL,
   corpo TEXT NOT NULL,
-  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'enviado', 'erro')),
+  status TEXT DEFAULT 'pendente' CHECK (status IN ('pendente', 'enviado', 'erro', 'skipped')),
   erro_msg TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+
+-- ============================================
+-- DEVOLUCOES
+-- ============================================
+CREATE TABLE IF NOT EXISTS devolucoes (
+  id TEXT PRIMARY KEY,
+  numero TEXT,
+  comprovante_id TEXT,
+  contrato_id TEXT,
+  locatario TEXT,
+  cnpj_locatario TEXT,
+  cpf_signatario TEXT,
+  rg_signatario TEXT,
+  signatario_nome TEXT,
+  local_obra TEXT,
+  referencia TEXT,
+  cidade TEXT,
+  estado TEXT,
+  cep TEXT,
+  telefone TEXT,
+  endereco TEXT,
+  bairro TEXT,
+  itens JSONB DEFAULT '[]'::jsonb,
+  condicoes JSONB DEFAULT '{}'::jsonb,
+  metodo_entrega TEXT DEFAULT 'locadora_entrega',
+  assinatura_imagem TEXT,
+  status TEXT DEFAULT 'pendente',
+  atendente TEXT,
+  data TEXT,
+  hora TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE devolucoes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "dev_anon_select" ON devolucoes FOR SELECT USING (true);
+CREATE POLICY "dev_anon_insert" ON devolucoes FOR INSERT WITH CHECK (true);
+CREATE POLICY "dev_anon_update" ON devolucoes FOR UPDATE USING (true);
+CREATE POLICY "dev_anon_delete" ON devolucoes FOR DELETE USING (true);
 
 -- ============================================
 -- INDICES

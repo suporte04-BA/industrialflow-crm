@@ -29,15 +29,14 @@ export default function RegisterPage() {
       if (error) throw error;
 
       if (data.session) {
-        const { error: profileError } = await supabase
+        await supabase
           .from('profiles')
           .upsert({
             id: data.user.id,
             full_name: form.fullName,
             email: form.email,
             role: 'funcionario',
-          }, { onConflict: 'id' });
-        if (profileError) console.error('Profile insert error:', profileError);
+          }, { onConflict: 'id' }).catch(() => null);
         toast.success('Conta criada com sucesso!');
         navigate('/');
       } else if (data.user) {

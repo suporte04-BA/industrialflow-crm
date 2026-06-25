@@ -3,8 +3,8 @@ let pdfjsLib = null;
 async function getPdfjs() {
   if (!pdfjsLib) {
     pdfjsLib = await import('pdfjs-dist');
-    const version = pdfjsLib.version || '4.0.379';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+    const version = pdfjsLib.version || '6.0.227';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
   }
   return pdfjsLib;
 }
@@ -15,6 +15,7 @@ export async function extractTextFromPDF(file) {
   const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
 
   let fullText = '';
+  const lines = [];
   const maxPages = Math.min(pdf.numPages, 5);
 
   for (let i = 1; i <= maxPages; i++) {
@@ -31,6 +32,12 @@ export async function extractTextFromPDF(file) {
       .filter(item => item.str.trim().length > 0);
 
     if (items.length === 0) continue;
+
+    items.sort((a, b) => {
+      const yDiff = b.y - a.y;
+      if (Math.abs(yDiff) > 4) return yDiff;
+      return a.x - b.x;
+    });
 
     const rows = [];
     let currentRow = [items[0]];
@@ -64,6 +71,7 @@ export async function extractTextFromPDF(file) {
 
       const line = parts.join(' ').replace(/\s+/g, ' ').trim();
       if (line.length > 0) {
+        lines.push(line);
         fullText += line + '\n';
       }
     }
@@ -71,5 +79,5 @@ export async function extractTextFromPDF(file) {
     fullText += '\n';
   }
 
-  return fullText;
+  return { text: fullText, lines };
 }

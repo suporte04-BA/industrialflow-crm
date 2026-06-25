@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
 import { devolucoes as mockDevolucoes } from '../data/mockData';
@@ -12,7 +12,8 @@ export function useDevolucoes(filters = {}) {
     queryKey,
     queryFn: async () => {
       if (!isConfigured()) {
-        let data = [...mockDevolucoes];
+        const stored = JSON.parse(localStorage.getItem('devolucoes_local') || '[]');
+        let data = stored.length > 0 ? [...stored] : [...mockDevolucoes];
         if (filters.comprovanteId) data = data.filter((d) => d.comprovanteId === filters.comprovanteId);
         if (filters.contratoId) data = data.filter((d) => d.contratoId === filters.contratoId);
         if (filters.status) data = data.filter((d) => d.status === filters.status);
@@ -27,16 +28,33 @@ export function useDevolucoes(filters = {}) {
         return data;
       }
 
-      let q = supabase.from('devolucoes').select('*');
-      if (filters.comprovanteId) q = q.eq('comprovante_id', filters.comprovanteId);
-      if (filters.contratoId) q = q.eq('contrato_id', filters.contratoId);
-      if (filters.status) q = q.eq('status', filters.status);
-      if (filters.search) {
-        q = q.or(`locatario.ilike.%${filters.search}%,numero.ilike.%${filters.search}%,signatario_nome.ilike.%${filters.search}%`);
+      try {
+        let q = supabase.from('devolucoes').select('*');
+        if (filters.comprovanteId) q = q.eq('comprovante_id', filters.comprovanteId);
+        if (filters.contratoId) q = q.eq('contrato_id', filters.contratoId);
+        if (filters.status) q = q.eq('status', filters.status);
+        if (filters.search) {
+          q = q.or(`locatario.ilike.%${filters.search}%,numero.ilike.%${filters.search}%,signatario_nome.ilike.%${filters.search}%`);
+        }
+        const { data, error } = await q.order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data || []).map(toCamel);
+      } catch {
+        const stored = JSON.parse(localStorage.getItem('devolucoes_local') || '[]');
+        let data = [...stored];
+        if (filters.comprovanteId) data = data.filter((d) => d.comprovanteId === filters.comprovanteId);
+        if (filters.contratoId) data = data.filter((d) => d.contratoId === filters.contratoId);
+        if (filters.status) data = data.filter((d) => d.status === filters.status);
+        if (filters.search) {
+          const term = filters.search.toLowerCase();
+          data = data.filter((d) =>
+            (d.locatario || '').toLowerCase().includes(term) ||
+            (d.numero || '').toLowerCase().includes(term) ||
+            (d.signatarioNome || '').toLowerCase().includes(term)
+          );
+        }
+        return data;
       }
-      const { data, error } = await q.order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []).map(toCamel);
     },
     staleTime: 5000,
   });

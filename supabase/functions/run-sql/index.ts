@@ -14,6 +14,15 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    const apiKey = req.headers.get("apikey");
+    if (!authHeader && !apiKey) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { sql } = await req.json();
 
     if (!DB_URL) {

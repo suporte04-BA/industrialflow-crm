@@ -218,6 +218,8 @@ export function useCreateContrato() {
           observacao: ctSaved.observacao,
           status: 'pendente',
           assinado: false,
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
         try {
           const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
@@ -285,6 +287,8 @@ export function useCreateContrato() {
         observacao: item.observacao,
         status: 'pendente',
         assinado: false,
+        tipoDocumento: newCt.tipoDocumento || 'entrega',
+        condicoesDevolucao: newCt.condicoesDevolucao || null,
         createdAt: now.toISOString(),
       };
       saveCompLocal(comp);

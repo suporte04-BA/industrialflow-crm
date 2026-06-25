@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS contratos (
   telefone_entrega TEXT,
   itens JSONB DEFAULT '[]',
   observacao TEXT,
+  tipo_documento TEXT DEFAULT 'entrega',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -113,7 +114,9 @@ CREATE TABLE IF NOT EXISTS comprovantes_entrega (
   status TEXT DEFAULT 'entregue' CHECK (status IN ('entregue', 'pendente', 'cancelado', 'assinado')),
   assinado BOOLEAN DEFAULT FALSE,
   data_assinatura TEXT,
-  nome_signatario TEXT
+  nome_signatario TEXT,
+  tipo_documento TEXT DEFAULT 'entrega',
+  condicoes_devolucao JSONB DEFAULT NULL
 );
 
 -- ============================================

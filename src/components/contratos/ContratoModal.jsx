@@ -8,6 +8,8 @@ import { isValidCPF, isValidCNPJ, formatCPFCNPJ, detectDocumentType } from '../.
 
 const emptyItem = { quantidade: 1, descricao: '', patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 };
 
+const emptyCondicoes = { danificado: false, extraviado: false, testarEmpresa: false };
+
 function getInitialForm(contrato, isRenew) {
   if (contrato) {
     return {
@@ -40,6 +42,8 @@ function getInitialForm(contrato, isRenew) {
         ? contrato.itens.map(it => ({ ...emptyItem, ...it }))
         : [{ ...emptyItem }],
       observacao: contrato.observacao || '',
+      tipoDocumento: contrato.tipoDocumento || 'entrega',
+      condicoesDevolucao: contrato.condicoesDevolucao || { ...emptyCondicoes },
     };
   }
   const now = new Date();
@@ -53,6 +57,8 @@ function getInitialForm(contrato, isRenew) {
     localEntrega: '', telefoneEntrega: '',
     itens: [{ ...emptyItem }],
     observacao: '',
+    tipoDocumento: 'entrega',
+    condicoesDevolucao: { ...emptyCondicoes },
   };
 }
 
@@ -123,6 +129,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       setImportedTipo(fields.tipo_documento);
     }
 
+    const condicoesFromPdf = fields.condicoes || null;
+
     let cnpjVal = (fields.cpf_cnpj || '').replace(/^[\s/]+/, '').trim();
     const detectedType = detectDocumentType(cnpjVal);
     if (detectedType === 'cpf' && !isValidCPF(cnpjVal)) {
@@ -170,6 +178,12 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       equipamentos: importedEquipamentos || prev.equipamentos,
       valorMensal: valorMensalCalc || prev.valorMensal,
       valorTotal: fields.valores?.total || prev.valorTotal,
+      tipoDocumento: fields.tipo_documento || prev.tipoDocumento,
+      condicoesDevolucao: condicoesFromPdf ? {
+        danificado: !!condicoesFromPdf.danificado,
+        extraviado: !!condicoesFromPdf.extraviado,
+        testarEmpresa: !!condicoesFromPdf.testarEmpresa,
+      } : prev.condicoesDevolucao,
     }));
     setShowImport(false);
 
@@ -180,8 +194,12 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.atendente.trim()) { toast.error('Preencha o atendente'); return; }
     if (!form.cliente.trim()) { toast.error('Preencha o nome do locatário'); return; }
     if (!form.cnpj.trim()) { toast.error('Preencha o CPF/CNPJ'); return; }
+    const docType = detectDocumentType(form.cnpj);
+    if (docType === 'cpf' && !isValidCPF(form.cnpj)) { toast.error('CPF inválido'); return; }
+    if (docType === 'cnpj' && !isValidCNPJ(form.cnpj)) { toast.error('CNPJ inválido'); return; }
     if (!form.telefone.trim()) { toast.error('Preencha o telefone'); return; }
     if (!form.contato.trim()) { toast.error('Preencha o contato'); return; }
     if (!form.endereco.trim()) { toast.error('Preencha o endereço'); return; }
@@ -194,6 +212,9 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     if (!form.telefoneEntrega.trim()) { toast.error('Preencha o telefone do local de entrega'); return; }
     if (!form.inicio) { toast.error('Preencha a data de início'); return; }
     if (!form.fim) { toast.error('Preencha a data de término'); return; }
+    if (form.inicio && form.fim && new Date(form.inicio) > new Date(form.fim)) {
+      toast.error('A data de início deve ser anterior à data de término'); return;
+    }
     if (!form.valorMensal || Number(form.valorMensal) <= 0) { toast.error('Preencha o valor mensal'); return; }
 
     const hasValidEquipamento = form.equipamentos.some(e => e.trim());
@@ -211,6 +232,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
         itens: form.itens.filter(it => it.descricao.trim()),
         valorTotal: Number(total) || 0,
         valorMensal: Number(form.valorMensal) || 0,
+        tipoDocumento: form.tipoDocumento || 'entrega',
+        condicoesDevolucao: form.condicoesDevolucao || { ...emptyCondicoes },
       });
       onClose();
     } catch (err) {
@@ -236,6 +259,23 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
             {!isEdit && !isRenew && (
               <div className="px-6 pt-4">
+                <div className="flex items-center gap-4 mb-3">
+                  <span className="text-xs font-medium text-gray-600">Tipo de Comprovante:</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" name="tipoDocumento" value="entrega"
+                      checked={form.tipoDocumento === 'entrega'}
+                      onChange={() => setForm({ ...form, tipoDocumento: 'entrega' })}
+                      className="text-blue-500 focus:ring-blue-400" />
+                    <span className="text-xs text-gray-700">Entrega</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="radio" name="tipoDocumento" value="devolucao"
+                      checked={form.tipoDocumento === 'devolucao'}
+                      onChange={() => setForm({ ...form, tipoDocumento: 'devolucao' })}
+                      className="text-orange-500 focus:ring-orange-400" />
+                    <span className="text-xs text-gray-700">Devolução</span>
+                  </label>
+                </div>
                 <div className="flex items-center gap-2 mb-3">
                   <Button variant="secondary" size="sm" icon={showImport ? FileDown : FileUp} onClick={() => setShowImport(!showImport)}>
                     {showImport ? 'Fechar Import' : 'Importar PDF do Pedido'}

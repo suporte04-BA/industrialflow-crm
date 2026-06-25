@@ -4,6 +4,7 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  base: './',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -11,5 +12,14 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['pdfjs-dist'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('pdfjs-dist')) return 'pdf-lib';
+        },
+      },
+    },
   },
 })

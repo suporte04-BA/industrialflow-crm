@@ -105,3 +105,11 @@ BEGIN
     CREATE POLICY "dev_anon" ON devolucoes FOR ALL TO anon USING (true) WITH CHECK (true);
   END IF;
 END $$;
+
+-- ============================================
+-- Migration v4b - Add tipo_documento columns
+-- ============================================
+
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS tipo_documento TEXT DEFAULT 'entrega';
+ALTER TABLE comprovantes_entrega ADD COLUMN IF NOT EXISTS tipo_documento TEXT DEFAULT 'entrega';
+ALTER TABLE comprovantes_entrega ADD COLUMN IF NOT EXISTS condicoes_devolucao JSONB DEFAULT NULL;

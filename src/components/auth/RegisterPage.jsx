@@ -29,15 +29,20 @@ export default function RegisterPage() {
       if (error) throw error;
 
       if (data.session) {
-        await supabase
+        const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
             id: data.user.id,
             full_name: form.fullName,
             email: form.email,
             role: 'funcionario',
-          }, { onConflict: 'id' }).catch(() => null);
-        toast.success('Conta criada com sucesso!');
+          }, { onConflict: 'id' });
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          toast.warning('Conta criada, mas houve erro ao configurar perfil. Contate o administrador.');
+        } else {
+          toast.success('Conta criada com sucesso!');
+        }
         navigate('/');
       } else if (data.user) {
         toast.success('Conta criada! Verifique seu email para confirmar e depois faca login.');

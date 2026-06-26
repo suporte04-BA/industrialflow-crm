@@ -15,8 +15,7 @@ const OrdensServico = lazy(() => import('./pages/OrdensServico'));
 const Equipamentos = lazy(() => import('./pages/Equipamentos'));
 const Contratos = lazy(() => import('./pages/Contratos'));
 const AssinaturaDigital = lazy(() => import('./pages/AssinaturaDigital'));
-const ComprovanteEntrega = lazy(() => import('./pages/ComprovanteEntrega'));
-const DevolucaoEntrega = lazy(() => import('./pages/DevolucaoEntrega'));
+const Documentos = lazy(() => import('./pages/Documentos'));
 const HistoricoTransacoes = lazy(() => import('./pages/HistoricoTransacoes'));
 const Perfil = lazy(() => import('./pages/Perfil'));
 const Usuarios = lazy(() => import('./pages/Usuarios'));
@@ -57,8 +56,7 @@ function App() {
                 <Route path="/ordens" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><OrdensServico /></Suspense></RoleGuard>} />
                 <Route path="/equipamentos" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><Equipamentos /></Suspense></RoleGuard>} />
                 <Route path="/contratos" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><Contratos /></Suspense></RoleGuard>} />
-                <Route path="/comprovantes" element={<Suspense fallback={<PageLoader />}><ComprovanteEntrega /></Suspense>} />
-                <Route path="/devolucoes" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><DevolucaoEntrega /></Suspense></RoleGuard>} />
+                <Route path="/comprovantes" element={<Suspense fallback={<PageLoader />}><Documentos /></Suspense>} />
                 <Route path="/assinatura" element={<Suspense fallback={<PageLoader />}><AssinaturaDigital /></Suspense>} />
                 <Route path="/historico" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><HistoricoTransacoes /></Suspense></RoleGuard>} />
                 <Route path="/usuarios" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><Usuarios /></Suspense></RoleGuard>} />

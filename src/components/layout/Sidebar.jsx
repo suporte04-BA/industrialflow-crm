@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, LogOut, User, History, Users, RotateCcw } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Package, FileText, PenLine, X, ChevronRight, ClipboardCheck, LogOut, User, History, Users } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
 
@@ -9,7 +9,6 @@ const gestorNav = [
   { label: 'Equipamentos', icon: Package, path: '/equipamentos' },
   { label: 'Contratos', icon: FileText, path: '/contratos' },
   { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
-  { label: 'Devolucoes', icon: RotateCcw, path: '/devolucoes' },
   { label: 'Assinatura Digital', icon: PenLine, path: '/assinatura' },
 ];
 
@@ -38,7 +37,7 @@ function NavLink({ item, onNavigate }) {
   );
 }
 
-function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate }) {
+function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate, avatarUrl }) {
   return (
     <>
       <div className="flex-1 overflow-y-auto py-3">
@@ -59,9 +58,13 @@ function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, 
       <div className="px-3 pb-3">
         <div className="border-t border-white/5 pt-3">
           <div className="flex items-center gap-3 px-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-              <span className="text-[11px] font-bold text-gray-900">{initials}</span>
-            </div>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={userName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+                <span className="text-[11px] font-bold text-gray-900">{initials}</span>
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-white text-[12px] font-medium truncate">{userName}</p>
               <p className="text-gray-500 text-[10px] truncate">{userEmail}</p>
@@ -114,7 +117,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
 
   const onNavigate = () => setMobileOpen(false);
 
-  const sidebarProps = { navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate };
+  const sidebarProps = { navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate, avatarUrl: profile?.avatarUrl };
 
   return (
     <>

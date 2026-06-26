@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
@@ -14,6 +14,7 @@ import { generateContratoPDF } from '../lib/pdfExport';
 
 export default function Contratos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
+  const [searchInput, setSearchInput] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCt, setEditingCt] = useState(null);
   const [renewTarget, setRenewTarget] = useState(null);
@@ -24,6 +25,9 @@ export default function Contratos() {
   const createCt = useCreateContrato();
   const updateCt = useUpdateContrato();
   const deleteCt = useDeleteContrato();
+
+  const handleSearch = () => setFilters(prev => ({ ...prev, search: searchInput }));
+  const clearSearch = () => { setSearchInput(''); setFilters(prev => ({ ...prev, search: '' })); };
 
   const handleCreate = async (data) => {
     await createCt.mutateAsync(data);
@@ -83,14 +87,14 @@ export default function Contratos() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
         {[
-          { label: 'Ativos', value: stats.ativos, color: 'bg-green-50 text-green-700 border-green-200' },
-          { label: 'Vencendo', value: stats.vencendo, color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-          { label: 'Vencidos', value: stats.vencidos, color: 'bg-red-50 text-red-700 border-red-200' },
-          { label: 'Total', value: stats.total, color: 'bg-gray-50 text-gray-700 border-gray-200' },
+          { label: 'Ativos', value: stats.ativos, color: 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' },
+          { label: 'Vencendo', value: stats.vencendo, color: 'bg-amber-50 text-amber-700 border-amber-300 shadow-sm' },
+          { label: 'Vencidos', value: stats.vencidos, color: 'bg-red-50 text-red-700 border-red-300 shadow-sm' },
+          { label: 'Total', value: stats.total, color: 'bg-slate-50 text-slate-700 border-slate-300 shadow-sm' },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl p-3 md:p-4 border ${s.color}`}>
             <p className="text-lg md:text-2xl font-bold">{s.value}</p>
-            <p className="text-xs md:text-sm opacity-80">{s.label}</p>
+            <p className="text-xs md:text-sm opacity-80 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
@@ -98,10 +102,19 @@ export default function Contratos() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Buscar por cliente ou ID..." value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="input-base pl-10" />
+          <input type="text" placeholder="Pressione Enter para buscar..." value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+            className="input-base pl-10 pr-9" />
+          {searchInput && (
+            <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        <button onClick={handleSearch} className="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg font-medium text-sm hover:bg-yellow-300 transition-colors flex items-center gap-1.5">
+          <Search className="w-4 h-4" /> Buscar
+        </button>
         <div className="flex flex-wrap gap-1.5">
           {['all', 'ativo', 'vencendo', 'vencido', 'entregue', 'cancelado'].map((s) => (
             <button key={s} onClick={() => setFilters({ ...filters, status: s })}

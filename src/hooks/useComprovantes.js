@@ -25,7 +25,7 @@ export function useComprovantes() {
       localStorage.setItem('comprovantes_local', JSON.stringify(items));
       return items;
     },
-    staleTime: 5000,
+    staleTime: 30000,
     retry: 1,
   });
 
@@ -86,6 +86,7 @@ export function useCreateComprovante() {
         total: newComp.total || 0,
         status: newComp.status || 'pendente',
         assinado: newComp.assinado || false,
+        tipoDocumento: newComp.tipoDocumento || 'entrega',
       });
 
       if (isConfigured()) {

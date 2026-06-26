@@ -27,8 +27,9 @@ function getCorsHeaders(request) {
   return headers;
 }
 
-function json(data, status = 200, corsHeaders = null) {
+function json(data, status = 200, corsHeaders = null, cacheControl = null) {
   const h = corsHeaders || getCorsHeaders({ headers: new Headers() });
+  if (cacheControl) h['Cache-Control'] = cacheControl;
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...h, 'Content-Type': 'application/json' },
@@ -122,6 +123,10 @@ function handleApiRoute(path, method, request, env, corsHeaders) {
     return handleEmailSend(request, env, corsHeaders);
   }
 
+  if (path === '/api/ai/extract-pdf' && method === 'POST') {
+    return handleAiExtractPdf(request, env, corsHeaders);
+  }
+
   if (path.startsWith('/api/edge/')) {
     return handleEdgeProxy(path, method, request, env, corsHeaders);
   }
@@ -132,9 +137,9 @@ function handleApiRoute(path, method, request, env, corsHeaders) {
 async function handleDashboard(env, corsHeaders) {
   try {
     const [os, eq, ct] = await Promise.all([
-      supabaseRequest(env, 'GET', '/ordens_servico?select=*&limit=500'),
-      supabaseRequest(env, 'GET', '/equipamentos?select=*&limit=200'),
-      supabaseRequest(env, 'GET', '/contratos?select=*&limit=200'),
+      supabaseRequest(env, 'GET', '/ordens_servico?select=id,status,created_at&limit=200'),
+      supabaseRequest(env, 'GET', '/equipamentos?select=id,status&limit=200'),
+      supabaseRequest(env, 'GET', '/contratos?select=id,numero,cliente,status,valor_mensal,assinado,fim&limit=200'),
     ]);
     const osData = Array.isArray(os.data) ? os.data : [];
     const eqData = Array.isArray(eq.data) ? eq.data : [];
@@ -154,7 +159,7 @@ async function handleDashboard(env, corsHeaders) {
       },
       recentOS: osData.slice(0, 5),
       alertasContratos: ctData.filter(c => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado),
-    }, 200, corsHeaders);
+    }, 200, corsHeaders, 'private, max-age=30, must-revalidate');
   } catch {
     return json({ error: 'Failed to fetch dashboard' }, 500, corsHeaders);
   }
@@ -183,7 +188,7 @@ async function handleCrud(path, method, request, env, authHeader, corsHeaders, t
     return json({ success: true }, result.status, corsHeaders);
   }
 
-  const result = await supabaseRequest(env, 'GET', `/${table}?select=*&order=created_at.desc&limit=200`);
+  const result = await supabaseRequest(env, 'GET', `/${table}?select=*&order=created_at.desc&limit=100`);
   return json(result.data, result.status, corsHeaders);
 }
 
@@ -198,7 +203,7 @@ async function handleEmailSend(request, env, corsHeaders) {
   const parsed = await parseBody(request);
   if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
 
-  const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
+  const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario, devolucao } = parsed.data;
   const emailTipo = tipo || 'contrato_assinado';
 
   let recipients = [];
@@ -229,7 +234,7 @@ async function handleEmailSend(request, env, corsHeaders) {
           'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, destinatario: recipient }),
+        body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, devolucao, destinatario: recipient }),
       });
       const edgeData = await edgeRes.json();
       if (edgeRes.ok && edgeData.success && !edgeData.skipped) {
@@ -251,6 +256,8 @@ async function handleEmailSend(request, env, corsHeaders) {
   const erroMsg = sentCount > 0 ? null : lastError;
   const assunto = emailTipo === 'contrato_criado'
     ? `Novo Contrato ${contrato?.numero || contrato?.id || ''} - ${contrato?.cliente || ''}`
+    : emailTipo === 'devolucao_registrada'
+    ? `Comprovante de Devolucao ${devolucao?.numero || ''} - TransObra`
     : `Contrato ${contrato?.numero || contrato?.id || comprovante?.contrato || ''} assinado`;
 
   try {
@@ -267,6 +274,119 @@ async function handleEmailSend(request, env, corsHeaders) {
   } catch { /* email logging is best-effort */ }
 
   return json({ success: emailStatus === 'enviado' || emailStatus === 'skipped', status: emailStatus, sentTo: sentCount }, emailStatus === 'erro' ? 500 : 200, corsHeaders);
+}
+
+async function handleAiExtractPdf(request, env, corsHeaders) {
+  const parsed = await parseBody(request);
+  if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+
+  const { text, tipo_documento } = parsed.data;
+  if (!text || typeof text !== 'string') {
+    return json({ error: 'text is required' }, 400, corsHeaders);
+  }
+
+  const apiKey = env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return json({ error: 'OPENAI_API_KEY not configured', fallback: true }, 200, corsHeaders);
+  }
+
+  const isDevolucao = tipo_documento === 'devolucao' || /DEVOLU[ÇC][ÃA]O/i.test(text);
+
+  const systemPrompt = `Voce e um assistente especializado em extrair dados de comprovantes de locacao de equipamentos brasileiros da empresa EQUILOC LTDA - TRANS OBRA.
+Extraia TODOS os campos do documento e retorne APENAS um JSON valido, sem markdown, sem explicacoes.
+
+Tipo de documento: ${isDevolucao ? 'DEVOLUCAO (retorno de equipamentos)' : 'ENTREGA (entrega de equipamentos)'}
+
+IMPORTANTE SOBRE NUMERACAO:
+- O numero do CONTRATO aparece geralmente no topo do documento como "XXXX/XX" (ex: 1234/26) ou após "CONTRATO Nº:"
+- O numero do ORÇAMENTO aparece na observacao como "ORÇAMENTO NºXXXX" - este NÃO é o numero do contrato
+- O campo "contrato" deve conter o numero do contrato (ex: "1234/26"), NAO o numero do orcamento
+
+Campos obrigatorios para ENTREGA:
+- contrato: numero do contrato (formato XXXX/XX, ex: "1234/26"). NUNCA confunda com numero de orcamento
+- atendente: nome do atendente
+- locatario: nome do locatario/empresa (quem recebe os equipamentos)
+- cpf_cnpj: CPF ou CNPJ do locatario
+- rg: RG do locatario (se presente no documento)
+- telefone: telefone do locatario
+- contato: nome do contato (pessoa que fala com a locadora)
+- endereco: endereco do locatario
+- numero: numero do endereco
+- bairro: bairro
+- cidade: cidade
+- estado: UF (2 letras)
+- cep: CEP
+- telefone_entrega: telefone do local de entrega
+- local_entrega: endereco completo do local de entrega
+- referencia: referencia do local
+- data_retirada: data de retirada (DD/MM/AAAA)
+- hora: hora (HH:MM)
+- observacao: observacoes do contrato (incluindo numero de orcamento se houver)
+- itens: array de objetos com {quantidade, descricao, patrimonio, data_locacao, data_devolucao, valor_unitario}
+- equipamentos: array de strings com nomes dos equipamentos (extrair de "Equipamentos" ou das descricoes dos itens)
+- valor_total: valor total (soma dos itens)
+- valor_mensal: valor mensal (se mentionado, senao usar o valor_total)
+- tipo_documento: "entrega"
+
+Campos obrigatorios para DEVOLUCAO:
+- contrato: numero do contrato
+- locatario: nome do locatario
+- cpf_cnpj: CPF/CNPJ
+- contato: contato
+- data_devolucao: data da devolucao
+- hora: hora
+- local_obra: local da obra
+- telefone_obra: telefone da obra
+- cidade: cidade
+- estado: UF
+- cep: CEP
+- itens: array com {quantidade, descricao, patrimonio, qtd_devolvida}
+- condicoes: {danificado: bool, extraviado: bool, testar_empresa: bool}
+- tipo_documento: "devolucao"
+
+Regras:
+- Valores monetarios: retorne como NUMERO (ex: 160, 15, 0). R$ 160,00 vira 160
+- Datas: retorne como string DD/MM/AAAA
+- CPF/CNPJ: retorne com pontuacao (XX.XXX.XXX/XXXX-XX ou XXX.XXX.XXX-XX)
+- Se um campo nao for encontrado, retorne string vazia "" ou 0 para numeros
+- Para itens, se nao encontrar patrimonio, use "PAT-000"
+- O numero do contrato e DIFERENTE do numero do orcamento. Contrato aparece no topo, orcamento na observacao
+- Retorne APENAS o JSON, nada mais`;
+
+  try {
+    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5.4-mini',
+        temperature: 0,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Extraia os dados deste comprovante:\n\n${text.slice(0, 12000)}` },
+        ],
+      }),
+    });
+
+    const aiData = await aiRes.json();
+
+    if (!aiRes.ok) {
+      return json({ error: aiData.error?.message || 'OpenAI API error', fallback: true }, 502, corsHeaders);
+    }
+
+    const content = aiData.choices?.[0]?.message?.content || '';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return json({ error: 'AI returned invalid JSON', raw: content, fallback: true }, 502, corsHeaders);
+    }
+
+    const extracted = JSON.parse(jsonMatch[0]);
+    return json({ success: true, data: extracted }, 200, corsHeaders);
+  } catch (e) {
+    return json({ error: e.message, fallback: true }, 500, corsHeaders);
+  }
 }
 
 async function handleEdgeProxy(path, method, request, env, corsHeaders) {

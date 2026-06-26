@@ -131,12 +131,12 @@ export function useCreateContrato() {
         id: newId,
         cliente: newCt.cliente,
         cnpj: newCt.cnpj,
-        rg: newCt.rg || '',
         equipamentos: newCt.equipamentos || [],
         numero: newCt.numero || '',
         dataContrato: newCt.dataContrato || formatDateTime(now),
         horaContrato: newCt.horaContrato || formatTime(now),
         atendente: newCt.atendente || '',
+        referencia: newCt.referencia || '',
         inicio: newCt.inicio,
         fim: newCt.fim,
         valorTotal: newCt.valorTotal || 0,
@@ -149,13 +149,15 @@ export function useCreateContrato() {
         cidade: newCt.cidade || '',
         estado: newCt.estado || '',
         cep: newCt.cep || '',
-        telefone: newCt.telefone || '',
-        email: newCt.email || '',
         contato: newCt.contato || '',
+        rg: newCt.rg || '',
+        telefone: newCt.telefone || '',
         localEntrega: newCt.localEntrega || '',
         telefoneEntrega: newCt.telefoneEntrega || '',
         itens: newCt.itens || [],
         observacao: newCt.observacao || '',
+        tipoDocumento: newCt.tipoDocumento || 'entrega',
+        condicoesDevolucao: newCt.condicoesDevolucao || null,
         createdAt: now.toISOString(),
       };
 
@@ -163,7 +165,6 @@ export function useCreateContrato() {
         const payload = toSnake({
           cliente: newCt.cliente,
           cnpj: newCt.cnpj,
-          rg: newCt.rg || '',
           equipamentos: newCt.equipamentos || [],
           numero: newCt.numero || '',
           dataContrato: newCt.dataContrato || formatDateTime(now),
@@ -181,13 +182,14 @@ export function useCreateContrato() {
           cidade: newCt.cidade || '',
           estado: newCt.estado || '',
           cep: newCt.cep || '',
-          telefone: newCt.telefone || '',
-          email: newCt.email || '',
           contato: newCt.contato || '',
+          rg: newCt.rg || '',
+          telefone: newCt.telefone || '',
           localEntrega: newCt.localEntrega || '',
           telefoneEntrega: newCt.telefoneEntrega || '',
           itens: newCt.itens || [],
           observacao: newCt.observacao || '',
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
         });
         const { data, error } = await supabase.from('contratos').insert(payload).select().single();
         if (error) throw handleSupabaseError(error);
@@ -202,9 +204,9 @@ export function useCreateContrato() {
           hora: ctSaved.horaContrato || formatTime(now),
           locatario: ctSaved.cliente,
           cpf: ctSaved.cnpj,
-          rg: ctSaved.rg || '',
-          telefone: ctSaved.telefone,
           contato: ctSaved.contato,
+          rg: ctSaved.rg || '',
+          telefone: ctSaved.telefone || '',
           endereco: ctSaved.endereco,
           numero: ctSaved.numeroEndereco,
           bairro: ctSaved.bairro,
@@ -218,8 +220,7 @@ export function useCreateContrato() {
           observacao: ctSaved.observacao,
           status: 'pendente',
           assinado: false,
-          tipoDocumento: newCt.tipoDocumento || 'entrega',
-          condicoesDevolucao: newCt.condicoesDevolucao || null,
+          tipoDocumento: 'entrega',
         });
         try {
           const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
@@ -235,16 +236,18 @@ export function useCreateContrato() {
                   comprovante_id: compData.id,
                   destinatario: emailRecipient,
                   contrato: {
-                    id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg,
+                    id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj,
+                    rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
                     equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
                     valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
                     atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
                     endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
                     cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
-                    telefone: ctSaved.telefone, email: ctSaved.email, contato: ctSaved.contato,
+                    contato: ctSaved.contato, referencia: ctSaved.referencia,
                   },
                   comprovante: {
-                    id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg,
+                    id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj,
+                    rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
                     endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
                     itens: ctSaved.itens, localEntrega: ctSaved.localEntrega,
                   },
@@ -272,7 +275,7 @@ export function useCreateContrato() {
         locatario: item.cliente,
         cpf: item.cnpj,
         rg: item.rg || '',
-        telefone: item.telefone,
+        telefone: item.telefone || '',
         contato: item.contato,
         endereco: item.endereco,
         numero: item.numeroEndereco,
@@ -282,6 +285,7 @@ export function useCreateContrato() {
         cep: item.cep,
         localEntrega: item.localEntrega,
         telefoneEntrega: item.telefoneEntrega,
+        referencia: item.referencia || '',
         itens: item.itens || [],
         total: item.valorTotal || 0,
         observacao: item.observacao,
@@ -301,14 +305,16 @@ export function useCreateContrato() {
             tipo: 'contrato_criado',
             contrato_id: item.id,
             contrato: {
-              id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj, rg: item.rg,
+              id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj,
+              rg: item.rg || '', telefone: item.telefone || '',
               equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim,
               valorMensal: item.valorMensal, valorTotal: item.valorTotal,
               atendente: item.atendente, localEntrega: item.localEntrega,
               endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
+              referencia: item.referencia,
             },
             comprovante: {
-              id: comp.id, locatario: item.cliente, cpf: item.cnpj, rg: item.rg,
+              id: comp.id, locatario: item.cliente, cpf: item.cnpj,
               endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
             },
           }),
@@ -330,7 +336,8 @@ export function useUpdateContrato() {
   return useMutation({
     mutationFn: async ({ id, updates }) => {
       if (isConfigured()) {
-        const payload = toSnake(updates);
+        const { condicoesDevolucao, referencia, ...validUpdates } = updates;
+        const payload = toSnake(validUpdates);
         const { data, error } = await supabase.from('contratos').update(payload).eq('id', id).select().single();
         if (error) throw handleSupabaseError(error);
         return toCamel(data);

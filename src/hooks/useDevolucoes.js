@@ -56,7 +56,7 @@ export function useDevolucoes(filters = {}) {
         return data;
       }
     },
-    staleTime: 5000,
+    staleTime: 30000,
   });
 
   useRealtime('devolucoes', queryClient, queryKey);

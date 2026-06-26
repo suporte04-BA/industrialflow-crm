@@ -19,9 +19,9 @@ export function useDashboard() {
       }
 
       const [osResult, eqResult, ctResult] = await Promise.all([
-        supabase.from('ordens_servico').select('*'),
-        supabase.from('equipamentos').select('*'),
-        supabase.from('contratos').select('*'),
+        supabase.from('ordens_servico').select('id,status'),
+        supabase.from('equipamentos').select('id,status'),
+        supabase.from('contratos').select('id,numero,cliente,status,valor_mensal,assinado,fim'),
       ]);
 
       if (osResult.error) throw handleSupabaseError(osResult.error);

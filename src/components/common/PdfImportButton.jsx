@@ -1,8 +1,71 @@
 ﻿import { useState, useRef } from 'react';
-import { FileUp, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileUp, Loader2, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { extractTextFromPDF } from '../../lib/pdfParser';
 import { importarPDF } from '../../lib/pdfImporter';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+async function aiExtract(text, tipoDocumento) {
+  try {
+    const res = await fetch('/api/ai/extract-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, tipo_documento: tipoDocumento }),
+    });
+    const data = await res.json();
+    if (data.success && data.data) return data.data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function mapAiToFields(ai) {
+  const itens = Array.isArray(ai.itens)
+    ? ai.itens.map(it => ({
+        quantidade: it.quantidade || 1,
+        descricao: it.descricao || '',
+        patrimonio: it.patrimonio || 'PAT-000',
+        data_locacao: it.data_locacao || it.dataLocacao || '',
+        data_devolucao: it.data_devolucao || it.dataDevolucao || '',
+        valor_unitario: it.valor_unitario || it.valorUnitario || 0,
+        qtd_devolvida: it.qtd_devolvida || it.qtdDevolvida || 0,
+      }))
+    : [];
+
+  const equipamentos = itens
+    .map(it => it.descricao)
+    .filter(d => d && d.length > 2);
+
+  return {
+    numero_pedido: ai.numero_pedido || ai.contrato || '',
+    contrato: ai.contrato || '',
+    atendente: ai.atendente || '',
+    locatario: ai.locatario || '',
+    cpf_cnpj: ai.cpf_cnpj || '',
+    rg: ai.rg || '',
+    telefone: ai.telefone || '',
+    contato: ai.locatario || ai.contato || '',
+    endereco: ai.endereco || '',
+    numero: ai.numero || '',
+    bairro: ai.bairro || '',
+    cidade: ai.cidade || '',
+    estado: ai.estado || '',
+    cep: ai.cep || '',
+    telefone_entrega: ai.telefone_entrega || '',
+    local_entrega: ai.local_entrega || ai.local_obra || '',
+    referencia: ai.referencia || '',
+    data_retirada: ai.data_retirada || ai.data_devolucao || '',
+    hora: ai.hora || '',
+    observacao: ai.observacao || '',
+    itens,
+    equipamentos,
+    valor_total: ai.valor_total || 0,
+    valor_mensal: ai.valor_mensal || ai.valor_total || 0,
+    tipo_documento: ai.tipo_documento || 'entrega',
+    condicoes: ai.condicoes || {},
+  };
+}
 
 export default function PdfImportButton({ onFieldsExtracted }) {
   const [loading, setLoading] = useState(false);
@@ -27,7 +90,25 @@ export default function PdfImportButton({ onFieldsExtracted }) {
     setStatus(null);
 
     try {
-      const fields = await importarPDF(file);
+      const extracted = await extractTextFromPDF(file);
+      const text = extracted.text || '';
+
+      let fields = null;
+      let usedAI = false;
+
+      if (text.length > 50) {
+        const tipoHint = /DEVOLU[ÇC][ÃA]O/i.test(text) ? 'devolucao' : 'entrega';
+        const aiData = await aiExtract(text, tipoHint);
+        if (aiData) {
+          fields = mapAiToFields(aiData);
+          usedAI = true;
+        }
+      }
+
+      if (!fields) {
+        fields = await importarPDF(file);
+      }
+
       const textFields = { ...fields };
       delete textFields.itens;
       delete textFields.valores;
@@ -39,10 +120,11 @@ export default function PdfImportButton({ onFieldsExtracted }) {
         setStatus({ type: 'error', message: 'Nenhum campo detectado no PDF. Verifique o arquivo.' });
       } else {
         onFieldsExtracted(fields);
-        const tipoLabel = fields.tipo_documento === 'devolucao' ? 'Devolução' : 'Entrega';
+        const tipoLabel = fields.tipo_documento === 'devolucao' ? 'Devolucao' : 'Entrega';
+        const aiLabel = usedAI ? ' [IA]' : '';
         const msg = itemCount > 0
-          ? `${filledCount} campos e ${itemCount} item(ns) importados (${tipoLabel})!`
-          : `${filledCount} campos importados (${tipoLabel})!`;
+          ? `${filledCount} campos e ${itemCount} item(ns) importados (${tipoLabel})${aiLabel}!`
+          : `${filledCount} campos importados (${tipoLabel})${aiLabel}!`;
         setStatus({ type: 'success', message: msg });
       }
     } catch (err) {
@@ -82,6 +164,7 @@ export default function PdfImportButton({ onFieldsExtracted }) {
         <div className={`flex items-center gap-2 text-sm ${status.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
           {status.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           <span>{status.message}</span>
+          {status.usedAI && <Sparkles className="w-3 h-3 text-yellow-500" />}
         </div>
       )}
     </div>

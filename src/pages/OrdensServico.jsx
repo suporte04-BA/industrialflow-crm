@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Eye, Edit3, Trash2, Filter } from 'lucide-react';
+import { Plus, Search, Eye, Edit3, Trash2, Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrdensServico, useCreateOS, useUpdateOS, useDeleteOS } from '../hooks/useOrdensServico';
 import OSDetailModal from '../components/os/OSDetailModal';
@@ -13,6 +13,7 @@ import EmptyState from '../components/ui/EmptyState';
 
 export default function OrdensServico() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
+  const [searchInput, setSearchInput] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedOS, setSelectedOS] = useState(null);
   const [editingOS, setEditingOS] = useState(null);
@@ -22,6 +23,9 @@ export default function OrdensServico() {
   const createOS = useCreateOS();
   const updateOS = useUpdateOS();
   const deleteOS = useDeleteOS();
+
+  const handleSearch = () => setFilters(prev => ({ ...prev, search: searchInput }));
+  const clearSearch = () => { setSearchInput(''); setFilters(prev => ({ ...prev, search: '' })); };
 
   const handleCreate = async (data) => {
     await createOS.mutateAsync(data);
@@ -81,9 +85,15 @@ export default function OrdensServico() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input type="text" placeholder="Buscar por cliente ou ID..." value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          className="input-base pl-10" />
+        <input type="text" placeholder="Pressione Enter para buscar..." value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+          className="input-base pl-10 pr-9" />
+        {searchInput && (
+          <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {osList.length === 0 ? (

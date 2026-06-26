@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2, Download } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
 import { useContratos, useUpdateContrato } from '../hooks/useContratos';
+import { useAuth } from '../lib/AuthContext';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -24,6 +25,7 @@ export default function AssinaturaDigital() {
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  const { isFuncionario, profile } = useAuth();
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
   const { data: comprovantes, refetch: refetchComprovantes } = useComprovantes();
   const { data: contratos } = useContratos();
@@ -114,7 +116,8 @@ export default function AssinaturaDigital() {
           numero: contrato.numero,
           cliente: contrato.cliente,
           cnpj: contrato.cnpj,
-          rg: contrato.rg,
+          rg: contrato.rg || '',
+          telefone: contrato.telefone || '',
           equipamentos: contrato.equipamentos,
           inicio: contrato.inicio,
           fim: contrato.fim,
@@ -128,8 +131,6 @@ export default function AssinaturaDigital() {
           cidade: contrato.cidade,
           estado: contrato.estado,
           cep: contrato.cep,
-          telefone: contrato.telefone,
-          email: contrato.email,
           contato: contrato.contato,
         } : null,
         comprovante: {
@@ -137,7 +138,8 @@ export default function AssinaturaDigital() {
           contrato: comprovante?.contrato,
           locatario: comprovante?.locatario,
           cpf: comprovante?.cpf,
-          rg: comprovante?.rg,
+          rg: comprovante?.rg || '',
+          telefone: comprovante?.telefone || '',
           endereco: comprovante?.endereco,
           cidade: comprovante?.cidade,
           total: comprovante?.total,
@@ -198,6 +200,7 @@ export default function AssinaturaDigital() {
         nomeSignatario,
         cpfSignatario,
         assinaturaImagem: imagem,
+        funcionarioId: isFuncionario ? profile?.id : null,
       });
 
       const comp = (comprovantes || []).find((c) => c.id === selectedComprovante);
@@ -256,9 +259,16 @@ export default function AssinaturaDigital() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Assinatura Digital</h2>
-        <p className="text-sm text-gray-500">{(assinaturas || []).length} assinaturas registradas</p>
+      <div className="flex items-center gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Assinatura Digital</h2>
+          <p className="text-sm text-gray-500">{(assinaturas || []).length} assinaturas registradas</p>
+        </div>
+        {isFuncionario && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+            <User className="w-3 h-3" /> Visao Funcionario
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -288,10 +298,10 @@ export default function AssinaturaDigital() {
                   <div><span className="text-gray-500">Contrato:</span> <span className="font-medium">{selectedContrato.numero || selectedContrato.id}</span></div>
                   <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{selectedContrato.cliente}</span></div>
                   <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{selectedContrato.cnpj || '-'}</span></div>
-                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedContrato.rg || '-'}</span></div>
+                  {selectedContrato.rg && <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedContrato.rg}</span></div>}
                   <div><span className="text-gray-500">Atendente:</span> <span className="font-medium">{selectedContrato.atendente || '-'}</span></div>
+                  {selectedContrato.telefone && <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedContrato.telefone}</span></div>}
                   <div><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(selectedContrato.equipamentos) ? selectedContrato.equipamentos.join(', ') : '-'}</span></div>
-                  <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(selectedContrato.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
                   <div><span className="text-gray-500">Local Entrega:</span> <span className="font-medium">{selectedContrato.localEntrega || '-'}</span></div>
                 </div>
               </div>
@@ -306,8 +316,8 @@ export default function AssinaturaDigital() {
                 <div className="grid grid-cols-2 gap-1 text-xs">
                   <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>
                   <div><span className="text-gray-500">CPF:</span> <span className="font-medium">{selectedComp.cpf || '-'}</span></div>
-                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg || '-'}</span></div>
-                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.telefone || '-'}</span></div>
+                  {selectedComp.rg && <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg}</span></div>}
+                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.telefoneEntrega || selectedComp.telefone || '-'}</span></div>
                   <div><span className="text-gray-500">Cidade:</span> <span className="font-medium">{selectedComp.cidade}{selectedComp.estado ? `/${selectedComp.estado}` : ''}</span></div>
                   <div><span className="text-gray-500">Contato:</span> <span className="font-medium">{selectedComp.contato || '-'}</span></div>
                   {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}{selectedComp.bairro ? ` - ${selectedComp.bairro}` : ''}</span></div>}

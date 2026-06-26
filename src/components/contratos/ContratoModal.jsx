@@ -15,12 +15,12 @@ function getInitialForm(contrato, isRenew) {
     return {
       cliente: contrato.cliente || '',
       cnpj: contrato.cnpj || '',
-      rg: contrato.rg || '',
       equipamentos: Array.isArray(contrato.equipamentos) ? contrato.equipamentos : [contrato.equipamentos || ''],
       numero: contrato.numero || '',
       dataContrato: contrato.dataContrato || '',
       horaContrato: contrato.horaContrato || '',
       atendente: contrato.atendente || '',
+      referencia: contrato.referencia || '',
       inicio: isRenew ? new Date().toISOString().split('T')[0] : (contrato.inicio || ''),
       fim: isRenew ? '' : (contrato.fim || ''),
       valorTotal: isRenew ? '' : (contrato.valorTotal != null ? contrato.valorTotal : ''),
@@ -33,9 +33,9 @@ function getInitialForm(contrato, isRenew) {
       cidade: contrato.cidade || '',
       estado: contrato.estado || '',
       cep: contrato.cep || '',
-      telefone: contrato.telefone || '',
-      email: contrato.email || '',
       contato: contrato.contato || '',
+      rg: contrato.rg || '',
+      telefone: contrato.telefone || '',
       localEntrega: contrato.localEntrega || '',
       telefoneEntrega: contrato.telefoneEntrega || '',
       itens: Array.isArray(contrato.itens) && contrato.itens.length > 0
@@ -47,19 +47,21 @@ function getInitialForm(contrato, isRenew) {
     };
   }
   const now = new Date();
-  return {
-    cliente: '', cnpj: '', rg: '', equipamentos: [''],
-    numero: '', dataContrato: now.toISOString().split('T')[0], horaContrato: now.toTimeString().slice(0, 5), atendente: '',
-    inicio: '', fim: '', valorTotal: '', valorMensal: '',
-    status: 'ativo', assinado: false,
-    endereco: '', numeroEndereco: '', bairro: '', cidade: '', estado: '', cep: '',
-    telefone: '', email: '', contato: '',
-    localEntrega: '', telefoneEntrega: '',
-    itens: [{ ...emptyItem }],
-    observacao: '',
-    tipoDocumento: 'entrega',
-    condicoesDevolucao: { ...emptyCondicoes },
-  };
+    return {
+      cliente: '', cnpj: '', equipamentos: [''],
+      numero: '', dataContrato: now.toISOString().split('T')[0], horaContrato: now.toTimeString().slice(0, 5), atendente: '',
+      referencia: '',
+      inicio: '', fim: '', valorTotal: '', valorMensal: '',
+      status: 'ativo', assinado: false,
+      endereco: '', numeroEndereco: '', bairro: '', cidade: '', estado: '', cep: '',
+      contato: '',
+      rg: '', telefone: '',
+      localEntrega: '', telefoneEntrega: '',
+      itens: [{ ...emptyItem }],
+      observacao: '',
+      tipoDocumento: 'entrega',
+      condicoesDevolucao: { ...emptyCondicoes },
+    };
 }
 
 export default function ContratoModal({ isOpen, onClose, onSave, contrato = null, isRenew = false }) {
@@ -139,8 +141,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       toast.warning('CNPJ importado invalido, verifique manualmente');
     }
 
-    const rgVal = (fields.rg || '').replace(/^[\s/]+/, '').trim();
-
     const mappedContato = fields.contato_cliente || fields.contato || '';
 
     const valorMensalCalc = (() => {
@@ -156,9 +156,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       ...prev,
       cliente: fields.contato || fields.cliente || prev.cliente,
       cnpj: cnpjVal || prev.cnpj,
-      rg: rgVal || prev.rg,
-      telefone: fields.telefone || prev.telefone,
-      email: fields.email || prev.email,
       endereco: fields.endereco || prev.endereco,
       numeroEndereco: fields.numero || prev.numeroEndereco,
       bairro: fields.bairro || prev.bairro,
@@ -166,6 +163,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       estado: fields.estado || prev.estado,
       cep: fields.cep || prev.cep,
       contato: mappedContato,
+      rg: fields.rg || prev.rg,
+      telefone: fields.telefone || prev.telefone,
       atendente: fields.atendente || prev.atendente,
       horaContrato: fields.hora || prev.horaContrato,
       localEntrega: fields.local_entrega || prev.localEntrega,
@@ -174,6 +173,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       numero: fields.numero_pedido || prev.numero,
       inicio: fields.data_retirada || prev.inicio,
       fim: fields.data_devolucao || prev.fim,
+      referencia: fields.referencia || prev.referencia,
       itens: importedItems || prev.itens,
       equipamentos: importedEquipamentos || prev.equipamentos,
       valorMensal: valorMensalCalc || prev.valorMensal,
@@ -200,7 +200,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     const docType = detectDocumentType(form.cnpj);
     if (docType === 'cpf' && !isValidCPF(form.cnpj)) { toast.error('CPF inválido'); return; }
     if (docType === 'cnpj' && !isValidCNPJ(form.cnpj)) { toast.error('CNPJ inválido'); return; }
-    if (!form.telefone.trim()) { toast.error('Preencha o telefone'); return; }
     if (!form.contato.trim()) { toast.error('Preencha o contato'); return; }
     if (!form.endereco.trim()) { toast.error('Preencha o endereço'); return; }
     if (!form.numeroEndereco.trim()) { toast.error('Preencha o número do endereço'); return; }
@@ -220,8 +219,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     const hasValidEquipamento = form.equipamentos.some(e => e.trim());
     if (!hasValidEquipamento) { toast.error('Adicione pelo menos um equipamento'); return; }
 
-    const hasValidItem = form.itens.some(it => it.descricao.trim() && Number(it.valorUnitario) > 0);
-    if (!hasValidItem) { toast.error('Adicione pelo menos um item com descrição e valor'); return; }
+    const hasValidItem = form.itens.some(it => it.descricao.trim());
+    if (!hasValidItem) { toast.error('Adicione pelo menos um item com descricao'); return; }
 
     setSaving(true);
     try {
@@ -232,8 +231,11 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
         itens: form.itens.filter(it => it.descricao.trim()),
         valorTotal: Number(total) || 0,
         valorMensal: Number(form.valorMensal) || 0,
+        rg: form.rg || '',
+        telefone: form.telefone || '',
         tipoDocumento: form.tipoDocumento || 'entrega',
         condicoesDevolucao: form.condicoesDevolucao || { ...emptyCondicoes },
+        referencia: form.referencia || '',
       });
       onClose();
     } catch (err) {
@@ -262,17 +264,25 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 <div className="flex items-center gap-4 mb-3">
                   <span className="text-xs font-medium text-gray-600">Tipo de Comprovante:</span>
                   <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="tipoDocumento" value="entrega"
-                      checked={form.tipoDocumento === 'entrega'}
-                      onChange={() => setForm({ ...form, tipoDocumento: 'entrega' })}
-                      className="text-blue-500 focus:ring-blue-400" />
+                    <button type="button" onClick={() => setForm({ ...form, tipoDocumento: 'entrega' })}
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                        form.tipoDocumento === 'entrega'
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300 bg-white'
+                      }`}>
+                      {form.tipoDocumento === 'entrega' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </button>
                     <span className="text-xs text-gray-700">Entrega</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="tipoDocumento" value="devolucao"
-                      checked={form.tipoDocumento === 'devolucao'}
-                      onChange={() => setForm({ ...form, tipoDocumento: 'devolucao' })}
-                      className="text-orange-500 focus:ring-orange-400" />
+                    <button type="button" onClick={() => setForm({ ...form, tipoDocumento: 'devolucao' })}
+                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                        form.tipoDocumento === 'devolucao'
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300 bg-white'
+                      }`}>
+                      {form.tipoDocumento === 'devolucao' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </button>
                     <span className="text-xs text-gray-700">Devolução</span>
                   </label>
                 </div>
@@ -329,56 +339,58 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <h3 className="text-sm font-bold text-gray-800 mb-3">Dados do Locatário</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Locatário *</label>
-                    <input type="text" required value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })}
-                      className="input-base" placeholder="Nome do locatário" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">CPF/CNPJ *</label>
-                    <input type="text" required value={form.cnpj}
-                      onChange={(e) => setForm({ ...form, cnpj: formatCPFCNPJ(e.target.value) })}
-                      onBlur={(e) => {
-                        const val = e.target.value;
-                        if (!val.trim()) return;
-                        const type = detectDocumentType(val);
-                        const valid = type === 'cpf' ? isValidCPF(val) : isValidCNPJ(val);
-                        if (!valid) toast.error(`${type.toUpperCase()} invalido`);
-                      }}
-                      className="input-base" placeholder="00.000.000/0001-00" maxLength={18} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
-                    <input type="text" value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })}
-                      className="input-base" placeholder="00.000.000-0" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Telefone *</label>
-                    <input type="text" required value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-                      className="input-base" placeholder="(00) 00000-0000" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                    <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="input-base" placeholder="email@exemplo.com" />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Contato *</label>
-                    <input type="text" required value={form.contato} onChange={(e) => setForm({ ...form, contato: e.target.value })}
-                      className="input-base" placeholder="Nome do contato" />
-                  </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Locatário *</label>
+                      <input type="text" required value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })}
+                        className="input-base" placeholder="Nome do locatário" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">CPF/CNPJ *</label>
+                      <input type="text" required value={form.cnpj}
+                        onChange={(e) => setForm({ ...form, cnpj: formatCPFCNPJ(e.target.value) })}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          if (!val.trim()) return;
+                          const type = detectDocumentType(val);
+                          const valid = type === 'cpf' ? isValidCPF(val) : isValidCNPJ(val);
+                          if (!valid) toast.error(`${type.toUpperCase()} invalido`);
+                        }}
+                        className="input-base" placeholder="00.000.000/0001-00" maxLength={18} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
+                      <input type="text" value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })}
+                        className="input-base" placeholder="RG do locatario" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Telefone</label>
+                      <input type="text" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                        className="input-base" placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Contato *</label>
+                      <input type="text" required value={form.contato} onChange={(e) => setForm({ ...form, contato: e.target.value })}
+                        className="input-base" placeholder="Nome do contato" />
+                    </div>
                 </div>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <h3 className="text-sm font-bold text-gray-800 mb-3">Endereço</h3>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Endereço *</label>
-                  <input type="text" required value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-                    className="input-base" placeholder="Rua, Avenida..." />
+                <div className="grid grid-cols-6 gap-3">
+                  <div className="col-span-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+                    <input type="text" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })}
+                      className="input-base" placeholder="Rua, Avenida, etc" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Referência</label>
+                    <input type="text" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })}
+                      className="input-base" placeholder="Ex: SESC" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-6 gap-3 mt-3">
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <label className="block text-xs font-medium text-gray-600 mb-1">Número *</label>
                     <input type="text" required value={form.numeroEndereco} onChange={(e) => setForm({ ...form, numeroEndereco: e.target.value })}
                       className="input-base" placeholder="Nº" />
@@ -393,18 +405,16 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                     <input type="text" required value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })}
                       className="input-base" placeholder="Cidade" />
                   </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mt-3">
-                  <div>
+                  <div className="col-span-1">
                     <label className="block text-xs font-medium text-gray-600 mb-1">UF *</label>
                     <input type="text" required value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}
                       className="input-base" placeholder="UF" maxLength={2} />
                   </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">CEP *</label>
-                    <input type="text" required value={form.cep} onChange={(e) => setForm({ ...form, cep: e.target.value })}
-                      className="input-base" placeholder="00000-000" />
-                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">CEP *</label>
+                  <input type="text" required value={form.cep} onChange={(e) => setForm({ ...form, cep: e.target.value })}
+                    className="input-base max-w-[200px]" placeholder="00000-000" />
                 </div>
               </div>
 

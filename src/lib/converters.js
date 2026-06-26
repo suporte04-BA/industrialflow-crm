@@ -32,6 +32,7 @@ const SNAKE_TO_CAMEL = {
   cpf: 'cpf',
   rg: 'rg',
   telefone: 'telefone',
+  fone: 'telefone',
   contato: 'contato',
   endereco: 'endereco',
   numero: 'numero',

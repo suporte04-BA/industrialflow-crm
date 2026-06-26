@@ -23,7 +23,7 @@ export function useAssinaturas(comprovanteId = null) {
       }
       return (data || []).map(toCamel);
     },
-    staleTime: 5000,
+    staleTime: 30000,
   });
 
   useRealtime('assinaturas', queryClient, queryKey);
@@ -40,7 +40,7 @@ export function useAssinaturas(comprovanteId = null) {
 export function useCreateAssinatura() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem }) => {
+    mutationFn: async ({ comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, funcionarioId }) => {
       if (isConfigured()) {
         try {
           const payload = toSnake({
@@ -48,6 +48,7 @@ export function useCreateAssinatura() {
             nomeSignatario,
             cpfSignatario,
             assinaturaImagem: assinaturaImagem || null,
+            funcionarioId: funcionarioId || null,
             ipAddress: null,
             dataAssinatura: new Date().toISOString(),
           });

@@ -14,6 +14,7 @@ import { formatDateBR, daysUntil } from '../lib/dates';
 
 export default function Equipamentos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
+  const [searchInput, setSearchInput] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEq, setEditingEq] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -23,6 +24,9 @@ export default function Equipamentos() {
   const createEq = useCreateEquipamento();
   const updateEq = useUpdateEquipamento();
   const deleteEq = useDeleteEquipamento();
+
+  const handleSearch = () => setFilters(prev => ({ ...prev, search: searchInput }));
+  const clearSearch = () => { setSearchInput(''); setFilters(prev => ({ ...prev, search: '' })); };
 
   const handleCreate = async (data) => {
     await createEq.mutateAsync(data);
@@ -64,14 +68,14 @@ export default function Equipamentos() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: stats.total, color: 'bg-gray-100 text-gray-700' },
-          { label: 'Locados', value: stats.locados, color: 'bg-green-100 text-green-700' },
-          { label: 'Disponiveis', value: stats.disponiveis, color: 'bg-blue-100 text-blue-700' },
-          { label: 'Manutencao', value: stats.manutencao, color: 'bg-red-100 text-red-700' },
+          { label: 'Total', value: stats.total, color: 'bg-slate-100 text-slate-700 shadow-sm' },
+          { label: 'Locados', value: stats.locados, color: 'bg-blue-100 text-blue-700 shadow-sm' },
+          { label: 'Disponiveis', value: stats.disponiveis, color: 'bg-emerald-100 text-emerald-700 shadow-sm' },
+          { label: 'Manutencao', value: stats.manutencao, color: 'bg-orange-100 text-orange-700 shadow-sm' },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl p-4 ${s.color}`}>
             <p className="text-2xl font-bold">{s.value}</p>
-            <p className="text-sm opacity-80">{s.label}</p>
+            <p className="text-sm opacity-80 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
@@ -79,10 +83,19 @@ export default function Equipamentos() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Buscar por nome ou categoria..." value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="input-base pl-10" />
+          <input type="text" placeholder="Pressione Enter para buscar..." value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+            className="input-base pl-10 pr-9" />
+          {searchInput && (
+            <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        <button onClick={handleSearch} className="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg font-medium text-sm hover:bg-yellow-300 transition-colors flex items-center gap-1.5">
+          <Search className="w-4 h-4" /> Buscar
+        </button>
         <div className="flex gap-2">
           {['all', 'locado', 'disponivel', 'manutencao'].map((s) => (
             <button key={s} onClick={() => setFilters({ ...filters, status: s })}

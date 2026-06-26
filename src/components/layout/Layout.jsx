@@ -8,7 +8,7 @@ const pageTitles = {
   '/ordens': { title: 'Ordens de Servico', subtitle: 'Gestao de OS abertas e concluidas' },
   '/equipamentos': { title: 'Equipamentos', subtitle: 'Locacoes e disponibilidade' },
   '/contratos': { title: 'Contratos', subtitle: 'Contratos ativos, vencendo e vencidos' },
-  '/comprovantes': { title: 'Comprovantes de Entrega', subtitle: 'Bens locados entregues e registrados' },
+  '/comprovantes': { title: 'Documentos', subtitle: 'Comprovantes de entrega e devolucao' },
   '/devolucoes': { title: 'Devolucoes', subtitle: 'Devolucao de bens locados' },
   '/assinatura': { title: 'Assinatura Digital', subtitle: 'Assine contratos e documentos' },
   '/historico': { title: 'Historico de Transacoes', subtitle: 'Todas as movimentacoes do sistema' },

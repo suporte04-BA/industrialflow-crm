@@ -1,14 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown } from 'lucide-react';
+import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '../ui/Button';
 import PdfImportButton from '../common/PdfImportButton';
 import { isValidCPF, isValidCNPJ, formatCPFCNPJ, detectDocumentType } from '../../lib/validation';
 
 const emptyItem = { quantidade: 1, descricao: '', patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 };
-
 const emptyCondicoes = { danificado: false, extraviado: false, testarEmpresa: false };
+
+function calcMonths(start, end) {
+  if (!start || !end) return 0;
+  const s = new Date(start), e = new Date(end);
+  if (isNaN(s) || isNaN(e)) return 0;
+  const months = (e.getFullYear() - s.getFullYear()) * 12 + e.getMonth() - s.getMonth();
+  const daysDiff = e.getDate() > s.getDate() ? 1 : 0;
+  return Math.max(1, months + (daysDiff > 0 ? 1 : 0));
+}
 
 function getInitialForm(contrato, isRenew) {
   if (contrato) {
@@ -47,22 +55,23 @@ function getInitialForm(contrato, isRenew) {
     };
   }
   const now = new Date();
-    return {
-      cliente: '', cnpj: '', equipamentos: [''],
-      numero: '', dataContrato: now.toISOString().split('T')[0], horaContrato: now.toTimeString().slice(0, 5), atendente: '',
-      referencia: '',
-      inicio: '', fim: '', valorTotal: '', valorMensal: '',
-      status: 'ativo', assinado: false,
-      endereco: '', numeroEndereco: '', bairro: '', cidade: '', estado: '', cep: '',
-      contato: '',
-      rg: '', telefone: '',
-      localEntrega: '', telefoneEntrega: '',
-      itens: [{ ...emptyItem }],
-      observacao: '',
-      tipoDocumento: 'entrega',
-      condicoesDevolucao: { ...emptyCondicoes },
-    };
+  return {
+    cliente: '', cnpj: '', equipamentos: [''],
+    numero: '', dataContrato: now.toISOString().split('T')[0], horaContrato: now.toTimeString().slice(0, 5), atendente: '',
+    referencia: '',
+    inicio: '', fim: '', valorTotal: '', valorMensal: '',
+    status: 'ativo', assinado: false,
+    endereco: '', numeroEndereco: '', bairro: '', cidade: '', estado: '', cep: '',
+    contato: '',
+    rg: '', telefone: '',
+    localEntrega: '', telefoneEntrega: '',
+    itens: [{ ...emptyItem }],
+    observacao: '',
+    tipoDocumento: 'entrega',
+    condicoesDevolucao: { ...emptyCondicoes },
+  };
 }
+
 
 export default function ContratoModal({ isOpen, onClose, onSave, contrato = null, isRenew = false }) {
   const isEdit = !!contrato && !isRenew;
@@ -79,23 +88,33 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     }
   }, [contrato?.id, isRenew]);
 
-  const addEquipamento = () => setForm({ ...form, equipamentos: [...form.equipamentos, ''] });
-  const removeEquipamento = (idx) => setForm({ ...form, equipamentos: form.equipamentos.filter((_, i) => i !== idx) });
+  const handleClose = () => {
+    const isDirty = JSON.stringify(form) !== JSON.stringify(getInitialForm(contrato, isRenew));
+    if (isDirty && !window.confirm('Há alterações não salvas. Deseja realmente fechar?')) return;
+    onClose();
+  };
+
+  const addEquipamento = () => setForm(prev => ({ ...prev, equipamentos: [...prev.equipamentos, ''] }));
+  const removeEquipamento = (idx) => setForm(prev => ({ ...prev, equipamentos: prev.equipamentos.filter((_, i) => i !== idx) }));
   const updateEquipamento = (idx, val) => {
-    const updated = [...form.equipamentos];
-    updated[idx] = val;
-    setForm({ ...form, equipamentos: updated });
+    setForm(prev => {
+      const updated = [...prev.equipamentos];
+      updated[idx] = val;
+      return { ...prev, equipamentos: updated };
+    });
   };
 
-  const addItem = () => setForm({ ...form, itens: [...form.itens, { ...emptyItem }] });
-  const removeItem = (idx) => setForm({ ...form, itens: form.itens.filter((_, i) => i !== idx) });
+  const addItem = () => setForm(prev => ({ ...prev, itens: [...prev.itens, { ...emptyItem }] }));
+  const removeItem = (idx) => setForm(prev => ({ ...prev, itens: prev.itens.filter((_, i) => i !== idx) }));
   const updateItem = (idx, field, val) => {
-    const updated = [...form.itens];
-    updated[idx] = { ...updated[idx], [field]: val };
-    setForm({ ...form, itens: updated });
+    setForm(prev => {
+      const updated = [...prev.itens];
+      updated[idx] = { ...updated[idx], [field]: val };
+      return { ...prev, itens: updated };
+    });
   };
 
-  const calcTotal = () => {
+  const total = useMemo(() => {
     const itensTotal = form.itens.reduce((sum, it) => {
       const qty = Number(it.quantidade) || 0;
       const price = Number(it.valorUnitario) || 0;
@@ -103,13 +122,10 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     }, 0);
     if (itensTotal > 0) return itensTotal;
     if (form.inicio && form.fim && form.valorMensal) {
-      const inicio = new Date(form.inicio);
-      const fim = new Date(form.fim);
-      const meses = Math.max(1, Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24 * 30)));
-      return meses * Number(form.valorMensal);
+      return calcMonths(form.inicio, form.fim) * Number(form.valorMensal);
     }
     return Number(form.valorTotal) || 0;
-  };
+  }, [form.itens, form.inicio, form.fim, form.valorMensal, form.valorTotal]);
 
   const handlePdfImport = (fields) => {
     const importedItems = Array.isArray(fields.itens) && fields.itens.length > 0
@@ -194,6 +210,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.dataContrato) { toast.error('Preencha a data do contrato'); return; }
     if (!form.atendente.trim()) { toast.error('Preencha o atendente'); return; }
     if (!form.cliente.trim()) { toast.error('Preencha o nome do locatário'); return; }
     if (!form.cnpj.trim()) { toast.error('Preencha o CPF/CNPJ'); return; }
@@ -224,9 +241,9 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
     setSaving(true);
     try {
-      const total = calcTotal();
+      const { _contratoId, ...saveData } = form;
       await onSave({
-        ...form,
+        ...saveData,
         equipamentos: form.equipamentos.filter(Boolean),
         itens: form.itens.filter(it => it.descricao.trim()),
         valorTotal: Number(total) || 0,
@@ -247,24 +264,25 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
-              <h2 className="text-lg font-bold text-gray-900">
-                {isRenew ? 'Renovar Contrato' : isEdit ? 'Editar Contrato' : 'Novo Contrato'}
-              </h2>
-              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4" /></button>
-            </div>
+       {isOpen && (
+         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleClose}>
+           <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+             className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+             <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+               <h2 className="text-lg font-bold text-gray-900">
+                 {isRenew ? 'Renovar Contrato' : isEdit ? 'Editar Contrato' : 'Novo Contrato'}
+               </h2>
+               <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Fechar"><X className="w-4 h-4" /></button>
+             </div>
+
 
             {!isEdit && !isRenew && (
               <div className="px-6 pt-4">
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-xs font-medium text-gray-600">Tipo de Comprovante:</span>
                   <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                    <button type="button" onClick={() => setForm({ ...form, tipoDocumento: 'entrega' })}
+                    <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'entrega' }))}
                       className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
                         form.tipoDocumento === 'entrega'
                           ? 'bg-blue-600 text-white shadow-sm'
@@ -273,7 +291,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
                       Entrega
                     </button>
-                    <button type="button" onClick={() => setForm({ ...form, tipoDocumento: 'devolucao' })}
+                    <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'devolucao' }))}
                       className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
                         form.tipoDocumento === 'devolucao'
                           ? 'bg-blue-600 text-white shadow-sm'
@@ -416,23 +434,58 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </div>
               </div>
 
-              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                <h3 className="text-sm font-bold text-yellow-800 mb-3">Local de Entrega</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Local de Entrega *</label>
-                    <input type="text" required value={form.localEntrega} onChange={(e) => setForm({ ...form, localEntrega: e.target.value })}
-                      className="input-base" placeholder="Endereço ou referência da entrega" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Telefone do Local *</label>
-                    <input type="text" required value={form.telefoneEntrega} onChange={(e) => setForm({ ...form, telefoneEntrega: e.target.value })}
-                      className="input-base" placeholder="(00) 0000-0000" />
-                  </div>
-                </div>
-              </div>
+               <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                 <h3 className="text-sm font-bold text-yellow-800 mb-3">Local de Entrega</h3>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   <div>
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Local de Entrega *</label>
+                     <input type="text" required value={form.localEntrega} onChange={(e) => setForm(prev => ({ ...prev, localEntrega: e.target.value }))}
+                       className="input-base" placeholder="Endereço ou referência da entrega" />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Telefone do Local *</label>
+                     <input type="text" required value={form.telefoneEntrega} onChange={(e) => setForm(prev => ({ ...prev, telefoneEntrega: e.target.value }))}
+                       className="input-base" placeholder="(00) 0000-0000" />
+                   </div>
+                 </div>
+               </div>
 
-              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+               {form.tipoDocumento === 'devolucao' && (
+                 <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                   <h3 className="text-sm font-bold text-orange-800 mb-3">Condições de Devolução</h3>
+                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                     <label className="flex items-center gap-2 cursor-pointer">
+                       <input type="checkbox" checked={form.condicoesDevolucao?.danificado}
+                         onChange={(e) => setForm(prev => ({
+                           ...prev,
+                           condicoesDevolucao: { ...prev.condicoesDevolucao, danificado: e.target.checked }
+                         }))}
+                         className="rounded border-gray-300 text-orange-500 focus:ring-orange-400" />
+                       <span className="text-xs text-gray-700">Danificado</span>
+                     </label>
+                     <label className="flex items-center gap-2 cursor-pointer">
+                       <input type="checkbox" checked={form.condicoesDevolucao?.extraviado}
+                         onChange={(e) => setForm(prev => ({
+                           ...prev,
+                           condicoesDevolucao: { ...prev.condicoesDevolucao, extraviado: e.target.checked }
+                         }))}
+                         className="rounded border-gray-300 text-orange-500 focus:ring-orange-400" />
+                       <span className="text-xs text-gray-700">Extraviado</span>
+                     </label>
+                     <label className="flex items-center gap-2 cursor-pointer">
+                       <input type="checkbox" checked={form.condicoesDevolucao?.testarEmpresa}
+                         onChange={(e) => setForm(prev => ({
+                           ...prev,
+                           condicoesDevolucao: { ...prev.condicoesDevolucao, testarEmpresa: e.target.checked }
+                         }))}
+                         className="rounded border-gray-300 text-orange-500 focus:ring-orange-400" />
+                       <span className="text-xs text-gray-700">Testar Empresa</span>
+                     </label>
+                   </div>
+                 </div>
+               )}
+
+               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-green-800">Itens Locados</h3>
                   <button type="button" onClick={addItem}
@@ -456,24 +509,28 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                             onChange={(e) => updateItem(idx, 'descricao', e.target.value)}
                             className="input-base text-xs" placeholder="Descrição do item" />
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patrim.</label>
-                          <input type="text" value={item.patrimonio}
-                            onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
-                            className="input-base text-xs" placeholder="PAT-000" />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Loc</label>
-                          <input type="text" value={item.dataLocacao}
-                            onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)}
-                            className="input-base text-xs" placeholder="DD/MM/AAAA" />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Dev</label>
-                          <input type="text" value={item.dataDevolucao}
-                            onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)}
-                            className="input-base text-xs" placeholder="DD/MM/AAAA" />
-                        </div>
+                         <div>
+                           <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patrim.</label>
+                           <input type="text" value={item.patrimonio}
+                             onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
+                             className="input-base text-xs" placeholder="PAT-000" />
+                         </div>
+                         {form.tipoDocumento === 'entrega' && (
+                           <>
+                             <div>
+                               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Loc</label>
+                               <input type="text" value={item.dataLocacao}
+                                 onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)}
+                                 className="input-base text-xs" placeholder="DD/MM/AAAA" />
+                             </div>
+                             <div>
+                               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Dev</label>
+                               <input type="text" value={item.dataDevolucao}
+                                 onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)}
+                                 className="input-base text-xs" placeholder="DD/MM/AAAA" />
+                             </div>
+                           </>
+                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex-1">

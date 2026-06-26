@@ -261,30 +261,28 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
             {!isEdit && !isRenew && (
               <div className="px-6 pt-4">
-                <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-3 mb-3">
                   <span className="text-xs font-medium text-gray-600">Tipo de Comprovante:</span>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
                     <button type="button" onClick={() => setForm({ ...form, tipoDocumento: 'entrega' })}
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                      className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
                         form.tipoDocumento === 'entrega'
-                          ? 'border-blue-500 bg-blue-500'
-                          : 'border-gray-300 bg-white'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white text-gray-500 hover:text-gray-700 border border-gray-200'
                       }`}>
-                      {form.tipoDocumento === 'entrega' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
+                      Entrega
                     </button>
-                    <span className="text-xs text-gray-700">Entrega</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
                     <button type="button" onClick={() => setForm({ ...form, tipoDocumento: 'devolucao' })}
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                      className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
                         form.tipoDocumento === 'devolucao'
-                          ? 'border-blue-500 bg-blue-500'
-                          : 'border-gray-300 bg-white'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white text-gray-500 hover:text-gray-700 border border-gray-200'
                       }`}>
-                      {form.tipoDocumento === 'devolucao' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                      Devolução
                     </button>
-                    <span className="text-xs text-gray-700">Devolução</span>
-                  </label>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <Button variant="secondary" size="sm" icon={showImport ? FileDown : FileUp} onClick={() => setShowImport(!showImport)}>

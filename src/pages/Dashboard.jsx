@@ -15,6 +15,7 @@ export default function Dashboard() {
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   const { metricas = {}, recentOS = [], alertasContratos = [] } = data || {};
+
   if (!data) return null;
 
   return (
@@ -27,10 +28,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard icon={Package} title="Equip. Locados" value={metricas.equipamentosLocados} accent="green" />
-        <MetricCard icon={Wrench} title="Equip. Disponiveis" value={metricas.equipamentosDisponiveis} accent="blue" />
-        <MetricCard icon={FileText} title="Contratos Ativos" value={metricas.contratosAtivos} accent="yellow" />
-        <MetricCard icon={AlertTriangle} title="Contratos Vencendo" value={metricas.contratosVencendo} accent="red" />
+        <MetricCard icon={Package} title="Equip. Locados" value={metricas.equipamentosLocados || 0} accent="green" />
+        <MetricCard icon={Wrench} title="Equip. Disponiveis" value={metricas.equipamentosDisponiveis || 0} accent="blue" />
+        <MetricCard icon={FileText} title="Contratos Ativos" value={metricas.contratosAtivos || 0} accent="yellow" />
+        <MetricCard icon={AlertTriangle} title="Contratos Vencendo" value={metricas.contratosVencendo || 0} accent="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -66,7 +67,6 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6">

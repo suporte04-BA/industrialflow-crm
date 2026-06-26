@@ -101,7 +101,6 @@ export function useContratos(filters = {}) {
 
 export function useCreateContrato() {
   const queryClient = useQueryClient();
-  const emailRecipient = '';
   return useMutation({
     mutationFn: async (newCt) => {
       const now = new Date();
@@ -109,8 +108,8 @@ export function useCreateContrato() {
 
       if (isConfigured()) {
         try {
-          const { data } = await supabase.from('contratos').select('id');
-          if (data) {
+          const { data } = await supabase.from('contratos').select('id').order('id', { ascending: false }).limit(1);
+          if (data && data.length > 0) {
             maxNum = Math.max(...data.map(c => parseInt((c.id || '').replace('CT-', '')) || 0), 0);
           }
         } catch { /* fallback to local */ }
@@ -190,6 +189,7 @@ export function useCreateContrato() {
           itens: newCt.itens || [],
           observacao: newCt.observacao || '',
           tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
         const { data, error } = await supabase.from('contratos').insert(payload).select().single();
         if (error) throw handleSupabaseError(error);
@@ -220,7 +220,8 @@ export function useCreateContrato() {
           observacao: ctSaved.observacao,
           status: 'pendente',
           assinado: false,
-          tipoDocumento: 'entrega',
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
         try {
           const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
@@ -234,7 +235,7 @@ export function useCreateContrato() {
                   tipo: 'contrato_criado',
                   contrato_id: ctSaved.id,
                   comprovante_id: compData.id,
-                  destinatario: emailRecipient,
+                  destinatario: '',
                   contrato: {
                     id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj,
                     rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
@@ -243,7 +244,7 @@ export function useCreateContrato() {
                     atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
                     endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
                     cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
-                    contato: ctSaved.contato, referencia: ctSaved.referencia,
+                    contato: ctSaved.contato,
                   },
                   comprovante: {
                     id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj,
@@ -311,11 +312,14 @@ export function useCreateContrato() {
               valorMensal: item.valorMensal, valorTotal: item.valorTotal,
               atendente: item.atendente, localEntrega: item.localEntrega,
               endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
-              referencia: item.referencia,
+              cidade: item.cidade, estado: item.estado, cep: item.cep,
+              contato: item.contato,
             },
             comprovante: {
               id: comp.id, locatario: item.cliente, cpf: item.cnpj,
+              rg: item.rg || '', telefone: item.telefone || '',
               endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
+              itens: item.itens, localEntrega: item.localEntrega,
             },
           }),
         });
@@ -336,7 +340,7 @@ export function useUpdateContrato() {
   return useMutation({
     mutationFn: async ({ id, updates }) => {
       if (isConfigured()) {
-        const { condicoesDevolucao, referencia, ...validUpdates } = updates;
+        const { referencia, ...validUpdates } = updates;
         const payload = toSnake(validUpdates);
         const { data, error } = await supabase.from('contratos').update(payload).eq('id', id).select().single();
         if (error) throw handleSupabaseError(error);

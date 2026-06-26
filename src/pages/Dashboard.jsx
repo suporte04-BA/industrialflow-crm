@@ -14,16 +14,16 @@ export default function Dashboard() {
   if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={4} /></div>;
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
-  const { metricas, recentOS, alertasContratos } = data || {};
+  const { metricas = {}, recentOS = [], alertasContratos = [] } = data || {};
   if (!data) return null;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard icon={Wrench} title="Total OS" value={metricas.totalOS} accent="yellow" />
-        <MetricCard icon={Clock} title="OS Abertas" value={metricas.osAbertas} accent="blue" />
-        <MetricCard icon={CheckCircle} title="OS Concluidas" value={metricas.osConcluidas} accent="green" />
-        <MetricCard icon={DollarSign} title="Receita Mensal" value={`R$ ${metricas.receitaMensal.toLocaleString('pt-BR')}`} accent="yellow" />
+        <MetricCard icon={Wrench} title="Total OS" value={metricas.totalOS || 0} accent="yellow" />
+        <MetricCard icon={Clock} title="OS Abertas" value={metricas.osAbertas || 0} accent="blue" />
+        <MetricCard icon={CheckCircle} title="OS Concluidas" value={metricas.osConcluidas || 0} accent="green" />
+        <MetricCard icon={DollarSign} title="Receita Mensal" value={`R$ ${(metricas.receitaMensal || 0).toLocaleString('pt-BR')}`} accent="yellow" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -37,21 +37,27 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Receita Mensal</h3>
           <Suspense fallback={<div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Carregando grafico...</div>}>
-            <RevenueChart data={metricas.receitaMes.map((v, i) => ({ name: metricas.meses[i], valor: v }))} />
+            {metricas.receitaMes && metricas.meses ? (
+              <RevenueChart data={metricas.receitaMes.map((v, i) => ({ name: metricas.meses[i], valor: v }))} />
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">
+                Dados de receita indisponíveis
+              </div>
+            )}
           </Suspense>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Alertas</h3>
-          {alertasContratos.length === 0 ? (
+          {(alertasContratos || []).length === 0 ? (
             <p className="text-sm text-gray-500">Nenhum alerta no momento.</p>
           ) : (
             <div className="space-y-3">
-              {alertasContratos.slice(0, 4).map((c) => (
+              {(alertasContratos || []).slice(0, 4).map((c) => (
                 <div key={c.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <AlertTriangle className={`w-4 h-4 ${c.status === 'vencido' ? 'text-red-500' : 'text-yellow-500'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{c.cliente}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">{c.cliente || 'S/N'}</p>
                     <p className="text-xs text-gray-500">{c.id} - {c.vencimentoDias != null ? `${c.vencimentoDias} dias` : '-'}</p>
                   </div>
                   <StatusBadge status={c.status} />
@@ -60,6 +66,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -77,14 +84,14 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentOS.map((os) => (
+              {(recentOS || []).map((os) => (
                 <tr key={os.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-3 font-mono text-xs font-semibold">{os.id}</td>
-                  <td className="py-3">{os.cliente}</td>
-                  <td className="py-3">{os.equipamento}</td>
+                  <td className="py-3">{os.cliente || 'S/N'}</td>
+                  <td className="py-3">{os.equipamento || 'S/N'}</td>
                   <td className="py-3"><StatusBadge status={os.status} /></td>
                   <td className="py-3"><StatusBadge status={os.prioridade} /></td>
-                  <td className="py-3 font-medium">R$ {Number(os.valor).toLocaleString('pt-BR')}</td>
+                  <td className="py-3 font-medium">R$ {Number(os.valor || 0).toLocaleString('pt-BR')}</td>
                 </tr>
               ))}
             </tbody>

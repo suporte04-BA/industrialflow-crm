@@ -88,12 +88,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     }
   }, [contrato?.id, isRenew]);
 
-  const handleClose = () => {
-    const isDirty = JSON.stringify(form) !== JSON.stringify(getInitialForm(contrato, isRenew));
-    if (isDirty && !window.confirm('Há alterações não salvas. Deseja realmente fechar?')) return;
-    onClose();
-  };
-
   const addEquipamento = () => setForm(prev => ({ ...prev, equipamentos: [...prev.equipamentos, ''] }));
   const removeEquipamento = (idx) => setForm(prev => ({ ...prev, equipamentos: prev.equipamentos.filter((_, i) => i !== idx) }));
   const updateEquipamento = (idx, val) => {
@@ -266,14 +260,14 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     <AnimatePresence>
        {isOpen && (
          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleClose}>
+           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
              className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
              <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
                <h2 className="text-lg font-bold text-gray-900">
                  {isRenew ? 'Renovar Contrato' : isEdit ? 'Editar Contrato' : 'Novo Contrato'}
                </h2>
-               <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Fechar"><X className="w-4 h-4" /></button>
+               <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Fechar"><X className="w-4 h-4" /></button>
              </div>
 
 

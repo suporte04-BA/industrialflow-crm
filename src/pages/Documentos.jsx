@@ -16,9 +16,9 @@ const TABS = [
   { key: 'devolucao', label: 'Devolução', icon: RotateCcw },
 ];
 
-function EntregaCard({ c, contratoData, isExpanded, onDelete, onGeneratePDF }) {
+function EntregaCard({ c, contratoData, isExpanded, onDelete, onGeneratePDF, onToggleExpand }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onToggleExpand}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -101,10 +101,10 @@ function EntregaCard({ c, contratoData, isExpanded, onDelete, onGeneratePDF }) {
   );
 }
 
-function DevolucaoCard({ c, contratoData, isExpanded, onDelete }) {
+function DevolucaoCard({ c, contratoData, isExpanded, onDelete, onToggleExpand }) {
   const condicoes = c.condicoesDevolucao || c.condicoes || {};
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-4 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onToggleExpand}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -206,7 +206,10 @@ export default function Documentos() {
       (c.contrato || '').toLowerCase().includes(term) ||
       (c.locatario || '').toLowerCase().includes(term) ||
       (c.cpf || '').toLowerCase().includes(term) ||
-      (c.cidade || '').toLowerCase().includes(term)
+      (c.cidade || '').toLowerCase().includes(term) ||
+      (c.endereco || '').toLowerCase().includes(term) ||
+      (c.bairro || '').toLowerCase().includes(term) ||
+      (c.telefoneEntrega || c.telefone_entrega || '').toLowerCase().includes(term)
     );
   });
 

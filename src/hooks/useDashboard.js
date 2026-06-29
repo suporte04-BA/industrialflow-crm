@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
-import { toCamel, computeVencimentoDias } from '../lib/converters';
-import { handleSupabaseError } from '../lib/errors';
+import { toCamel } from '../lib/converters';
 import { metricas as mockMetricas, ordensServico as mockOS, contratos as mockContratos } from '../data/mockData';
 
 export function useDashboard() {
@@ -18,85 +17,53 @@ export function useDashboard() {
         };
       }
 
-      const response = await fetch('/api/dashboard');
-      if (!response.ok) {
-        // If /api/dashboard fails, fall back to Supabase direct query
-        const [osResult, eqResult, ctResult] = await Promise.all([
-          supabase.from('ordens_servico').select('id,status,cliente,equipamento,valor,prioridade'),
-          supabase.from('equipamentos').select('id,status'),
-          supabase.from('contratos').select('id,numero,cliente,status,valor_mensal,assinado,fim'),
+      try {
+        const response = await fetch('/api/dashboard');
+        if (!response.ok) throw new Error('API failed');
+        return await response.json();
+      } catch {
+        const [osRes, eqRes, ctRes] = await Promise.all([
+          supabase.from('ordens_servico').select('*').order('created_at', { ascending: false }).limit(200),
+          supabase.from('equipamentos').select('*'),
+          supabase.from('contratos').select('*'),
         ]);
-
-        if (osResult.error) throw handleSupabaseError(osResult.error);
-        if (eqResult.error) throw handleSupabaseError(eqResult.error);
-        if (ctResult.error) throw handleSupabaseError(ctResult.error);
-
-        const os = (osResult.data || []).map(toCamel);
-        const eq = (eqResult.data || []).map(toCamel);
-        const ct = (ctResult.data || []).map((c) => {
-          const camel = toCamel(c);
-          camel.vencimentoDias = computeVencimentoDias(camel.fim);
-          return camel;
+        const osData = (osRes.data || []).map(toCamel);
+        const eqData = (eqRes.data || []).map(toCamel);
+        const ctData = (ctRes.data || []).map(toCamel);
+        const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const hoje = new Date();
+        const receitaMes = mesesNomes.map((_, i) => {
+          return ctData.filter(c => {
+            if (c.status !== 'ativo') return false;
+            const inicio = new Date(c.inicio || c.dataContrato || hoje);
+            const fim = new Date(c.fim || hoje);
+            return inicio.getMonth() <= i && fim.getMonth() >= i && inicio.getFullYear() <= hoje.getFullYear();
+          }).reduce((s, c) => s + (c.valorMensal || 0), 0);
         });
-
-        const totalOS = os.length;
-        const osAbertas = os.filter((o) => o.status === 'pendente' || o.status === 'em_andamento').length;
-        const osConcluidas = os.filter((o) => o.status === 'concluido').length;
-        const eqLocados = eq.filter((e) => e.status === 'locado').length;
-        const eqDisponiveis = eq.filter((e) => e.status === 'disponivel').length;
-        const eqManutencao = eq.filter((e) => e.status === 'manutencao').length;
-        const ctAtivos = ct.filter((c) => c.status === 'ativo').length;
-        const ctVencendo = ct.filter((c) => c.status === 'vencendo').length;
-        const ctVencidos = ct.filter((c) => c.status === 'vencido').length;
-        const receitaMensal = ct.filter((c) => c.status === 'ativo').reduce((sum, c) => sum + (c.valorMensal || 0), 0);
-
-        const now = new Date();
-        const mesesLabels = [];
-        const receitaMesData = [];
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          mesesLabels.push(d.toLocaleDateString('pt-BR', { month: 'short' }));
-          if (i === 0) {
-            receitaMesData.push(receitaMensal);
-          } else {
-            const variacao = 0.85 + (i * 0.05);
-            receitaMesData.push(Math.round(receitaMensal * variacao));
-          }
-        }
-
         return {
           metricas: {
-            totalOS,
-            osAbertas,
-            osConcluidas,
-            equipamentosLocados: eqLocados,
-            equipamentosDisponiveis: eqDisponiveis,
-            equipamentosManutencao: eqManutencao,
-            contratosAtivos: ctAtivos,
-            contratosVencendo: ctVencendo,
-            contratosVencidos: ctVencidos,
-            receitaMensal,
-            receitaMes: receitaMesData,
-            meses: mesesLabels,
+            totalOS: osData.length,
+            osAbertas: osData.filter(o => o.status === 'pendente' || o.status === 'em_andamento').length,
+            osConcluidas: osData.filter(o => o.status === 'concluido').length,
+            equipamentosLocados: eqData.filter(e => e.status === 'locado').length,
+            equipamentosDisponiveis: eqData.filter(e => e.status === 'disponivel').length,
+            equipamentosManutencao: eqData.filter(e => e.status === 'manutencao').length,
+            contratosAtivos: ctData.filter(c => c.status === 'ativo').length,
+            contratosVencendo: ctData.filter(c => c.status === 'vencendo').length,
+            contratosVencidos: ctData.filter(c => c.status === 'vencido').length,
+            receitaMensal: ctData.filter(c => c.status === 'ativo').reduce((s, c) => s + (c.valorMensal || 0), 0),
+            receitaMes,
+            meses: mesesNomes,
           },
-          recentOS: os.slice(0, 5),
-          alertasContratos: ct.filter(
-            (c) => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado
-          ),
+          recentOS: osData.slice(0, 5),
+          alertasContratos: ctData
+            .filter(c => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado)
+            .map(c => ({
+              ...c,
+              vencimentoDias: c.fim ? Math.ceil((new Date(c.fim) - hoje) / (1000 * 60 * 60 * 24)) : null,
+            })),
         };
       }
-
-      // If /api/dashboard succeeds, use the API data
-      const data = await response.json();
-      return {
-        metricas: data.metricas || {},
-        recentOS: data.recentOS || [],
-        alertasContratos: (data.alertasContratos || []).map(c => ({
-          ...c,
-          vencimentoDias: c.vencimentoDias != null ? c.vencimentoDias : 
-            (c.fim ? computeVencimentoDias(c.fim) : null)
-        })),
-      };
     },
     staleTime: 60000,
     retry: 1,

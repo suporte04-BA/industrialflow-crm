@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Plus, Trash2, Shield, UserCheck, Loader2, Search, AlertTriangle } from 'lucide-react';
+import { Users, Plus, Trash2, Shield, UserCheck, Loader2, Search, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useDeleteUsuario } from '../hooks/useUsuarios';
 import { useAuth } from '../lib/AuthContext';
@@ -18,9 +18,13 @@ const roleColors = {
 export default function Usuarios() {
   const { user } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState({ fullName: '', password: '', role: 'funcionario' });
   const [creating, setCreating] = useState(false);
+
+  const handleSearch = () => setSearchTerm(searchInput);
+  const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
 
   const { data: usuarios, isLoading, isError, error, refetch } = useUsuarios();
   const createUsuario = useCreateUsuario();
@@ -156,10 +160,19 @@ export default function Usuarios() {
 
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input type="text" placeholder="Buscar usuario..." value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="input-base pl-10" />
+        <input type="text" placeholder="Pressione Enter para buscar..." value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+          className="input-base pl-10 pr-9" />
+        {searchInput && (
+          <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
+      <button onClick={handleSearch} className="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg font-medium text-sm hover:bg-yellow-300 transition-colors flex items-center gap-1.5">
+        <Search className="w-4 h-4" /> Buscar
+      </button>
 
       {filtered.length === 0 ? (
         <EmptyState icon={Users} title="Nenhum usuario" description="Crie o primeiro usuario clicando no botao acima." />

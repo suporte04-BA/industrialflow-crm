@@ -161,6 +161,10 @@ export function useCreateContrato() {
       };
 
       if (isConfigured()) {
+        const response = await fetch('/api/config');
+        const config = response.ok ? await response.json() : {};
+        const emailRecipient = config.emailRecipient || 'suporte04@baeletrica.com.br';
+
         const payload = toSnake({
           cliente: newCt.cliente,
           cnpj: newCt.cnpj,
@@ -227,32 +231,58 @@ export function useCreateContrato() {
           const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
           if (compErr) console.error('Erro ao criar comprovante:', compErr);
           else {
+            const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
+            const contratoEmail = {
+              id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj,
+              rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
+              equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
+              valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
+              atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
+              endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
+              cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
+              contato: ctSaved.contato,
+            };
+            const comprovanteEmail = {
+              id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj,
+              rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
+              endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
+              itens: ctSaved.itens, localEntrega: ctSaved.localEntrega,
+            };
+            const emailBody = newCt.tipoDocumento === 'devolucao'
+              ? {
+                  tipo: emailTipo,
+                  contrato_id: ctSaved.id,
+                  comprovante_id: compData.id,
+                  destinatario: emailRecipient,
+                  contrato: contratoEmail,
+                  comprovante: comprovanteEmail,
+                  devolucao: {
+                    numero: ctSaved.numero || ctSaved.id,
+                    contratoId: ctSaved.id,
+                    locatario: ctSaved.cliente,
+                    data: ctSaved.dataContrato,
+                    hora: ctSaved.horaContrato,
+                    localObra: ctSaved.localEntrega || ctSaved.endereco,
+                    telefone: ctSaved.telefoneEntrega || ctSaved.telefone,
+                    cidade: ctSaved.cidade,
+                    estado: ctSaved.estado,
+                    itens: ctSaved.itens || [],
+                    condicoes: ctSaved.condicoesDevolucao || {},
+                  },
+                }
+              : {
+                  tipo: emailTipo,
+                  contrato_id: ctSaved.id,
+                  comprovante_id: compData.id,
+                  destinatario: emailRecipient,
+                  contrato: contratoEmail,
+                  comprovante: comprovanteEmail,
+                };
             try {
               await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  tipo: 'contrato_criado',
-                  contrato_id: ctSaved.id,
-                  comprovante_id: compData.id,
-                  destinatario: '',
-                  contrato: {
-                    id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj,
-                    rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
-                    equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
-                    valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
-                    atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
-                    endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
-                    cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
-                    contato: ctSaved.contato,
-                  },
-                  comprovante: {
-                    id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj,
-                    rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
-                    endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
-                    itens: ctSaved.itens, localEntrega: ctSaved.localEntrega,
-                  },
-                }),
+                body: JSON.stringify(emailBody),
               });
             } catch { /* email non-blocking */ }
           }
@@ -261,71 +291,71 @@ export function useCreateContrato() {
         }
 
         return ctSaved;
+      } else {
+        saveToLocal(item);
+
+        const compId = crypto.randomUUID();
+        const comp = {
+          id: compId,
+          contratoId: item.id,
+          contrato: item.id,
+          atendente: item.atendente || '',
+          data: item.dataContrato || formatDateTime(now),
+          hora: item.horaContrato || formatTime(now),
+          locatario: item.cliente,
+          cpf: item.cnpj,
+          rg: item.rg || '',
+          telefone: item.telefone || '',
+          contato: item.contato,
+          endereco: item.endereco,
+          numero: item.numeroEndereco,
+          bairro: item.bairro,
+          cidade: item.cidade,
+          estado: item.estado,
+          cep: item.cep,
+          localEntrega: item.localEntrega,
+          telefoneEntrega: item.telefoneEntrega,
+          referencia: item.referencia || '',
+          itens: item.itens || [],
+          total: item.valorTotal || 0,
+          observacao: item.observacao,
+          status: 'pendente',
+          assinado: false,
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
+          createdAt: now.toISOString(),
+        };
+        saveCompLocal(comp);
+
+        try {
+          await fetch('/api/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo: 'contrato_criado',
+              contrato_id: item.id,
+              contrato: {
+                id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj,
+                rg: item.rg || '', telefone: item.telefone || '',
+                equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim,
+                valorMensal: item.valorMensal, valorTotal: item.valorTotal,
+                atendente: item.atendente, localEntrega: item.localEntrega,
+                endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
+                cidade: item.cidade, estado: item.estado, cep: item.cep,
+                contato: item.contato,
+              },
+              comprovante: {
+                id: comp.id, locatario: item.cliente, cpf: item.cnpj,
+                rg: item.rg || '', telefone: item.telefone || '',
+                endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
+                itens: item.itens, localEntrega: item.localEntrega,
+              },
+            }),
+          });
+        } catch { /* email non-blocking */ }
+
+        return item;
       }
-
-      saveToLocal(item);
-
-      const compId = crypto.randomUUID();
-      const comp = {
-        id: compId,
-        contratoId: item.id,
-        contrato: item.id,
-        atendente: item.atendente || '',
-        data: item.dataContrato || formatDateTime(now),
-        hora: item.horaContrato || formatTime(now),
-        locatario: item.cliente,
-        cpf: item.cnpj,
-        rg: item.rg || '',
-        telefone: item.telefone || '',
-        contato: item.contato,
-        endereco: item.endereco,
-        numero: item.numeroEndereco,
-        bairro: item.bairro,
-        cidade: item.cidade,
-        estado: item.estado,
-        cep: item.cep,
-        localEntrega: item.localEntrega,
-        telefoneEntrega: item.telefoneEntrega,
-        referencia: item.referencia || '',
-        itens: item.itens || [],
-        total: item.valorTotal || 0,
-        observacao: item.observacao,
-        status: 'pendente',
-        assinado: false,
-        tipoDocumento: newCt.tipoDocumento || 'entrega',
-        condicoesDevolucao: newCt.condicoesDevolucao || null,
-        createdAt: now.toISOString(),
-      };
-      saveCompLocal(comp);
-
-      try {
-        await fetch('/api/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tipo: 'contrato_criado',
-            contrato_id: item.id,
-            contrato: {
-              id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj,
-              rg: item.rg || '', telefone: item.telefone || '',
-              equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim,
-              valorMensal: item.valorMensal, valorTotal: item.valorTotal,
-              atendente: item.atendente, localEntrega: item.localEntrega,
-              endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
-              cidade: item.cidade, estado: item.estado, cep: item.cep,
-              contato: item.contato,
-            },
-            comprovante: {
-              id: comp.id, locatario: item.cliente, cpf: item.cnpj,
-              rg: item.rg || '', telefone: item.telefone || '',
-              endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
-              itens: item.itens, localEntrega: item.localEntrega,
-            },
-          }),
-        });
-      } catch { /* email non-blocking */ }
-
-      return item;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });

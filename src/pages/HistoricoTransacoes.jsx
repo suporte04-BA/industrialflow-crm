@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, PenLine, Package, ClipboardList, Building2, Search } from 'lucide-react';
+import { FileText, PenLine, Package, ClipboardList, Building2, Search, X } from 'lucide-react';
 import { useContratos } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
 import { useAssinaturas } from '../hooks/useAssinaturas';
@@ -27,7 +27,11 @@ const tipoColors = {
 
 export default function HistoricoTransacoes() {
   const [filtro, setFiltro] = useState('all');
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const handleSearch = () => setSearchTerm(searchInput);
+  const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
 
   const { data: contratos, isLoading: l1, isError: e1, error: err1, refetch: r1 } = useContratos();
   const { data: comprovantes, isLoading: l2 } = useComprovantes();
@@ -152,10 +156,19 @@ export default function HistoricoTransacoes() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Buscar transacao..." value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-base pl-10" />
+          <input type="text" placeholder="Pressione Enter para buscar..." value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+            className="input-base pl-10 pr-9" />
+          {searchInput && (
+            <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        <button onClick={handleSearch} className="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg font-medium text-sm hover:bg-yellow-300 transition-colors flex items-center gap-1.5">
+          <Search className="w-4 h-4" /> Buscar
+        </button>
         <div className="flex flex-wrap gap-2">
           {['all', 'contrato', 'comprovante', 'assinatura', 'os'].map((t) => (
             <button key={t} onClick={() => setFiltro(t)}

@@ -137,13 +137,23 @@ function handleApiRoute(path, method, request, env, corsHeaders) {
 async function handleDashboard(env, corsHeaders) {
   try {
     const [os, eq, ct] = await Promise.all([
-      supabaseRequest(env, 'GET', '/ordens_servico?select=id,status,created_at&limit=200'),
+      supabaseRequest(env, 'GET', '/ordens_servico?select=id,status,created_at,cliente,equipamento,valor,prioridade&order=created_at.desc&limit=200'),
       supabaseRequest(env, 'GET', '/equipamentos?select=id,status&limit=200'),
       supabaseRequest(env, 'GET', '/contratos?select=id,numero,cliente,status,valor_mensal,assinado,fim&limit=200'),
     ]);
     const osData = Array.isArray(os.data) ? os.data : [];
     const eqData = Array.isArray(eq.data) ? eq.data : [];
     const ctData = Array.isArray(ct.data) ? ct.data : [];
+    const hoje = new Date();
+    const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const receitaMes = mesesNomes.map((_, i) => {
+      return ctData.filter(c => {
+        if (c.status !== 'ativo') return false;
+        const inicio = new Date(c.inicio || c.data_contrato || c.data || hoje);
+        const fim = new Date(c.fim || hoje);
+        return inicio.getMonth() <= i && fim.getMonth() >= i && inicio.getFullYear() <= hoje.getFullYear();
+      }).reduce((s, c) => s + (c.valor_mensal || 0), 0);
+    });
     return json({
       metricas: {
         totalOS: osData.length,
@@ -156,9 +166,16 @@ async function handleDashboard(env, corsHeaders) {
         contratosVencendo: ctData.filter(c => c.status === 'vencendo').length,
         contratosVencidos: ctData.filter(c => c.status === 'vencido').length,
         receitaMensal: ctData.filter(c => c.status === 'ativo').reduce((s, c) => s + (c.valor_mensal || 0), 0),
+        receitaMes,
+        meses: mesesNomes,
       },
       recentOS: osData.slice(0, 5),
-      alertasContratos: ctData.filter(c => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado),
+      alertasContratos: ctData
+        .filter(c => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado)
+        .map(c => ({
+          ...c,
+          vencimentoDias: c.fim ? Math.ceil((new Date(c.fim) - hoje) / (1000 * 60 * 60 * 24)) : null,
+        })),
     }, 200, corsHeaders, 'private, max-age=30, must-revalidate');
   } catch {
     return json({ error: 'Failed to fetch dashboard' }, 500, corsHeaders);

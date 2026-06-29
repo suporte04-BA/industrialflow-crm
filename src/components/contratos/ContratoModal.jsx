@@ -330,18 +330,18 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Data (DD/MM/AAAA)</label>
-                    <input type="date" value={form.dataContrato} onChange={(e) => setForm({ ...form, dataContrato: e.target.value })}
+                    <input type="date" value={form.dataContrato} onChange={(e) => setForm(prev => ({ ...prev, dataContrato: e.target.value }))}
                       className="input-base" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Hora (HH:MM)</label>
-                    <input type="time" value={form.horaContrato} onChange={(e) => setForm({ ...form, horaContrato: e.target.value })}
+                    <input type="time" value={form.horaContrato} onChange={(e) => setForm(prev => ({ ...prev, horaContrato: e.target.value }))}
                       className="input-base" />
                   </div>
                 </div>
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Atendente *</label>
-                  <input type="text" value={form.atendente} onChange={(e) => setForm({ ...form, atendente: e.target.value })}
+                  <input type="text" value={form.atendente} onChange={(e) => setForm(prev => ({ ...prev, atendente: e.target.value }))}
                     className="input-base" placeholder="Nome do atendente" />
                 </div>
               </div>
@@ -351,13 +351,13 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1">Locatário *</label>
-                      <input type="text" required value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })}
+                      <input type="text" required value={form.cliente} onChange={(e) => setForm(prev => ({ ...prev, cliente: e.target.value }))}
                         className="input-base" placeholder="Nome do locatário" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">CPF/CNPJ *</label>
                       <input type="text" required value={form.cnpj}
-                        onChange={(e) => setForm({ ...form, cnpj: formatCPFCNPJ(e.target.value) })}
+                        onChange={(e) => setForm(prev => ({ ...prev, cnpj: formatCPFCNPJ(e.target.value) }))}
                         onBlur={(e) => {
                           const val = e.target.value;
                           if (!val.trim()) return;
@@ -369,17 +369,17 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
-                      <input type="text" value={form.rg} onChange={(e) => setForm({ ...form, rg: e.target.value })}
+                      <input type="text" value={form.rg} onChange={(e) => setForm(prev => ({ ...prev, rg: e.target.value }))}
                         className="input-base" placeholder="RG do locatario" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Telefone</label>
-                      <input type="text" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+                      <input type="text" value={form.telefone} onChange={(e) => setForm(prev => ({ ...prev, telefone: e.target.value }))}
                         className="input-base" placeholder="(00) 00000-0000" />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1">Contato *</label>
-                      <input type="text" required value={form.contato} onChange={(e) => setForm({ ...form, contato: e.target.value })}
+                      <input type="text" required value={form.contato} onChange={(e) => setForm(prev => ({ ...prev, contato: e.target.value }))}
                         className="input-base" placeholder="Nome do contato" />
                     </div>
                 </div>
@@ -388,44 +388,44 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <h3 className="text-sm font-bold text-gray-800 mb-3">Endereço</h3>
                 <div className="grid grid-cols-6 gap-3">
-                  <div className="col-span-4">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
-                    <input type="text" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-                      className="input-base" placeholder="Rua, Avenida, etc" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Referência</label>
-                    <input type="text" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })}
-                      className="input-base" placeholder="Ex: SESC" />
-                  </div>
+                   <div className="col-span-4">
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+                     <input type="text" value={form.endereco} onChange={(e) => setForm(prev => ({ ...prev, endereco: e.target.value }))}
+                       className="input-base" placeholder="Rua, Avenida, etc" />
+                   </div>
+                   <div className="col-span-2">
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Referência</label>
+                     <input type="text" value={form.referencia} onChange={(e) => setForm(prev => ({ ...prev, referencia: e.target.value }))}
+                       className="input-base" placeholder="Ex: SESC" />
+                   </div>
                 </div>
                 <div className="grid grid-cols-6 gap-3 mt-3">
-                  <div className="col-span-1">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Número *</label>
-                    <input type="text" required value={form.numeroEndereco} onChange={(e) => setForm({ ...form, numeroEndereco: e.target.value })}
-                      className="input-base" placeholder="Nº" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Bairro *</label>
-                    <input type="text" required value={form.bairro} onChange={(e) => setForm({ ...form, bairro: e.target.value })}
-                      className="input-base" placeholder="Bairro" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Cidade *</label>
-                    <input type="text" required value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })}
-                      className="input-base" placeholder="Cidade" />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">UF *</label>
-                    <input type="text" required value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                      className="input-base" placeholder="UF" maxLength={2} />
-                  </div>
+                   <div className="col-span-1">
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Número *</label>
+                     <input type="text" required value={form.numeroEndereco} onChange={(e) => setForm(prev => ({ ...prev, numeroEndereco: e.target.value }))}
+                       className="input-base" placeholder="Nº" />
+                   </div>
+                   <div className="col-span-2">
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Bairro *</label>
+                     <input type="text" required value={form.bairro} onChange={(e) => setForm(prev => ({ ...prev, bairro: e.target.value }))}
+                       className="input-base" placeholder="Bairro" />
+                   </div>
+                   <div className="col-span-2">
+                     <label className="block text-xs font-medium text-gray-600 mb-1">Cidade *</label>
+                     <input type="text" required value={form.cidade} onChange={(e) => setForm(prev => ({ ...prev, cidade: e.target.value }))}
+                       className="input-base" placeholder="Cidade" />
+                   </div>
+                   <div className="col-span-1">
+                     <label className="block text-xs font-medium text-gray-600 mb-1">UF *</label>
+                     <input type="text" required value={form.estado} onChange={(e) => setForm(prev => ({ ...prev, estado: e.target.value }))}
+                       className="input-base" placeholder="UF" maxLength={2} />
+                   </div>
                 </div>
-                <div className="mt-3">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">CEP *</label>
-                  <input type="text" required value={form.cep} onChange={(e) => setForm({ ...form, cep: e.target.value })}
-                    className="input-base max-w-[200px]" placeholder="00000-000" />
-                </div>
+                 <div className="mt-3">
+                   <label className="block text-xs font-medium text-gray-600 mb-1">CEP *</label>
+                   <input type="text" required value={form.cep} onChange={(e) => setForm(prev => ({ ...prev, cep: e.target.value }))}
+                     className="input-base max-w-[200px]" placeholder="00000-000" />
+                 </div>
               </div>
 
                <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
@@ -547,15 +547,16 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                   ))}
                 </div>
                 <div className="mt-3 text-right">
-                  <span className="text-sm font-bold text-green-800">
-                    Total: R$ {calcTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+                    <span className="text-sm font-bold text-green-800">
+                      Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
-              </div>
+
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Observações</label>
-                <textarea value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                <textarea value={form.observacao} onChange={(e) => setForm(prev => ({ ...prev, observacao: e.target.value }))}
                   className="input-base min-h-[80px] resize-none" placeholder="Observações sobre o contrato..." rows={3} />
               </div>
 
@@ -580,33 +581,34 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Início *</label>
-                  <input type="date" required value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} className="input-base" />
+                  <input type="date" required value={form.inicio} onChange={(e) => setForm(prev => ({ ...prev, inicio: e.target.value }))} className="input-base" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Fim *</label>
-                  <input type="date" required value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} className="input-base" />
+                  <input type="date" required value={form.fim} onChange={(e) => setForm(prev => ({ ...prev, fim: e.target.value }))} className="input-base" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Valor Mensal (R$) *</label>
-                  <input type="number" required value={form.valorMensal} onChange={(e) => setForm({ ...form, valorMensal: e.target.value })}
+                  <input type="number" required value={form.valorMensal} onChange={(e) => setForm(prev => ({ ...prev, valorMensal: e.target.value }))}
                     className="input-base" placeholder="0" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$)</label>
-                  <input type="number" value={calcTotal()} readOnly className="input-base bg-gray-50 font-semibold" />
-                  {form.inicio && form.fim && form.valorMensal && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {Math.max(1, Math.ceil((new Date(form.fim) - new Date(form.inicio)) / (1000 * 60 * 60 * 24 * 30)))} meses x R$ {Number(form.valorMensal).toLocaleString('pt-BR')}
-                    </p>
-                  )}
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$)</label>
+                    <input type="number" value={total} readOnly className="input-base bg-gray-50 font-semibold" />
+                    {form.inicio && form.fim && form.valorMensal && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {calcMonths(form.inicio, form.fim)} meses x R$ {Number(form.valorMensal).toLocaleString('pt-BR')}
+                      </p>
+                    )}
+
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="assinado" checked={form.assinado} onChange={(e) => setForm({ ...form, assinado: e.target.checked })}
+                <input type="checkbox" id="assinado" checked={form.assinado} onChange={(e) => setForm(prev => ({ ...prev, assinado: e.target.checked }))}
                   className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-400" />
                 <label htmlFor="assinado" className="text-sm text-gray-700">Contrato assinado</label>
               </div>

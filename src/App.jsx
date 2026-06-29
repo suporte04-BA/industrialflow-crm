@@ -42,6 +42,7 @@ const queryClient = new QueryClient({
   },
 });
 
+// Main App component
 function App() {
   return (
     <ErrorBoundary>

@@ -133,7 +133,7 @@ export default function Contratos() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {ctList.map((ct) => {
-            const isEntregue = ct.status !== 'entregue' && comprovantes?.some(c => c.contratoId === ct.id && c.assinado);
+            const isEntregue = ct.status === 'entregue' || comprovantes?.some(c => (c.contratoId || c.contrato_id) === ct.id && c.assinado);
             return (
               <div key={ct.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
@@ -211,7 +211,7 @@ export default function Contratos() {
       <ContratoModal isOpen={!!editingCt} onClose={() => setEditingCt(null)} onSave={handleUpdate} contrato={editingCt} />
       <ContratoModal isOpen={!!renewTarget} onClose={() => setRenewTarget(null)} onSave={handleRenew} contrato={renewTarget} isRenew />
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
-        title="Excluir Contrato" message={`Tem certeza que deseja excluir o contrato ${deleteTarget?.id}? Esta acao nao pode ser desfeita.`}
+        title="Excluir Contrato" message={`Tem certeza que deseja excluir o contrato ${deleteTarget?.numero || deleteTarget?.cliente || deleteTarget?.id}? Esta acao nao pode ser desfeita.`}
         confirmLabel="Excluir" danger />
     </div>
   );

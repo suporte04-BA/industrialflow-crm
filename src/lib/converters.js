@@ -68,6 +68,20 @@ const SNAKE_TO_CAMEL = {
   numero_endereco: 'numeroEndereco',
   data_contrato: 'dataContrato',
   hora_contrato: 'horaContrato',
+  tipo_documento: 'tipoDocumento',
+  condicoes_devolucao: 'condicoesDevolucao',
+  funcionario_id: 'funcionarioId',
+  signatario_nome: 'signatarioNome',
+  signatario_cpf: 'signatarioCpf',
+  signatario_funcao: 'signatarioFuncao',
+  data_locacao: 'dataLocacao',
+  data_devolucao: 'dataDevolucao',
+  valor_unitario: 'valorUnitario',
+  valor_total: 'valorTotal',
+  patrimonio: 'patrimonio',
+  quantidade: 'quantidade',
+  descricao: 'descricao',
+  equipamentos: 'equipamentos',
 };
 
 const CAMEL_TO_SNAKE = {};

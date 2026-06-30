@@ -74,7 +74,8 @@ export function isValidDateBR(dateStr) {
  */
 export function toBR(isoDate) {
   if (!isoDate || typeof isoDate !== 'string') return '-';
-  const parts = isoDate.split('-');
+  const dateOnly = isoDate.split('T')[0];
+  const parts = dateOnly.split('-');
   if (parts.length !== 3) return '-';
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }

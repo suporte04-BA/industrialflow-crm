@@ -1,4 +1,5 @@
 export function isValidCPF(cpf) {
+  if (!cpf) return false;
   const digits = cpf.replace(/\D/g, '');
   if (digits.length !== 11) return false;
   if (/^(\d)\1{10}$/.test(digits)) return false;
@@ -23,6 +24,7 @@ export function isValidCPF(cpf) {
 }
 
 export function isValidCNPJ(cnpj) {
+  if (!cnpj) return false;
   const digits = cnpj.replace(/\D/g, '');
   if (digits.length !== 14) return false;
   if (/^(\d)\1{13}$/.test(digits)) return false;
@@ -50,6 +52,7 @@ export function isValidCNPJ(cnpj) {
 }
 
 export function formatCPF(value) {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '').slice(0, 11);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
@@ -58,6 +61,7 @@ export function formatCPF(value) {
 }
 
 export function formatCNPJ(value) {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '').slice(0, 14);
   if (digits.length <= 2) return digits;
   if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
@@ -67,12 +71,14 @@ export function formatCNPJ(value) {
 }
 
 export function formatCPFCNPJ(value) {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '');
   if (digits.length <= 11) return formatCPF(value);
   return formatCNPJ(value);
 }
 
 export function detectDocumentType(value) {
+  if (!value) return 'cpf';
   const digits = value.replace(/\D/g, '');
   return digits.length <= 11 ? 'cpf' : 'cnpj';
 }
@@ -89,6 +95,7 @@ export function matchCPFWithComprovante(cpfSignatario, comprovante) {
 }
 
 export function nameToEmail(name) {
+  if (!name) return '';
   const normalized = name
     .toLowerCase()
     .normalize('NFD')

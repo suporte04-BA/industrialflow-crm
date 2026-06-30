@@ -311,10 +311,10 @@ async function handleAiExtractPdf(request, env, corsHeaders) {
     return json({ error: 'text is required' }, 400, corsHeaders);
   }
 
+  const mistralKey = env.MISTRAL_API_KEY;
   const geminiKey = env.GEMINI_API_KEY;
   const openaiKey = env.OPENAI_API_KEY;
-  const apiKey = geminiKey || openaiKey;
-  if (!apiKey) {
+  if (!mistralKey && !geminiKey && !openaiKey) {
     return json({ error: 'AI API key not configured', fallback: true }, 200, corsHeaders);
   }
 
@@ -386,6 +386,47 @@ Regras:
 - Retorne APENAS o JSON, nada mais`;
 
   const userMessage = `Extraia os dados deste comprovante:\n\n${text.slice(0, 12000)}`;
+
+  if (mistralKey) {
+    try {
+      const mistralRes = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mistralKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'mistral-small-latest',
+          temperature: 0,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+        }),
+      });
+
+      const mistralData = await mistralRes.json();
+
+      if (!mistralRes.ok) {
+        const errMsg = mistralData.error?.message || 'Mistral API error';
+        console.error('Mistral API error:', mistralRes.status, errMsg);
+        if (mistralRes.status === 429) {
+          return json({ error: 'Mistral quota exceeded, trying fallback', fallback: true }, 200, corsHeaders);
+        }
+      } else {
+        const content = mistralData.choices?.[0]?.message?.content || '';
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const extracted = JSON.parse(jsonMatch[0]);
+            return json({ success: true, data: extracted }, 200, corsHeaders);
+          } catch { /* JSON parse error, fall through */ }
+        }
+      }
+    } catch (e) {
+      console.error('Mistral failed:', e.message);
+    }
+  }
 
   if (geminiKey) {
     try {

@@ -3,26 +3,27 @@ import { supabase, isConfigured } from '../lib/supabase';
 
 export function useRealtime(table, queryClient, queryKey, options = {}) {
   const keyStr = useMemo(() => JSON.stringify(queryKey), [queryKey]);
-  const prevKeyRef = useRef(keyStr);
+  const optionsRef = useRef(options);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  });
 
   useEffect(() => {
     if (!isConfigured()) return;
 
-    if (prevKeyRef.current !== keyStr) {
-      prevKeyRef.current = keyStr;
-    }
-
     let channel;
     try {
       channel = supabase
-        .channel(`${table}-changes`)
+        .channel(`${table}-${keyStr}`)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table },
           (payload) => {
-            if (options.onInsert) options.onInsert(payload);
-            if (options.onUpdate) options.onUpdate(payload);
-            if (options.onDelete) options.onDelete(payload);
+            const opts = optionsRef.current;
+            if (payload.eventType === 'INSERT' && opts.onInsert) opts.onInsert(payload);
+            if (payload.eventType === 'UPDATE' && opts.onUpdate) opts.onUpdate(payload);
+            if (payload.eventType === 'DELETE' && opts.onDelete) opts.onDelete(payload);
             queryClient.invalidateQueries({ queryKey });
           }
         )
@@ -37,6 +38,5 @@ export function useRealtime(table, queryClient, queryKey, options = {}) {
         supabase.removeChannel(channel).catch(() => {});
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table, queryClient, keyStr]);
+  }, [table, queryClient, keyStr, queryKey]);
 }

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, AlertCircle } from 'lucide-react';
+import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '../ui/Button';
 import PdfImportButton from '../common/PdfImportButton';
@@ -79,13 +79,15 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
   const [showImport, setShowImport] = useState(false);
   const [importedTipo, setImportedTipo] = useState(null);
   const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
+  const prevContratoIdRef = useRef(contrato?.id || 'new');
 
   useEffect(() => {
     const contratoId = contrato?.id || 'new';
-    const formContratoId = form._contratoId || 'new';
-    if (contratoId !== formContratoId) {
+    if (contratoId !== prevContratoIdRef.current) {
+      prevContratoIdRef.current = contratoId;
       setForm({ ...getInitialForm(contrato, isRenew), _contratoId: contratoId });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contrato?.id, isRenew]);
 
   const addEquipamento = () => setForm(prev => ({ ...prev, equipamentos: [...prev.equipamentos, ''] }));
@@ -141,8 +143,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       setImportedTipo(fields.tipo_documento);
     }
 
-    const condicoesFromPdf = fields.condicoes || null;
-
     let cnpjVal = (fields.cpf_cnpj || '').replace(/^[\s/]+/, '').trim();
     const detectedType = detectDocumentType(cnpjVal);
     if (detectedType === 'cpf' && !isValidCPF(cnpjVal)) {
@@ -164,7 +164,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
     setForm((prev) => ({
       ...prev,
-      cliente: fields.contato || fields.cliente || prev.cliente,
+      cliente: fields.locatario || fields.contato || fields.cliente || prev.cliente,
       cnpj: cnpjVal || prev.cnpj,
       endereco: fields.endereco || prev.endereco,
       numeroEndereco: fields.numero || prev.numeroEndereco,
@@ -189,11 +189,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       valorMensal: valorMensalCalc || prev.valorMensal,
       valorTotal: fields.valores?.total || prev.valorTotal,
       tipoDocumento: fields.tipo_documento || prev.tipoDocumento,
-      condicoesDevolucao: condicoesFromPdf ? {
-        danificado: !!condicoesFromPdf.danificado,
-        extraviado: !!condicoesFromPdf.extraviado,
-        testarEmpresa: !!condicoesFromPdf.testarEmpresa,
-      } : prev.condicoesDevolucao,
+      condicoesDevolucao: { ...emptyCondicoes },
     }));
     setShowImport(false);
 
@@ -233,8 +229,17 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     const hasValidItem = form.itens.some(it => it.descricao.trim());
     if (!hasValidItem) { toast.error('Adicione pelo menos um item com descricao'); return; }
 
+    if (form.tipoDocumento === 'devolucao') {
+      const c = form.condicoesDevolucao || {};
+      if (!c.danificado && !c.extraviado && !c.testarEmpresa) {
+        toast.error('Selecione pelo menos uma condicao de devolucao (Danificado/Extraviado/Testar Empresa)');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
+      // eslint-disable-next-line no-unused-vars
       const { _contratoId, ...saveData } = form;
       await onSave({
         ...saveData,
@@ -385,32 +390,32 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <h3 className="text-sm font-bold text-gray-800 mb-3">Endereço</h3>
-                <div className="grid grid-cols-6 gap-3">
-                   <div className="col-span-4">
+                <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+                   <div className="sm:col-span-4">
                      <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
                      <input type="text" value={form.endereco} onChange={(e) => setForm(prev => ({ ...prev, endereco: e.target.value }))}
                        className="input-base" placeholder="Rua, Avenida, etc" />
                    </div>
-                   <div className="col-span-2">
+                   <div className="sm:col-span-2">
                      <label className="block text-xs font-medium text-gray-600 mb-1">Referência</label>
                      <input type="text" value={form.referencia} onChange={(e) => setForm(prev => ({ ...prev, referencia: e.target.value }))}
                        className="input-base" placeholder="Ex: SESC" />
                    </div>
                 </div>
-                <div className="grid grid-cols-6 gap-3 mt-3">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mt-3">
                    <div className="col-span-1">
                      <label className="block text-xs font-medium text-gray-600 mb-1">Número *</label>
                      <input type="text" required value={form.numeroEndereco} onChange={(e) => setForm(prev => ({ ...prev, numeroEndereco: e.target.value }))}
                        className="input-base" placeholder="Nº" />
                    </div>
-                   <div className="col-span-2">
+                   <div className="col-span-1 sm:col-span-2">
                      <label className="block text-xs font-medium text-gray-600 mb-1">Bairro *</label>
                      <input type="text" required value={form.bairro} onChange={(e) => setForm(prev => ({ ...prev, bairro: e.target.value }))}
                        className="input-base" placeholder="Bairro" />
                    </div>
-                   <div className="col-span-2">
+                   <div className="col-span-1 sm:col-span-2">
                      <label className="block text-xs font-medium text-gray-600 mb-1">Cidade *</label>
                      <input type="text" required value={form.cidade} onChange={(e) => setForm(prev => ({ ...prev, cidade: e.target.value }))}
                        className="input-base" placeholder="Cidade" />
@@ -424,7 +429,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                  <div className="mt-3">
                    <label className="block text-xs font-medium text-gray-600 mb-1">CEP *</label>
                    <input type="text" required value={form.cep} onChange={(e) => setForm(prev => ({ ...prev, cep: e.target.value }))}
-                     className="input-base max-w-[200px]" placeholder="00000-000" />
+                     className="input-base max-w-full sm:max-w-[200px]" placeholder="00000-000" />
                  </div>
               </div>
 
@@ -445,9 +450,10 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                </div>
 
                {form.tipoDocumento === 'devolucao' && (
-                 <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                   <h3 className="text-sm font-bold text-orange-800 mb-3">Condições de Devolução</h3>
-                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                    <h3 className="text-sm font-bold text-orange-800 mb-1">Condições de Devolução <span className="text-red-500">*</span></h3>
+                    <p className="text-xs text-orange-600 mb-3">Selecione ao menos uma opção</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                      <label className="flex items-center gap-2 cursor-pointer">
                        <input type="checkbox" checked={form.condicoesDevolucao?.danificado}
                          onChange={(e) => setForm(prev => ({
@@ -578,7 +584,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Início *</label>
                   <input type="date" required value={form.inicio} onChange={(e) => setForm(prev => ({ ...prev, inicio: e.target.value }))} className="input-base" />
@@ -589,7 +595,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Valor Mensal (R$) *</label>
                   <input type="number" required value={form.valorMensal} onChange={(e) => setForm(prev => ({ ...prev, valorMensal: e.target.value }))}

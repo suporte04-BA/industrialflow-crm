@@ -46,9 +46,13 @@ export default function OrdensServico() {
   };
 
   const handleUpdateStatus = async (osId, newStatus) => {
-    await updateOS.mutateAsync({ id: osId, updates: { status: newStatus } });
-    toast.success('Status atualizado!');
-    setSelectedOS(null);
+    try {
+      await updateOS.mutateAsync({ id: osId, updates: { status: newStatus } });
+      toast.success('Status atualizado!');
+      setSelectedOS(null);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao atualizar status');
+    }
   };
 
   if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>;
@@ -126,7 +130,7 @@ export default function OrdensServico() {
                     <td className="px-4 py-3"><StatusBadge status={os.status} /></td>
                     <td className="px-4 py-3"><StatusBadge status={os.prioridade} /></td>
                     <td className="px-4 py-3 text-gray-600">{os.tecnico}</td>
-                    <td className="px-4 py-3 font-medium">R$ {Number(os.valor).toLocaleString('pt-BR')}</td>
+                    <td className="px-4 py-3 font-medium">R$ {Number(os.valor || 0).toLocaleString('pt-BR')}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button onClick={() => setSelectedOS(os)} className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600" title="Ver detalhes">

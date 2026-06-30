@@ -110,18 +110,17 @@ export function useCreateContrato() {
         try {
           const { data } = await supabase.from('contratos').select('id').order('id', { ascending: false }).limit(1);
           if (data && data.length > 0) {
-            maxNum = Math.max(...data.map(c => parseInt((c.id || '').replace('CT-', '')) || 0), 0);
+            const nums = data.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
+            maxNum = nums.length > 0 ? Math.max(...nums, 0) : 0;
           }
         } catch { /* fallback to local */ }
       }
 
       if (maxNum === 0) {
         const localItems = getLocal();
-        maxNum = Math.max(
-          ...localItems.map(c => parseInt(c.id.replace('CT-', '')) || 0),
-          ...mockContratos.map(c => parseInt(c.id.replace('CT-', '')) || 0),
-          0
-        );
+        const localNums = localItems.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
+        const mockNums = mockContratos.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
+        maxNum = Math.max(...localNums, ...mockNums, 0);
       }
 
       const newId = `CT-${String(maxNum + 1).padStart(3, '0')}`;
@@ -161,9 +160,14 @@ export function useCreateContrato() {
       };
 
       if (isConfigured()) {
-        const response = await fetch('/api/config');
-        const config = response.ok ? await response.json() : {};
-        const emailRecipient = config.emailRecipient || 'suporte04@baeletrica.com.br';
+        let emailRecipient = 'suporte04@baeletrica.com.br';
+        try {
+          const response = await fetch('/api/config');
+          if (response.ok) {
+            const config = await response.json();
+            emailRecipient = config.emailRecipient || emailRecipient;
+          }
+        } catch { /* use default */ }
 
         const payload = toSnake({
           cliente: newCt.cliente,
@@ -357,7 +361,7 @@ export function useCreateContrato() {
         return item;
       }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -370,7 +374,7 @@ export function useUpdateContrato() {
   return useMutation({
     mutationFn: async ({ id, updates }) => {
       if (isConfigured()) {
-        const { referencia, ...validUpdates } = updates;
+        const { ...validUpdates } = updates;
         const payload = toSnake(validUpdates);
         const { data, error } = await supabase.from('contratos').update(payload).eq('id', id).select().single();
         if (error) throw handleSupabaseError(error);
@@ -379,7 +383,7 @@ export function useUpdateContrato() {
       updateLocal(id, updates);
       return { id, ...updates };
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -397,7 +401,7 @@ export function useDeleteContrato() {
         deleteLocal(id);
       }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },

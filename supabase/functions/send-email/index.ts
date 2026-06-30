@@ -163,10 +163,10 @@ function buildDevolucaoHTML(data: any): string {
   let itensHtml = '';
   for (const it of itens) {
     itensHtml += `<tr>
-      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px">${it.descricao || '-'}</td>
-      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px;text-align:center">${it.quantidade || 0}</td>
-      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px;text-align:center">${it.qtdDevolvida || 0}</td>
-      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px">${it.patrimonio || '-'}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px">${fmt(it.descricao)}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px;text-align:center">${fmt(it.quantidade)}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px;text-align:center">${fmt(it.qtdDevolvida)}</td>
+      <td style="padding:6px 8px;border:1px solid #e5e7eb;font-size:13px">${fmt(it.patrimonio)}</td>
     </tr>`;
   }
 
@@ -185,12 +185,12 @@ function buildDevolucaoHTML(data: any): string {
     <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
       <h2 style="margin:0 0 12px;font-size:15px;color:#1C1C1C">Dados da Devolucao</h2>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><td style="padding:4px 0;color:#6b7280;width:120px">Numero</td><td style="padding:4px 0;font-weight:600">${d.numero || '-'}</td></tr>
-        <tr><td style="padding:4px 0;color:#6b7280">Contrato</td><td style="padding:4px 0;font-weight:600">${d.contratoId || '-'}</td></tr>
-        <tr><td style="padding:4px 0;color:#6b7280">Locatario</td><td style="padding:4px 0">${d.locatario || '-'}</td></tr>
-        <tr><td style="padding:4px 0;color:#6b7280">Data</td><td style="padding:4px 0">${d.data || '-'} ${d.hora || ''}</td></tr>
-        <tr><td style="padding:4px 0;color:#6b7280">Signatario</td><td style="padding:4px 0">${d.signatarioNome || '-'}</td></tr>
-        <tr><td style="padding:4px 0;color:#6b7280">Local</td><td style="padding:4px 0">${d.localObra || '-'}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280;width:120px">Numero</td><td style="padding:4px 0;font-weight:600">${fmt(d.numero)}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Contrato</td><td style="padding:4px 0;font-weight:600">${fmt(d.contratoId)}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Locatario</td><td style="padding:4px 0">${fmt(d.locatario)}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Data</td><td style="padding:4px 0">${fmt(d.data)} ${fmt(d.hora)}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Signatario</td><td style="padding:4px 0">${fmt(d.signatarioNome)}</td></tr>
+        <tr><td style="padding:4px 0;color:#6b7280">Local</td><td style="padding:4px 0">${fmt(d.localObra)}</td></tr>
       </table>
       ${itens.length > 0 ? `
       <h2 style="margin:20px 0 12px;font-size:15px;color:#1C1C1C">Itens Devolvidos</h2>

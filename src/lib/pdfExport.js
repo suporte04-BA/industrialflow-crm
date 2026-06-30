@@ -125,7 +125,7 @@ function getMetodoEntregaText(metodo) {
 export async function generateEntregaPDF(comprovante) {
   const c = comprovante;
   const itens = Array.isArray(c.itens) ? c.itens : [];
-  const total = c.total || itens.reduce((s, it) => s + (it.quantidade || 1) * (it.valorUnitario || 0), 0);
+  const total = c.total != null ? c.total : itens.reduce((s, it) => s + (it.quantidade || 1) * (it.valorUnitario || 0), 0);
 
   const html = `
     <div style="font-family:Arial,sans-serif;padding:15px;max-width:760px;margin:0 auto;font-size:11px;">

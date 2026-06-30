@@ -12,6 +12,7 @@ async function aiExtract(text, tipoDocumento) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, tipo_documento: tipoDocumento }),
     });
+    if (!res.ok) return null;
     const data = await res.json();
     if (data.success && data.data) return data.data;
     return null;
@@ -45,14 +46,15 @@ function mapAiToFields(ai) {
     cpf_cnpj: ai.cpf_cnpj || '',
     rg: ai.rg || '',
     telefone: ai.telefone || '',
-    contato: ai.locatario || ai.contato || '',
+    contato: ai.contato || '',
+    contato_cliente: ai.contato || '',
     endereco: ai.endereco || '',
     numero: ai.numero || '',
     bairro: ai.bairro || '',
     cidade: ai.cidade || '',
     estado: ai.estado || '',
     cep: ai.cep || '',
-    telefone_entrega: ai.telefone_entrega || '',
+    telefone_entrega: ai.telefone_entrega || ai.telefone_obra || '',
     local_entrega: ai.local_entrega || ai.local_obra || '',
     referencia: ai.referencia || '',
     data_retirada: ai.data_retirada || ai.data_devolucao || '',
@@ -99,14 +101,20 @@ export default function PdfImportButton({ onFieldsExtracted }) {
       if (text.length > 50) {
         const tipoHint = /DEVOLU[ÇC][ÃA]O/i.test(text) ? 'devolucao' : 'entrega';
         const aiData = await aiExtract(text, tipoHint);
-        if (aiData) {
+        if (aiData && typeof aiData === 'object') {
           fields = mapAiToFields(aiData);
           usedAI = true;
         }
       }
 
-      if (!fields) {
+      if (!fields || (typeof fields === 'object' && Object.keys(fields).length < 3)) {
         fields = await importarPDF(file);
+        usedAI = false;
+      }
+
+      if (!fields) {
+        setStatus({ type: 'error', message: 'Nao foi possivel processar o PDF. Verifique o arquivo.' });
+        return;
       }
 
       const textFields = { ...fields };
@@ -125,11 +133,11 @@ export default function PdfImportButton({ onFieldsExtracted }) {
         const msg = itemCount > 0
           ? `${filledCount} campos e ${itemCount} item(ns) importados (${tipoLabel})${aiLabel}!`
           : `${filledCount} campos importados (${tipoLabel})${aiLabel}!`;
-        setStatus({ type: 'success', message: msg });
+        setStatus({ type: 'success', message: msg, usedAI });
       }
     } catch (err) {
       console.error('PDF import error:', err);
-      setStatus({ type: 'error', message: `Erro ao processar PDF: ${err.message || 'Verifique se o arquivo e valido.'}` });
+      setStatus({ type: 'error', message: 'Erro ao processar PDF. Verifique se o arquivo e valido.' });
     } finally {
       setLoading(false);
       if (fileRef.current) fileRef.current.value = '';

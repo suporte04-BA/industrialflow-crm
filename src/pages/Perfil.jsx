@@ -80,7 +80,7 @@ export default function Perfil() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
           <div className="relative group">
             {avatarUrl ? (
               <img src={avatarUrl} alt={userName} className="w-16 h-16 rounded-full object-cover" />
@@ -127,7 +127,7 @@ export default function Perfil() {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {[
           { key: 'relatorio', label: 'Relatorio', icon: TrendingUp },
           { key: 'comprovantes', label: 'Comprovantes', icon: FileText },

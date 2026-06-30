@@ -8,9 +8,9 @@ export default function Header({ title, subtitle, setMobileOpen }) {
       <button className="lg:hidden text-gray-600 hover:text-gray-900" onClick={() => setMobileOpen(true)}>
         <Menu size={22} />
       </button>
-      <div className="flex-1">
-        <h1 className="text-lg font-bold text-[#1C1C1C] leading-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+      <div className="flex-1 min-w-0">
+        <h1 className="text-base sm:text-lg font-bold text-[#1C1C1C] leading-tight truncate">{title}</h1>
+        {subtitle && <p className="text-xs text-gray-500 truncate">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3">
         <button className="hidden sm:flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-500 px-3 py-2 rounded-lg text-sm transition-colors">

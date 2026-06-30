@@ -31,14 +31,6 @@ export default function Usuarios() {
   const updateRole = useUpdateUsuarioRole();
   const deleteUsuario = useDeleteUsuario();
 
-  const gestorCount = usuarios.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
-
-  const filtered = usuarios.filter((u) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (u.fullName || '').toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
-  });
-
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.fullName.trim()) { toast.error('Preencha o nome'); return; }
@@ -103,9 +95,17 @@ export default function Usuarios() {
   if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
+  const gestorCount = usuarios.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+
+  const filtered = usuarios.filter((u) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (u.fullName || '').toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Gestao de Usuarios</h2>
           <p className="text-sm text-gray-500">{usuarios.length} usuarios cadastrados | {gestorCount} gestor(es)</p>
@@ -216,7 +216,7 @@ export default function Usuarios() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {u.role === 'funcionario' && (
                             <button
                               onClick={() => handleChangeRole(u.id, 'gestor')}

@@ -107,7 +107,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
                   <input type="date" value={form.locacaoFim} onChange={(e) => setForm({ ...form, locacaoFim: e.target.value })} className="input-base" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Valor Mensal</label>
                   <input type="number" value={form.valorMensal} onChange={(e) => setForm({ ...form, valorMensal: e.target.value })}

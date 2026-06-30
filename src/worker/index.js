@@ -308,7 +308,11 @@ async function handleAiExtractPdf(request, env, corsHeaders) {
 
   const { text, tipo_documento } = parsed.data;
   if (!text || typeof text !== 'string') {
-    return json({ error: 'text is required' }, 400, corsHeaders);
+    return json({ error: 'text is required and must be a string' }, 400, corsHeaders);
+  }
+
+  if (text.trim().length < 20) {
+    return json({ error: 'Text too short for extraction', fallback: true }, 200, corsHeaders);
   }
 
   const mistralKey = env.MISTRAL_API_KEY;
@@ -320,131 +324,233 @@ async function handleAiExtractPdf(request, env, corsHeaders) {
 
   const isDevolucao = tipo_documento === 'devolucao' || /DEVOLU[ÇC][ÃA]O/i.test(text);
 
-  const systemPrompt = `Retorne APENAS um objeto JSON {} (NAO array []) extraido deste comprovante de locacao.
+  const systemPrompt = `Voce e um extrator de dados profissional de comprovantes de locacao de equipamentos.
 
-Exemplo exato de formato correto:
-{"contrato":"1234/26","atendente":"NOME","locatario":"EMPRESA","cpf_cnpj":"30.652.566/0001-69","rg":"123456","telefone":"(92) 99999-9999","contato":"NOME","endereco":"RUA X","numero":"123","bairro":"CENTRO","cidade":"MANAUS","estado":"AM","cep":"69000-000","telefone_entrega":"(92) 99999-9999","local_entrega":"LOCAL","referencia":"REF","data_retirada":"25/06/2026","hora":"09:00","observacao":"","itens":[{"quantidade":1,"descricao":"EQUIPAMENTO","patrimonio":"17190007","valor_unitario":0}],"equipamentos":["EQUIPAMENTO"],"valor_total":0,"valor_mensal":0,"tipo_documento":"entrega","condicoes":{"danificado":false,"extraviado":false,"testar_empresa":false}}
+TAREFA: Extrair TODOS os dados do comprovante e retornar APENAS um objeto JSON valido.
 
-Regras: tipo_documento="entrega" ou "devolucao". Itens=array de objetos {quantidade,descricao,patrimonio,valor_unitario}. Nao aninhe objetos. Sem markdown. Apenas JSON puro.`;
+TIPO DE DOCUMENTO: ${isDevolucao ? 'DEVOLUCAO (retorno de equipamentos locados)' : 'ENTREGA (entrega de equipamentos locados)'}
 
-  const userMessage = `Extraia os dados deste comprovante:\n\n${text.slice(0, 12000)}`;
-
-  if (mistralKey) {
-    try {
-      const mistralRes = await fetch('https://api.mistral.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${mistralKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'mistral-small-latest',
-          temperature: 0,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-        }),
-      });
-
-      const mistralData = await mistralRes.json();
-
-      if (!mistralRes.ok) {
-        const errMsg = mistralData.error?.message || 'Mistral API error';
-        console.error('Mistral API error:', mistralRes.status, errMsg);
-        if (mistralRes.status === 429) {
-          return json({ error: 'Mistral quota exceeded, trying fallback', fallback: true }, 200, corsHeaders);
-        }
-      } else {
-        const content = mistralData.choices?.[0]?.message?.content || '';
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const extracted = JSON.parse(jsonMatch[0]);
-            return json({ success: true, data: extracted }, 200, corsHeaders);
-          } catch { /* JSON parse error, fall through */ }
-        }
-      }
-    } catch (e) {
-      console.error('Mistral failed:', e.message);
+FORMATO DE SAIDA (JSON exato - NAO adicione campos extras):
+{
+  "contrato": "numero do contrato ex: 1234/26",
+  "atendente": "nome do atendente",
+  "locatario": "nome completo do locatario/empresa",
+  "cpf_cnpj": "CPF ou CNPJ formatado",
+  "rg": "numero do RG se visivel",
+  "telefone": "telefone do locatario com DDD",
+  "contato": "nome do contato",
+  "endereco": "rua/avenida do locatario",
+  "numero": "numero do endereco",
+  "bairro": "bairro",
+  "cidade": "cidade",
+  "estado": "UF (2 letras)",
+  "cep": "CEP com ou sem hifen",
+  "local_entrega": "endereco completo da obra/entrega",
+  "telefone_entrega": "telefone do local de entrega",
+  "referencia": "ponto de referencia se houver",
+  "data_retirada": "DD/MM/AAAA",
+  "hora": "HH:MM",
+  "observacao": "observacoes se houver",
+  "itens": [
+    {
+      "quantidade": 1,
+      "descricao": "descricao do item/equipamento",
+      "patrimonio": "numero de patrimonio se houver",
+      "valor_unitario": 0
     }
+  ],
+  "valor_total": 0,
+  "valor_mensal": 0,
+  "tipo_documento": "${isDevolucao ? 'devolucao' : 'entrega'}"
+}
+
+REGRAS CRITICAS:
+1. tipo_documento DEVE ser "${isDevolucao ? 'devolucao' : 'entrega'}" baseado no titulo do documento
+2. CONTRATO: Procure "CONTRATO Nº XXXX/YY" ou apenas "XXXX/YY". NAO confunda com numeros de orcamento
+3. ITENS: Cada item tem quantidade, descricao, patrimonio (se houver), valor_unitario (0 se nao visivel)
+4. VALOR: Se nao houver valor visivel, use 0
+5. CAMPOS: Se um campo nao for encontrado, use string vazia ""
+6. DATA: Formato DD/MM/AAAA. Se apenas HH:MM for visivel, preencha hora e deixe data vazia
+7. LOCAL ENTREGA: Pode ser diferente do endereco do locatario (e a obra)
+8. TELEFONE: Inclua DDD, ex: (92) 99999-0000
+9. NAO retorne array, NAO retorne markdown, NAO retorne texto explicativo
+10. Apenas JSON puro e valido`;
+
+  const userMessage = `Extraia os dados deste comprovante de ${isDevolucao ? 'devolucao' : 'entrega'}:
+
+${text.slice(0, 15000)}`;
+
+  // Helper: validate and clean AI response
+  function validateAiResponse(data) {
+    if (!data || typeof data !== 'object') return null;
+    if (Array.isArray(data)) return null;
+
+    // Ensure required fields exist with defaults
+    const defaults = {
+      contrato: '',
+      atendente: '',
+      locatario: '',
+      cpf_cnpj: '',
+      rg: '',
+      telefone: '',
+      contato: '',
+      endereco: '',
+      numero: '',
+      bairro: '',
+      cidade: '',
+      estado: '',
+      cep: '',
+      local_entrega: '',
+      telefone_entrega: '',
+      referencia: '',
+      data_retirada: '',
+      data_devolucao: '',
+      hora: '',
+      observacao: '',
+      itens: [],
+      valor_total: 0,
+      valor_mensal: 0,
+      tipo_documento: isDevolucao ? 'devolucao' : 'entrega',
+      condicoes: { danificado: false, extraviado: false, testarEmpresa: false },
+    };
+
+    const result = { ...defaults, ...data };
+
+    // Ensure itens is array of objects
+    if (!Array.isArray(result.itens)) result.itens = [];
+    result.itens = result.itens.map(it => ({
+      quantidade: Number(it.quantidade) || 1,
+      descricao: String(it.descricao || ''),
+      patrimonio: String(it.patrimonio || ''),
+      valor_unitario: Number(it.valor_unitario) || 0,
+    }));
+
+    // Ensure numeric values
+    result.valor_total = Number(result.valor_total) || 0;
+    result.valor_mensal = Number(result.valor_mensal) || 0;
+
+    // Ensure tipo_documento
+    if (result.tipo_documento !== 'devolucao' && result.tipo_documento !== 'entrega') {
+      result.tipo_documento = isDevolucao ? 'devolucao' : 'entrega';
+    }
+
+    // For devolucao, set data_devolucao from data_retirada if empty
+    if (result.tipo_documento === 'devolucao' && !result.data_devolucao && result.data_retirada) {
+      result.data_devolucao = result.data_retirada;
+    }
+
+    return result;
   }
 
-  if (geminiKey) {
+  // Helper: call AI provider with retry
+  async function callAI(provider, url, headers, body, extractFn) {
     try {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: userMessage }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: {
-              temperature: 0,
-              responseMimeType: 'application/json',
-            },
-          }),
-        }
-      );
-
-      const geminiData = await geminiRes.json();
-
-      if (!geminiRes.ok) {
-        const errMsg = geminiData.error?.message || 'Gemini API error';
-        if (geminiRes.status === 429 || errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-          return json({ error: 'Gemini quota exceeded, trying fallback', fallback: true }, 200, corsHeaders);
-        }
-      } else {
-        const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const extracted = JSON.parse(jsonMatch[0]);
-            return json({ success: true, data: extracted }, 200, corsHeaders);
-          } catch { /* JSON parse error, fall through */ }
-        }
-      }
-    } catch (e) {
-      /* Gemini failed, try OpenAI fallback */
-    }
-  }
-
-  if (openaiKey) {
-    try {
-      const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          temperature: 0,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-        }),
+        headers,
+        body: JSON.stringify(body),
       });
 
-      const aiData = await aiRes.json();
+      const data = await res.json();
 
-      if (!aiRes.ok) {
-        return json({ error: aiData.error?.message || 'OpenAI API error', fallback: true }, 502, corsHeaders);
+      if (!res.ok) {
+        const errMsg = data.error?.message || `${provider} API error`;
+        console.error(`${provider} error:`, res.status, errMsg);
+        if (res.status === 429) {
+          return { error: `${provider} quota exceeded`, fallback: true };
+        }
+        return { error: errMsg };
       }
 
-      const content = aiData.choices?.[0]?.message?.content || '';
+      const content = extractFn(data);
+      if (!content) return { error: `${provider} returned empty content` };
+
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return json({ error: 'AI returned invalid JSON', raw: content, fallback: true }, 502, corsHeaders);
-      }
+      if (!jsonMatch) return { error: `${provider} returned invalid JSON`, raw: content };
 
-      const extracted = JSON.parse(jsonMatch[0]);
-      return json({ success: true, data: extracted }, 200, corsHeaders);
+      try {
+        const extracted = JSON.parse(jsonMatch[0]);
+        const validated = validateAiResponse(extracted);
+        if (!validated) return { error: `${provider} returned invalid structure` };
+        return { success: true, data: validated };
+      } catch {
+        return { error: `${provider} JSON parse error` };
+      }
     } catch (e) {
-      return json({ error: e.message, fallback: true }, 500, corsHeaders);
+      return { error: e.message };
     }
+  }
+
+  // Try Mistral first
+  if (mistralKey) {
+    const result = await callAI(
+      'Mistral',
+      'https://api.mistral.ai/v1/chat/completions',
+      {
+        'Authorization': `Bearer ${mistralKey}`,
+        'Content-Type': 'application/json',
+      },
+      {
+        model: 'mistral-small-latest',
+        temperature: 0,
+        max_tokens: 2000,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+      },
+      (data) => data.choices?.[0]?.message?.content || ''
+    );
+
+    if (result.success) return json(result, 200, corsHeaders);
+    if (result.fallback) return json(result, 200, corsHeaders);
+  }
+
+  // Try Gemini
+  if (geminiKey) {
+    const result = await callAI(
+      'Gemini',
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      { 'Content-Type': 'application/json' },
+      {
+        contents: [{ parts: [{ text: userMessage }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 2000,
+          responseMimeType: 'application/json',
+        },
+      },
+      (data) => data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    );
+
+    if (result.success) return json(result, 200, corsHeaders);
+    if (result.fallback) return json(result, 200, corsHeaders);
+  }
+
+  // Try OpenAI
+  if (openaiKey) {
+    const result = await callAI(
+      'OpenAI',
+      'https://api.openai.com/v1/chat/completions',
+      {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      {
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        max_tokens: 2000,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+      },
+      (data) => data.choices?.[0]?.message?.content || ''
+    );
+
+    if (result.success) return json(result, 200, corsHeaders);
+    return json({ ...result, fallback: true }, 502, corsHeaders);
   }
 
   return json({ error: 'No AI provider available', fallback: true }, 200, corsHeaders);

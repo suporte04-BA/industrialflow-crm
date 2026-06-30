@@ -5,11 +5,11 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from './lib/AuthContext';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import Layout from './components/layout/Layout';
-import LoginPage from './components/auth/LoginPage';
-import RegisterPage from './components/auth/RegisterPage';
 import PrivateRoute from './components/auth/PrivateRoute';
 import RoleGuard from './components/auth/RoleGuard';
 
+const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./components/auth/RegisterPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const OrdensServico = lazy(() => import('./pages/OrdensServico'));
 const Equipamentos = lazy(() => import('./pages/Equipamentos'));

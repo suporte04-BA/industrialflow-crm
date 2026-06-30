@@ -23,9 +23,9 @@ export function useDashboard() {
         return await response.json();
       } catch {
         const [osRes, eqRes, ctRes] = await Promise.all([
-          supabase.from('ordens_servico').select('*').order('created_at', { ascending: false }).limit(200),
-          supabase.from('equipamentos').select('*'),
-          supabase.from('contratos').select('*'),
+          supabase.from('ordens_servico').select('id, status, created_at, cliente, equipamento, valor, prioridade').order('created_at', { ascending: false }).limit(200),
+          supabase.from('equipamentos').select('id, status'),
+          supabase.from('contratos').select('id, status, inicio, fim, valor_mensal, assinado'),
         ]);
         const osData = (osRes.data || []).map(toCamel);
         const eqData = (eqRes.data || []).map(toCamel);
@@ -37,7 +37,10 @@ export function useDashboard() {
             if (c.status !== 'ativo') return false;
             const inicio = new Date(c.inicio || c.dataContrato || hoje);
             const fim = new Date(c.fim || hoje);
-            return inicio.getMonth() <= i && fim.getMonth() >= i && inicio.getFullYear() <= hoje.getFullYear();
+            const mesInicio = inicio.getFullYear() * 12 + inicio.getMonth();
+            const mesFim = fim.getFullYear() * 12 + fim.getMonth();
+            const mesAtual = hoje.getFullYear() * 12 + i;
+            return mesInicio <= mesAtual && mesFim >= mesAtual;
           }).reduce((s, c) => s + (c.valorMensal || 0), 0);
         });
         return {

@@ -40,7 +40,12 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    let authTimeout = setTimeout(() => {
+      setIsLoadingAuth(false);
+    }, 3000);
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(authTimeout);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       setIsAuthenticated(!!currentUser);
@@ -49,9 +54,13 @@ export const AuthProvider = ({ children }) => {
         setProfile(prof);
       }
       setIsLoadingAuth(false);
+    }).catch(() => {
+      clearTimeout(authTimeout);
+      setIsLoadingAuth(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      clearTimeout(authTimeout);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       setIsAuthenticated(!!currentUser);
@@ -64,7 +73,10 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(authTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 

@@ -2,18 +2,36 @@ import { extractTextFromPDF } from './pdfParser';
 
 export async function parseComprovantePDF(file) {
   const { text, lines } = await extractTextFromPDF(file);
-  const tipo = detectDocumentType(lines);
-  const parsed = tipo === 'devolucao' ? extractDevolucao(lines) : extractEntrega(lines);
+  const dedupedLines = deduplicatePages(lines);
+  const tipo = detectDocumentType(dedupedLines);
+  const parsed = tipo === 'devolucao' ? extractDevolucao(dedupedLines) : extractEntrega(dedupedLines);
   parsed.tipo_documento = tipo;
   return { rawText: text, parsed };
+}
+
+function deduplicatePages(lines) {
+  if (lines.length < 20) return lines;
+  const mid = Math.floor(lines.length / 2);
+  const firstHalf = lines.slice(0, mid).join('\n');
+  const secondHalf = lines.slice(mid).join('\n');
+  const similarity = computeSimilarity(firstHalf, secondHalf);
+  if (similarity > 0.85) return lines.slice(0, mid);
+  return lines;
+}
+
+function computeSimilarity(a, b) {
+  const wordsA = a.split(/\s+/);
+  const wordsB = b.split(/\s+/);
+  if (wordsA.length === 0 || wordsB.length === 0) return 0;
+  const setA = new Set(wordsA);
+  let matches = 0;
+  for (const w of wordsB) { if (setA.has(w)) matches++; }
+  return matches / wordsB.length;
 }
 
 function detectDocumentType(lines) {
   for (const line of lines) {
     if (/DEVOLU[ÇC][ÃA]O/i.test(line)) return 'devolucao';
-  }
-  for (const line of lines) {
-    if (/ENTREGA/i.test(line)) return 'entrega';
   }
   return 'entrega';
 }
@@ -23,152 +41,280 @@ function clean(val) {
   return val.replace(/^[:\s/]+/, '').replace(/[:\s/]+$/, '').replace(/\s+/g, ' ').trim();
 }
 
-function findAfterLabel(lines, patterns, opts = {}) {
-  const { afterLine = -1 } = opts;
-  const start = afterLine >= 0 ? afterLine : 0;
-  for (let i = start; i < lines.length; i++) {
-    for (const p of patterns) {
-      const m = lines[i].match(p);
-      if (!m) continue;
-      let val = clean(m[1] || m[2] || '');
-      if (val.length > 0) return val;
+function parseValue(str) {
+  if (!str) return 0;
+  return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+
+
+function findContractNumber(lines) {
+  for (const line of lines) {
+    const m1 = line.match(/CONTRATO\s*N[ºo°]\s*[:\s]+(\S+)/i);
+    if (m1) return clean(m1[1]);
+  }
+  for (const line of lines) {
+    const m2 = line.match(/^(\d{3,}\/\d{2,4})\s*$/);
+    if (m2) return m2[1];
+  }
+  return '';
+}
+
+function findAddressNumber(lines) {
+  const contractNum = findContractNumber(lines);
+  const contractPrefix = contractNum ? contractNum.replace(/\/\d{2,4}$/, '') : '';
+  for (const line of lines) {
+    const m = line.match(/N[ºo°]\s*:\s*(\d{1,5})/i);
+    if (m) {
+      const n = m[1];
+      if (contractPrefix && n === contractPrefix) continue;
+      if (contractNum && n === contractNum) continue;
+      if (contractNum && n === contractNum.split('/')[0]) continue;
+      return n;
+    }
+  }
+  return '';
+}
+
+function findContato(lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/Contato\s*:\s*(.+)/i);
+    if (m) {
+      let v = clean(m[1]);
+      // Strip everything from any known field label onwards (not just the word)
+      v = v.replace(/\s*(?:Refer[êe]ncia|Telefone|Fone|CNPJ|Bairro|Cidade|Estado|CEP|Endere[çc]o|N[ºo°]|INSC|Data|Hora|COMPROVANTE|DLoc|DDev|Valor|Patrim|Qtde|Descri|Observa|Locat[áa]rio|Atendente|RG).*/i, '').trim();
+      v = v.replace(/[:\s/]+$/, '').trim();
+      if (v.length > 0 && v.length < 60 && !/^\d/.test(v)) return v;
+      // If Contato line was polluted, try next line
       if (i + 1 < lines.length) {
         const next = clean(lines[i + 1]);
-        if (next.length > 0 && !lines[i + 1].match(p)) return next;
+        if (next.length > 0 && next.length < 60 && !/^\d/.test(next) && !/^(Refer|Telefone|CNPJ|Bairro|Cidade|Estado|CEP|Endere|N[ºo°]|Data|Hora|Observa|Locat|Atend|Fone|RG|COMPROVANTE)/i.test(next)) {
+          return next;
+        }
       }
     }
   }
   return '';
 }
 
-function parseValue(str) {
-  if (!str) return 0;
-  return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+function findReferencia(lines) {
+  for (const line of lines) {
+    const m = line.match(/Refer[êe]ncia\s*[:=]\s*(.+)/i);
+    if (m) {
+      let v = clean(m[1]);
+      v = v.replace(/\s*(Telefone|Fone|CNPJ|Bairro|Cidade|Estado|CEP|Endere[çc]o|N[ºo°]|INSC|Data|Hora|Observa|Contato|Atendente|Locat[áa]rio).*/i, '').trim();
+      v = v.replace(/[:\s/]+$/, '').trim();
+      if (v.length > 0 && v.length < 120) return v;
+    }
+  }
+  // Also try: "Referência" at end of a line (pdfjs might join it with previous field)
+  for (const line of lines) {
+    const m = line.match(/(.+)\s+Refer[êe]ncia\s*[:=]?\s*(.*)/i);
+    if (m) {
+      const after = clean(m[2]);
+      if (after.length > 0 && after.length < 120) return after;
+    }
+  }
+  return '';
+}
+
+function findLocalEntrega(lines) {
+  for (const line of lines) {
+    const m = line.match(/Local\s+(?:da\s+)?(?:entrega|obra)\s*:\s*(.+)/i);
+    if (m) {
+      let v = clean(m[1]);
+      v = v.replace(/\s*(Telefone|Fone|CNPJ|Bairro|Cidade|Estado|CEP|Refer[êe]ncia).*/i, '').trim();
+      if (v.length > 0) return v;
+    }
+  }
+  return '';
+}
+
+function findTelefoneEntrega(lines) {
+  // Pattern 1: "Telefone do local de entrega" or "Telefone da obra"
+  for (const line of lines) {
+    const m = line.match(/Telefone\s+(?:do\s+local\s+de\s+(?:entrega|obra)|da\s+obra)\s*:\s*([\d\s().-]+)/i);
+    if (m) return clean(m[1]);
+  }
+  // Pattern 2: "Fone:" in the local de entrega context (after "Local da obra")
+  let foundLocal = false;
+  for (const line of lines) {
+    if (/Local\s+(?:da\s+)?(?:entrega|obra)/i.test(line)) foundLocal = true;
+    if (foundLocal) {
+      const m = line.match(/Fone\s*:\s*([\d\s().-]+)/i);
+      if (m) return clean(m[1]);
+    }
+  }
+  // Pattern 3: "Fone do local" or "Fone da obra"
+  for (const line of lines) {
+    const m = line.match(/Fone\s+(?:do\s+local|da\s+obra)\s*:\s*([\d\s().-]+)/i);
+    if (m) return clean(m[1]);
+  }
+  return '';
 }
 
 function extractEntrega(lines) {
+  const contrato = findContractNumber(lines);
+  const numeroEndereco = findAddressNumber(lines);
+
   const fields = {
-    numero_pedido: '', contrato: '', atendente: '', contato: '', contato_cliente: '',
-    cpf_cnpj: '', rg: '', telefone: '', email: '',
-    endereco: '', numero: '', bairro: '', cidade: '', estado: '', cep: '',
-    local_entrega: '', telefone_entrega: '',
-    data_retirada: '', data_devolucao: '', hora: '',
-    observacao: '', referencia: '',
-    itens: [], equipamentos: [], valores: { subtotal: 0, desconto: 0, frete: 0, total: 0 },
+    numero_pedido: contrato,
+    contrato,
+    atendente: '',
+    locatario: '',
+    contato: '',
+    contato_cliente: findContato(lines),
+    cpf_cnpj: '',
+    rg: '',
+    telefone: '',
+    email: '',
+    endereco: '',
+    numero: numeroEndereco,
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cep: '',
+    local_entrega: findLocalEntrega(lines),
+    telefone_entrega: findTelefoneEntrega(lines),
+    data_retirada: '',
+    data_devolucao: '',
+    hora: '',
+    observacao: '',
+    referencia: findReferencia(lines),
+    itens: [],
+    equipamentos: [],
+    valores: { subtotal: 0, desconto: 0, frete: 0, total: 0 },
   };
+
+  let cepCandidates = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^\d{3,}\/\d{2}$/.test(line.trim()) && !fields.numero_pedido) {
-      fields.numero_pedido = line.trim();
-    }
-
-    const contratoM = line.match(/CONTRATO\s*N[ºo°]/i);
-    if (contratoM) {
-      const afterLabel = line.substring(line.indexOf(contratoM[0]) + contratoM[0].length);
-      const val = clean(afterLabel);
-      if (val.length > 0) fields.contrato = val;
-    }
-
     const attM = line.match(/Atendente\s*:\s*(.+)/i);
-    if (attM) fields.atendente = clean(attM[1]);
+    if (attM && !fields.atendente) fields.atendente = clean(attM[1]);
 
     const locM = line.match(/Locat[áa]rio\s*:\s*(.+)/i);
-    if (locM) fields.contato = clean(locM[1]);
-
-    const cidM = line.match(/Cidade\s*:\s*([A-Za-zÀ-ú\s-]+)/i);
-    if (cidM) fields.cidade = clean(cidM[1]);
-
-    const localM = line.match(/Local\s+da\s+entrega\s*:\s*(.+)/i);
-    if (localM) fields.local_entrega = clean(localM[1]);
-
-    const estM = line.match(/Estado\s*:\s*([A-Z]{2})/i);
-    if (estM) fields.estado = estM[1].toUpperCase();
-
-    const cepM = line.match(/CEP\s*:\s*([\d.-]+)/i);
-    if (cepM && !fields.cep) fields.cep = cepM[1];
-
-    const foneM = line.match(/(?:Fone|Telefone)\s*:\s*([\d\s()-]+)/i);
-    if (foneM && !fields.telefone) fields.telefone = clean(foneM[1]);
-
-    const endM = line.match(/Endere[çc]o\s*:\s*(.+)/i);
-    if (endM) fields.endereco = clean(endM[1]);
-
-    const cnpjM = line.match(/CNPJ\s*:\s*([\d./-]+)/i);
-    if (cnpjM) fields.cpf_cnpj = cnpjM[1];
-
-    const numM = line.match(/N[ºo°]\s*:\s*(\d{1,5})/i);
-    if (numM && !fields.numero) {
-      const n = numM[1];
-      if (n !== fields.numero_pedido.replace(/\/\d{2}$/, '')) fields.numero = n;
+    if (locM && !fields.locatario) {
+      let v = clean(locM[1]);
+      v = v.replace(/\s*(?:CNPJ|CPF|RG|Telefone|Fone|Cidade|Estado|CEP|Endere[çc]o|INSC).*/i, '').trim();
+      if (v.length > 0 && v.length < 120) fields.locatario = v;
     }
 
+    const cidM = line.match(/Cidade\s*:\s*([A-Za-zÀ-ú\s-]+)/i);
+    if (cidM && !fields.cidade) {
+      let v = clean(cidM[1]);
+      v = v.replace(/\s*(Estado|CEP|Telefone|Fone|N[ºo°]|INSC).*/i, '').trim();
+      if (v.length > 0) fields.cidade = v;
+    }
+
+    const estM = line.match(/Estado\s*:\s*([A-Z]{2})/i);
+    if (estM && !fields.estado) fields.estado = estM[1].toUpperCase();
+
+    // CEP: collect candidates, prefer the one near Bairro
+    const cepEstadoM = line.match(/Estado\s*:\s*[A-Z]{2}\s*CEP\s*:?\s*([\d.-]+)/i);
+    if (cepEstadoM) cepCandidates.push({ cep: cepEstadoM[1], context: 'estado' });
+
+    const cepM = line.match(/CEP\s*:\s*([\d.-]+)/i);
+    if (cepM) cepCandidates.push({ cep: cepM[1], context: 'cep' });
+
+    const foneM = line.match(/(?:^|\s)Fone\s*:\s*([\d\s().-]+)/i);
+    if (foneM && !fields.telefone) fields.telefone = clean(foneM[1]);
+
+    const telObraM = line.match(/Telefone\s+(?:do\s+local\s+de\s+(?:entrega|obra)|da\s+obra)\s*:\s*([\d\s().-]+)/i);
+    if (telObraM) fields.telefone_entrega = clean(telObraM[1]);
+
+    const endM = line.match(/Endere[çc]o\s*:\s*(.+)/i);
+    if (endM && !fields.endereco) {
+      let v = clean(endM[1]);
+      v = v.replace(/\s*N[ºo°]\s*:.*/i, '').trim();
+      if (v.length > 0 && v.length < 120) fields.endereco = v;
+    }
+
+    const cnpjM = line.match(/CNPJ\s*:\s*([\d./-]+)/i);
+    if (cnpjM && !fields.cpf_cnpj) fields.cpf_cnpj = cnpjM[1];
+
+    const rgM = line.match(/RG\s*:\s*([\d.]+)/i);
+    if (rgM && !fields.rg) fields.rg = rgM[1];
+
     const bairM = line.match(/Bairro\s*:\s*(.+)/i);
-    if (bairM) fields.bairro = clean(bairM[1]);
-
-    const telLocM = line.match(/Telefone\s+do\s+local\s+de\s+entrega\s*:\s*([\d\s()-]+)/i);
-    if (telLocM) fields.telefone_entrega = clean(telLocM[1]);
-
-    const contM = line.match(/Contato\s*:\s*(.+)/i);
-    if (contM) {
-      const v = clean(contM[1]);
-      if (v.length > 0) fields.contato_cliente = v;
+    if (bairM && !fields.bairro) {
+      let v = clean(bairM[1]);
+      v = v.replace(/\s*(Cidade|Estado|CEP|Telefone|Fone).*/i, '').trim();
+      // Check if next line continues the bairro name
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        if (nextLine.trim().length > 0 && !/^(Cidade|Estado|CEP|Telefone|Fone|Endere|Data|Hora|Contato|Refer|Locat|Atend|Bairro|N[ºo°]|COMPROVANTE|EQUILOC|TRANS)/i.test(nextLine)) {
+          const nextClean = clean(nextLine);
+          if (nextClean.length > 0 && nextClean.length < 40) {
+            v = v + ' ' + nextClean;
+          }
+        }
+      }
+      if (v.length > 0 && v.length < 80) fields.bairro = v;
+      // Mark context for CEP priority
+      cepCandidates.push({ cep: '', context: 'bairro' });
     }
 
     const obsM = line.match(/Observa[çc][ãa]o\s*:\s*(.+)/i);
-    if (obsM) fields.observacao = clean(obsM[1]);
-
-    const refM = line.match(/Refer[êe]ncia\s*:\s*(.+)/i);
-    if (refM) fields.referencia = clean(refM[1]);
+    if (obsM && !fields.observacao) fields.observacao = clean(obsM[1]);
   }
 
-  const dateTimeLines = [];
+  // CEP priority: prefer the LAST CEP candidate that's near or after Bairro context
+  if (cepCandidates.length > 0 && !fields.cep) {
+    // Find the last CEP with a non-empty value that's not from 'estado' context
+    const clientCeps = cepCandidates.filter(c => c.cep && (c.context === 'cep' || c.context === 'bairro'));
+    if (clientCeps.length > 0) {
+      fields.cep = clientCeps[clientCeps.length - 1].cep;
+    } else if (cepCandidates[cepCandidates.length - 1].cep) {
+      fields.cep = cepCandidates[cepCandidates.length - 1].cep;
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
-    if (/Data\s*:\s*Hora/i.test(lines[i])) {
-      for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
-        const dm = lines[j].match(/(\d{2}\/\d{2}\/\d{2,4})\s+(\d{1,2}:\d{2})/);
-        if (dm) {
-          fields.data_retirada = dm[1];
-          fields.hora = dm[2];
-          break;
+    if (/Data\s*:.*Hora/i.test(lines[i])) {
+      // Try to find date and time on the same line: "Data: DD/MM/YYYY Hora: HH:MM"
+      const sameLineDm = lines[i].match(/(\d{2}\/\d{2}\/\d{2,4}).*?(\d{1,2}:\d{2})/);
+      if (sameLineDm) {
+        fields.data_retirada = sameLineDm[1];
+        fields.hora = sameLineDm[2];
+      } else {
+        for (let j = i; j < Math.min(i + 4, lines.length); j++) {
+          const dm = lines[j].match(/(\d{2}\/\d{2}\/\d{2,4}).*?(\d{1,2}:\d{2})/);
+          if (dm) {
+            fields.data_retirada = dm[1];
+            fields.hora = dm[2];
+            break;
+          }
         }
       }
-    }
-  }
-
-  let inItems = false;
-  let itemStartIdx = -1;
-  let itemEndIdx = lines.length;
-  for (let i = 0; i < lines.length; i++) {
-    if (/Qtde\s+Descri[çc][ãa]o/i.test(lines[i]) || /DLoc\s+DDev/i.test(lines[i])) {
-      if (!inItems) { inItems = true; itemStartIdx = i + 1; }
-    }
-    if (inItems && /(?:Declara[çc][ãa]o|OBSERVA[ÇC][ÃA]O|Observa[çc][ãa]o)/i.test(lines[i])) {
-      itemEndIdx = i;
       break;
     }
   }
 
-  if (itemStartIdx >= 0) {
-    for (let i = itemStartIdx; i < itemEndIdx; i++) {
-      const line = lines[i];
-      if (/^\s*$/.test(line)) continue;
-      if (/^Qtde|^DLoc|^Descri/i.test(line)) continue;
+  const junkPatterns = /TOTAL|SUBTOTAL|DECLAR|CONTRATO|Atendente|Locat|Cidade|Local|Estado|CEP|Fone|Endere|CNPJ|Bairro|Telefone|Contato|Data\s*:|Hora|Refer|EQUILOC|TRANS\s*OBRA|TARUMA|COMPROVANTE|Observa|Patrim|NOME|RG\s*:|LOCADORA|CIENTE|ASSINATURA|RESPONSÁVEL|CPF\s+DO|VALOR\s+TOTAL/i;
 
-      const item = parseEntregaItemLine(line);
-      if (item) fields.itens.push(item);
-    }
-  }
+  const seenItems = new Set();
+  for (const line of lines) {
+    if (/Qtde\s+Descri/i.test(line) || /^DLoc\s+DDev/i.test(line)) continue;
+    if (/^\s*$/.test(line)) continue;
+    if (junkPatterns.test(line)) continue;
+    if (/^_{5,}/.test(line.trim())) continue;
+    if (/^-{5,}/.test(line.trim())) continue;
+    if (/MANAUS,?\s+\d/i.test(line)) continue;
+    if (/ORÇAMENTO|ORCAMENTO/i.test(line)) continue;
+    if (/Locadora\s+entrega/i.test(line)) continue;
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(line.trim())) continue;
+    if (/CONTRATO\s*N/i.test(line)) continue;
 
-  if (fields.itens.length === 0) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (/(?:TOTAL|SUBTOTAL|OBSERVA|Declara|CONTRATO|Atendente|Locat|Cidade|Local|Estado|CEP|Fone|Endere|CNPJ|N[ºo°]:|Bairro|Telefone|Contato|Data\s*:|Hora|Refer)/i.test(line)) continue;
-      if (/^Qtde|^DLoc|^Descri/i.test(line)) continue;
-
-      const item = parseEntregaItemLine(line);
-      if (item) fields.itens.push(item);
+    const item = parseEntregaItemLine(line);
+    if (item) {
+      const key = item.descricao.substring(0, 50).toLowerCase().replace(/\s+/g, ' ');
+      if (!seenItems.has(key)) {
+        seenItems.add(key);
+        fields.itens.push(item);
+      }
     }
   }
 
@@ -206,7 +352,7 @@ function parseEntregaItemLine(line) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (desc.length < 2) return null;
+  if (desc.length < 3) return null;
 
   return {
     quantidade: qty,
@@ -220,110 +366,200 @@ function parseEntregaItemLine(line) {
 }
 
 function extractDevolucao(lines) {
+  const contrato = findContractNumber(lines);
+  const numeroEndereco = findAddressNumber(lines);
+
   const fields = {
-    numero_pedido: '', contrato: '', atendente: '', contato: '', contato_cliente: '',
-    cpf_cnpj: '', rg: '', telefone: '', email: '',
-    endereco: '', numero: '', bairro: '', cidade: '', estado: '', cep: '',
-    local_entrega: '', telefone_entrega: '',
-    data_retirada: '', data_devolucao: '', hora: '',
-    observacao: '', referencia: '',
+    numero_pedido: contrato,
+    contrato,
+    atendente: '',
+    locatario: '',
+    contato: '',
+    contato_cliente: findContato(lines),
+    cpf_cnpj: '',
+    rg: '',
+    telefone: '',
+    email: '',
+    endereco: '',
+    numero: numeroEndereco,
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cep: '',
+    local_entrega: findLocalEntrega(lines),
+    telefone_entrega: findTelefoneEntrega(lines),
+    data_retirada: '',
+    data_devolucao: '',
+    hora: '',
+    observacao: '',
+    referencia: findReferencia(lines),
     condicoes: { danificado: false, extraviado: false, testarEmpresa: false },
-    itens: [], equipamentos: [], valores: { subtotal: 0, desconto: 0, frete: 0, total: 0 },
+    itens: [],
+    equipamentos: [],
+    valores: { subtotal: 0, desconto: 0, frete: 0, total: 0 },
   };
+
+  let cepCandidates = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^\d{3,}\/\d{2}$/.test(line.trim()) && !fields.numero_pedido) {
-      fields.numero_pedido = line.trim();
-    }
-
     const attM = line.match(/Atendente\s*:\s*(.+)/i);
-    if (attM) fields.atendente = clean(attM[1]);
+    if (attM && !fields.atendente) fields.atendente = clean(attM[1]);
 
     const locM = line.match(/Locat[áa]rio\s*:\s*(.+)/i);
-    if (locM) fields.contato = clean(locM[1]);
+    if (locM && !fields.locatario) {
+      let v = clean(locM[1]);
+      v = v.replace(/\s*(?:CNPJ|CPF|RG|Telefone|Fone|Cidade|Estado|CEP|Endere[çc]o|INSC).*/i, '').trim();
+      if (v.length > 0 && v.length < 120) fields.locatario = v;
+    }
 
     const cidM = line.match(/Cidade\s*:\s*([A-Za-zÀ-ú\s-]+)/i);
-    if (cidM) fields.cidade = clean(cidM[1]);
-
-    const localM = line.match(/Local\s+da\s+Obra\s*:\s*(.+)/i);
-    if (localM) fields.local_entrega = clean(localM[1]);
+    if (cidM && !fields.cidade) {
+      let v = clean(cidM[1]);
+      v = v.replace(/\s*(Estado|CEP|Telefone|Fone|N[ºo°]|INSC).*/i, '').trim();
+      if (v.length > 0) fields.cidade = v;
+    }
 
     const estM = line.match(/Estado\s*:\s*([A-Z]{2})/i);
-    if (estM) fields.estado = estM[1].toUpperCase();
+    if (estM && !fields.estado) fields.estado = estM[1].toUpperCase();
+
+    const cepEstadoM = line.match(/Estado\s*:\s*[A-Z]{2}\s*CEP\s*:?\s*([\d.-]+)/i);
+    if (cepEstadoM) cepCandidates.push({ cep: cepEstadoM[1], context: 'estado' });
 
     const cepM = line.match(/CEP\s*:\s*([\d.-]+)/i);
-    if (cepM && !fields.cep) fields.cep = cepM[1];
+    if (cepM) cepCandidates.push({ cep: cepM[1], context: 'cep' });
 
-    const foneM = line.match(/(?:Fone|Telefone)\s*:\s*([\d\s()-]+)/i);
+    const foneM = line.match(/(?:^|\s)Fone\s*:\s*([\d\s().-]+)/i);
     if (foneM && !fields.telefone) fields.telefone = clean(foneM[1]);
 
+    const telObraM = line.match(/Telefone\s+(?:do\s+local|da\s+obra)\s*:\s*([\d\s().-]+)/i);
+    if (telObraM) fields.telefone_entrega = clean(telObraM[1]);
+
     const endM = line.match(/Endere[çc]o\s*:\s*(.+)/i);
-    if (endM) fields.endereco = clean(endM[1]);
+    if (endM && !fields.endereco) {
+      let v = clean(endM[1]);
+      v = v.replace(/\s*N[ºo°]\s*:.*/i, '').trim();
+      if (v.length > 0 && v.length < 120) fields.endereco = v;
+    }
 
     const cnpjM = line.match(/CNPJ\s*:\s*([\d./-]+)/i);
-    if (cnpjM) fields.cpf_cnpj = cnpjM[1];
+    if (cnpjM && !fields.cpf_cnpj) fields.cpf_cnpj = cnpjM[1];
 
-    const numM = line.match(/N[ºo°]\s*:\s*(\d{1,5})/i);
-    if (numM && !fields.numero) {
-      const n = numM[1];
-      if (n !== fields.numero_pedido.replace(/\/\d{2}$/, '')) fields.numero = n;
-    }
+    const rgM = line.match(/RG\s*:\s*([\d.]+)/i);
+    if (rgM && !fields.rg) fields.rg = rgM[1];
 
     const bairM = line.match(/Bairro\s*:\s*(.+)/i);
-    if (bairM) fields.bairro = clean(bairM[1]);
-
-    const telLocM = line.match(/Telefone\s+da\s+obra\s*:\s*([\d\s()-]+)/i);
-    if (telLocM) fields.telefone_entrega = clean(telLocM[1]);
-
-    const contM = line.match(/Contato\s*:\s*(.+)/i);
-    if (contM) {
-      const v = clean(contM[1]);
-      if (v.length > 0) fields.contato_cliente = v;
+    if (bairM && !fields.bairro) {
+      let v = clean(bairM[1]);
+      v = v.replace(/\s*(Cidade|Estado|CEP|Telefone|Fone).*/i, '').trim();
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        if (nextLine.trim().length > 0 && !/^(Cidade|Estado|CEP|Telefone|Fone|Endere|Data|Hora|Contato|Refer|Locat|Atend|Bairro|N[ºo°]|COMPROVANTE|EQUILOC|TRANS)/i.test(nextLine)) {
+          const nextClean = clean(nextLine);
+          if (nextClean.length > 0 && nextClean.length < 40) {
+            v = v + ' ' + nextClean;
+          }
+        }
+      }
+      if (v.length > 0 && v.length < 80) fields.bairro = v;
+      cepCandidates.push({ cep: '', context: 'bairro' });
     }
 
-    const refM = line.match(/Refer[êe]ncia\s*:\s*(.+)/i);
-    if (refM) fields.referencia = clean(refM[1]);
+    const obsM = line.match(/Observa[çc][ãa]o\s*:\s*(.+)/i);
+    if (obsM && !fields.observacao) fields.observacao = clean(obsM[1]);
 
     if (/DANIFICADO/i.test(line)) fields.condicoes.danificado = true;
     if (/EXTRAVIADO/i.test(line)) fields.condicoes.extraviado = true;
     if (/TESTADO\s+NA\s+EMPRESA/i.test(line)) fields.condicoes.testarEmpresa = true;
   }
 
+  if (cepCandidates.length > 0 && !fields.cep) {
+    const clientCeps = cepCandidates.filter(c => c.cep && (c.context === 'cep' || c.context === 'bairro'));
+    if (clientCeps.length > 0) {
+      fields.cep = clientCeps[clientCeps.length - 1].cep;
+    } else if (cepCandidates[cepCandidates.length - 1].cep) {
+      fields.cep = cepCandidates[cepCandidates.length - 1].cep;
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/Data\s*:\s*Hora/i.test(line) || /COMPROVANTE\s+DE\s+DEVOLU[ÇC][ÃA]O/i.test(line)) {
-      for (let j = i; j < Math.min(i + 4, lines.length); j++) {
-        const dm = lines[j].match(/(\d{2}\/\d{2}\/\d{2,4})\s+(\d{1,2}:\d{2})/);
-        if (dm) {
-          fields.data_devolucao = dm[1];
-          fields.hora = dm[2];
-          break;
+    if (/COMPROVANTE\s+DE\s+DEVOLU[ÇC][ÃA]O/i.test(line)) {
+      // Try same line first: "Data: DD/MM/YYYY Hora: HH:MM"
+      const sameLineDm = line.match(/(\d{2}\/\d{2}\/\d{2,4}).*?(\d{1,2}:\d{2})/);
+      if (sameLineDm) {
+        fields.data_devolucao = sameLineDm[1];
+        fields.hora = sameLineDm[2];
+      } else {
+        for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+          const dm = lines[j].match(/(\d{2}\/\d{2}\/\d{2,4}).*?(\d{1,2}:\d{2})/);
+          if (dm) {
+            fields.data_devolucao = dm[1];
+            fields.hora = dm[2];
+            break;
+          }
         }
       }
       break;
     }
   }
+  if (!fields.data_devolucao) {
+    for (let i = 0; i < lines.length; i++) {
+      if (/Data\s*:.*Hora/i.test(lines[i])) {
+        const sameLineDm = lines[i].match(/(\d{2}\/\d{2}\/\d{2,4}).*?(\d{1,2}:\d{2})/);
+        if (sameLineDm) {
+          fields.data_devolucao = sameLineDm[1];
+          fields.hora = sameLineDm[2];
+        } else {
+          for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+            const dm = lines[j].match(/(\d{2}\/\d{2}\/\d{2,4}).*?(\d{1,2}:\d{2})/);
+            if (dm) {
+              fields.data_devolucao = dm[1];
+              fields.hora = dm[2];
+              break;
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  const seenItems = new Set();
+  for (const line of lines) {
     if (/\(\s*\)\s*\d+\s*[-–]/.test(line)) {
       const item = parseDevolucaoCheckboxItem(line);
-      if (item) fields.itens.push(item);
+      if (item) {
+        const key = item.descricao.substring(0, 50).toLowerCase().replace(/\s+/g, ' ');
+        if (!seenItems.has(key)) {
+          seenItems.add(key);
+          fields.itens.push(item);
+        }
+      }
     }
   }
 
   if (fields.itens.length === 0) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (/(?:CONTRATO|Atendente|Locat|Cidade|Local|Estado|CEP|Fone|Endere|CNPJ|N[ºo°]:|Bairro|Telefone|Contato|Data\s*:|Hora|Refer|MANAUS|LOCADORA|CIENTE|DANIFICADO|EXTRAVIADO|TESTADO)/i.test(line)) continue;
+    const junkPatterns = /(?:CONTRATO|Atendente|Locat|Cidade|Local|Estado|CEP|Fone|Endere|CNPJ|Bairro|Telefone|Contato|Data\s*:|Hora|Refer|MANAUS|LOCADORA|CIENTE|DANIFICADO|EXTRAVIADO|TESTADO|COMPROVANTE|EQUILOC|TRANS\s*OBRA|TARUMA|DECLAR|Observa|Patrim|NOME|RG\s*:)/i;
+    for (const line of lines) {
+      if (junkPatterns.test(line)) continue;
       if (/\d{3,}\/\d{2}/.test(line)) continue;
-      if (/EQUILOC|TRANS\s*OBRA|TARUMA/i.test(line)) continue;
+      if (/^_{5,}/.test(line.trim())) continue;
+      if (/^-{5,}/.test(line.trim())) continue;
+      if (/MANAUS,?\s+\d/i.test(line)) continue;
+      if (/ORÇAMENTO|ORCAMENTO/i.test(line)) continue;
+      if (/ASSINATURA|RESPONSÁVEL|CPF\s+DO/i.test(line)) continue;
       if (line.trim().length < 5) continue;
 
       const item = parseDevolucaoCheckboxItem(line);
-      if (item) fields.itens.push(item);
+      if (item) {
+        const key = item.descricao.substring(0, 50).toLowerCase().replace(/\s+/g, ' ');
+        if (!seenItems.has(key)) {
+          seenItems.add(key);
+          fields.itens.push(item);
+        }
+      }
     }
   }
 
@@ -341,8 +577,6 @@ function parseDevolucaoCheckboxItem(line) {
 
   const rest = qtyM ? cleaned.substring(qtyM[0].length) : cleaned;
 
-  const faltanteM = rest.match(/QUANTIDADE\s+FALTANTE/i);
-
   let patrimonio = '';
   const patrimM = rest.match(/\b(\d{6,10})\b/);
   if (patrimM) patrimonio = patrimM[1];
@@ -354,7 +588,7 @@ function parseDevolucaoCheckboxItem(line) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (desc.length < 2) return null;
+  if (desc.length < 3) return null;
 
   return {
     quantidade: qty,

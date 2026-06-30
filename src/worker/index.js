@@ -151,7 +151,10 @@ async function handleDashboard(env, corsHeaders) {
         if (c.status !== 'ativo') return false;
         const inicio = new Date(c.inicio || c.data_contrato || c.data || hoje);
         const fim = new Date(c.fim || hoje);
-        return inicio.getMonth() <= i && fim.getMonth() >= i && inicio.getFullYear() <= hoje.getFullYear();
+        const mesInicio = inicio.getFullYear() * 12 + inicio.getMonth();
+        const mesFim = fim.getFullYear() * 12 + fim.getMonth();
+        const mesAtual = hoje.getFullYear() * 12 + i;
+        return mesInicio <= mesAtual && mesFim >= mesAtual;
       }).reduce((s, c) => s + (c.valor_mensal || 0), 0);
     });
     return json({
@@ -193,6 +196,11 @@ async function handleCrud(path, method, request, env, authHeader, corsHeaders, t
     return json(result.data, result.status, corsHeaders);
   }
 
+  if (method === 'GET' && id && id !== routePrefix && isValidId(id)) {
+    const result = await supabaseRequest(env, 'GET', `/${table}?id=eq.${id}&select=*`);
+    return json(result.data, result.status, corsHeaders);
+  }
+
   if (method === 'PUT' && id && id !== routePrefix && isValidId(id)) {
     const parsed = await parseBody(request);
     if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
@@ -202,7 +210,8 @@ async function handleCrud(path, method, request, env, authHeader, corsHeaders, t
 
   if (method === 'DELETE' && id && id !== routePrefix && isValidId(id)) {
     const result = await supabaseRequest(env, 'DELETE', `/${table}?id=eq.${id}`, null, authHeader);
-    return json({ success: true }, result.status, corsHeaders);
+    const success = result.status >= 200 && result.status < 300;
+    return json({ success, data: result.data }, result.status, corsHeaders);
   }
 
   const result = await supabaseRequest(env, 'GET', `/${table}?select=*&order=created_at.desc&limit=100`);
@@ -248,7 +257,7 @@ async function handleEmailSend(request, env, corsHeaders) {
       const edgeRes = await fetch(`${env.SUPABASE_URL}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, devolucao, destinatario: recipient }),
@@ -302,9 +311,11 @@ async function handleAiExtractPdf(request, env, corsHeaders) {
     return json({ error: 'text is required' }, 400, corsHeaders);
   }
 
-  const apiKey = env.OPENAI_API_KEY;
+  const geminiKey = env.GEMINI_API_KEY;
+  const openaiKey = env.OPENAI_API_KEY;
+  const apiKey = geminiKey || openaiKey;
   if (!apiKey) {
-    return json({ error: 'OPENAI_API_KEY not configured', fallback: true }, 200, corsHeaders);
+    return json({ error: 'AI API key not configured', fallback: true }, 200, corsHeaders);
   }
 
   const isDevolucao = tipo_documento === 'devolucao' || /DEVOLU[ÇC][ÃA]O/i.test(text);
@@ -315,8 +326,8 @@ Extraia TODOS os campos do documento e retorne APENAS um JSON valido, sem markdo
 Tipo de documento: ${isDevolucao ? 'DEVOLUCAO (retorno de equipamentos)' : 'ENTREGA (entrega de equipamentos)'}
 
 IMPORTANTE SOBRE NUMERACAO:
-- O numero do CONTRATO aparece geralmente no topo do documento como "XXXX/XX" (ex: 1234/26) ou após "CONTRATO Nº:"
-- O numero do ORÇAMENTO aparece na observacao como "ORÇAMENTO NºXXXX" - este NÃO é o numero do contrato
+- O numero do CONTRATO aparece geralmente no topo do documento como "XXXX/XX" (ex: 1234/26) ou apos "CONTRATO No:"
+- O numero do ORCAMENTO aparece na observacao como "ORCAMENTO NoXXXX" - este NAO e o numero do contrato
 - O campo "contrato" deve conter o numero do contrato (ex: "1234/26"), NAO o numero do orcamento
 
 Campos obrigatorios para ENTREGA:
@@ -325,22 +336,22 @@ Campos obrigatorios para ENTREGA:
 - locatario: nome do locatario/empresa (quem recebe os equipamentos)
 - cpf_cnpj: CPF ou CNPJ do locatario
 - rg: RG do locatario (se presente no documento)
-- telefone: telefone do locatario
-- contato: nome do contato (pessoa que fala com a locadora)
-- endereco: endereco do locatario
-- numero: numero do endereco
-- bairro: bairro
+- telefone: telefone do locatario (fone do cabecalho)
+- contato: nome do contato (pessoa que fala com a locadora, so o NOME, sem "Referencia" ou outros campos)
+- endereco: endereco do locatario (rua/avenida)
+- numero: numero do endereco (apenas o numero)
+- bairro: bairro (pode vir em 2 linhas no PDF, junte tudo)
 - cidade: cidade
 - estado: UF (2 letras)
-- cep: CEP
-- telefone_entrega: telefone do local de entrega
+- cep: CEP do CLIENTE (nao da empresa, que aparece no cabecalho)
+- telefone_entrega: telefone do local de entrega/obra (Fone do local)
 - local_entrega: endereco completo do local de entrega
-- referencia: referencia do local
+- referencia: referencia do local (quinta das marinhas, etc)
 - data_retirada: data de retirada (DD/MM/AAAA)
 - hora: hora (HH:MM)
 - observacao: observacoes do contrato (incluindo numero de orcamento se houver)
-- itens: array de objetos com {quantidade, descricao, patrimonio, data_locacao, data_devolucao, valor_unitario}
-- equipamentos: array de strings com nomes dos equipamentos (extrair de "Equipamentos" ou das descricoes dos itens)
+- itens: array de APENAS os equipamentos reais com {quantidade, descricao, patrimonio, data_locacao, data_devolucao, valor_unitario}. NAO inclua linhas de Declaracao, Observacao, assinatura, data de MANAUS, linhas de underscores, ou orcamento
+- equipamentos: array de strings com nomes dos equipamentos reais
 - valor_total: valor total (soma dos itens)
 - valor_mensal: valor mensal (se mentionado, senao usar o valor_total)
 - tipo_documento: "entrega"
@@ -357,7 +368,8 @@ Campos obrigatorios para DEVOLUCAO:
 - cidade: cidade
 - estado: UF
 - cep: CEP
-- itens: array com {quantidade, descricao, patrimonio, qtd_devolvida}
+- referencia: referencia do local
+- itens: array com {quantidade, descricao, patrimonio, qtd_devolvida}. Apenas itens reais, nao inclua texto de declaracao ou observacao
 - condicoes: {danificado: bool, extraviado: bool, testar_empresa: bool}
 - tipo_documento: "devolucao"
 
@@ -368,42 +380,91 @@ Regras:
 - Se um campo nao for encontrado, retorne string vazia "" ou 0 para numeros
 - Para itens, se nao encontrar patrimonio, use "PAT-000"
 - O numero do contrato e DIFERENTE do numero do orcamento. Contrato aparece no topo, orcamento na observacao
+- O campo "contato" deve conter APENAS o nome da pessoa (ex: "LUIZ"), NAO inclua "Referencia", telefone ou outros dados
+- O campo "cep" deve ser o CEP do cliente/bairro, NAO o CEP da empresa que aparece no cabecalho
+- NAO inclua no array "itens": linhas de Declaracao, Observacao de orcamento, datas de MANAUS, linhas de assinatura, linhas de underscores, ou texto institucional
 - Retorne APENAS o JSON, nada mais`;
 
-  try {
-    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5.4-mini',
-        temperature: 0,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extraia os dados deste comprovante:\n\n${text.slice(0, 12000)}` },
-        ],
-      }),
-    });
+  const userMessage = `Extraia os dados deste comprovante:\n\n${text.slice(0, 12000)}`;
 
-    const aiData = await aiRes.json();
+  if (geminiKey) {
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: userMessage }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              temperature: 0,
+              responseMimeType: 'application/json',
+            },
+          }),
+        }
+      );
 
-    if (!aiRes.ok) {
-      return json({ error: aiData.error?.message || 'OpenAI API error', fallback: true }, 502, corsHeaders);
+      const geminiData = await geminiRes.json();
+
+      if (!geminiRes.ok) {
+        const errMsg = geminiData.error?.message || 'Gemini API error';
+        if (geminiRes.status === 429 || errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+          return json({ error: 'Gemini quota exceeded, trying fallback', fallback: true }, 200, corsHeaders);
+        }
+      } else {
+        const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const extracted = JSON.parse(jsonMatch[0]);
+            return json({ success: true, data: extracted }, 200, corsHeaders);
+          } catch { /* JSON parse error, fall through */ }
+        }
+      }
+    } catch (e) {
+      /* Gemini failed, try OpenAI fallback */
     }
-
-    const content = aiData.choices?.[0]?.message?.content || '';
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return json({ error: 'AI returned invalid JSON', raw: content, fallback: true }, 502, corsHeaders);
-    }
-
-    const extracted = JSON.parse(jsonMatch[0]);
-    return json({ success: true, data: extracted }, 200, corsHeaders);
-  } catch (e) {
-    return json({ error: e.message, fallback: true }, 500, corsHeaders);
   }
+
+  if (openaiKey) {
+    try {
+      const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          temperature: 0,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+        }),
+      });
+
+      const aiData = await aiRes.json();
+
+      if (!aiRes.ok) {
+        return json({ error: aiData.error?.message || 'OpenAI API error', fallback: true }, 502, corsHeaders);
+      }
+
+      const content = aiData.choices?.[0]?.message?.content || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return json({ error: 'AI returned invalid JSON', raw: content, fallback: true }, 502, corsHeaders);
+      }
+
+      const extracted = JSON.parse(jsonMatch[0]);
+      return json({ success: true, data: extracted }, 200, corsHeaders);
+    } catch (e) {
+      return json({ error: e.message, fallback: true }, 500, corsHeaders);
+    }
+  }
+
+  return json({ error: 'No AI provider available', fallback: true }, 200, corsHeaders);
 }
 
 async function handleEdgeProxy(path, method, request, env, corsHeaders) {
@@ -452,6 +513,17 @@ export default {
       return handleApiRoute(path, method, request, env, corsHeaders);
     }
 
-    return env.ASSETS.fetch(request);
+    const response = await env.ASSETS.fetch(request);
+    const newHeaders = new Headers(response.headers);
+
+    if (path.startsWith('/assets/') || path.match(/\.(js|css|woff2?)$/)) {
+      newHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
+    } else if (path === '/' || path.endsWith('.html') || (!path.includes('.') && path.startsWith('/'))) {
+      newHeaders.set('Cache-Control', 'public, max-age=0, s-maxage=60');
+    } else if (path.match(/\.(jpg|jpeg|png|svg|ico|gif|webp)$/)) {
+      newHeaders.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+    }
+
+    return new Response(response.body, { status: response.status, headers: newHeaders });
   },
 };

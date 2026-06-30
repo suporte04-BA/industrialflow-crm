@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown } from 'lucide-react';
+import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, CheckCircle, ArrowLeft, AlertTriangle, Calendar, MapPin, User, FileText, Package, Wrench, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '../ui/Button';
 import PdfImportButton from '../common/PdfImportButton';
@@ -79,6 +79,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
   const [showImport, setShowImport] = useState(false);
   const [importedTipo, setImportedTipo] = useState(null);
   const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingData, setPendingData] = useState(null);
   const prevContratoIdRef = useRef(contrato?.id || 'new');
 
   useEffect(() => {
@@ -221,7 +223,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     if (form.inicio && form.fim && new Date(form.inicio) > new Date(form.fim)) {
       toast.error('A data de início deve ser anterior à data de término'); return;
     }
-    if (!form.valorMensal || Number(form.valorMensal) <= 0) { toast.error('Preencha o valor mensal'); return; }
+    if (form.tipoDocumento !== 'devolucao' && (!form.valorMensal || Number(form.valorMensal) <= 0)) { toast.error('Preencha o valor mensal'); return; }
 
     const hasValidEquipamento = form.equipamentos.some(e => e.trim());
     if (!hasValidEquipamento) { toast.error('Adicione pelo menos um equipamento'); return; }
@@ -241,7 +243,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     try {
       // eslint-disable-next-line no-unused-vars
       const { _contratoId, ...saveData } = form;
-      await onSave({
+      const data = {
         ...saveData,
         equipamentos: form.equipamentos.filter(Boolean),
         itens: form.itens.filter(it => it.descricao.trim()),
@@ -252,13 +254,34 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
         tipoDocumento: form.tipoDocumento || 'entrega',
         condicoesDevolucao: form.condicoesDevolucao || { ...emptyCondicoes },
         referencia: form.referencia || '',
-      });
+      };
+      setPendingData(data);
+      setShowConfirm(true);
+    } catch (err) {
+      toast.error('Erro ao preparar dados: ' + (err.message || 'Erro desconhecido'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmSave = async () => {
+    if (!pendingData) return;
+    setSaving(true);
+    try {
+      await onSave(pendingData);
+      setShowConfirm(false);
+      setPendingData(null);
       onClose();
     } catch (err) {
       toast.error('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBackToForm = () => {
+    setShowConfirm(false);
+    setPendingData(null);
   };
 
   return (
@@ -323,6 +346,153 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
               </div>
             )}
 
+            {showConfirm ? (
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-100">
+                    <AlertTriangle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Confirmar Cadastro</h3>
+                    <p className="text-xs text-gray-500">Verifique os dados antes de cadastrar</p>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <h4 className="text-sm font-bold text-blue-800">Dados do Contrato</h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-gray-500">N:</span> <span className="font-medium">{form.numero || 'Auto-gerado'}</span></div>
+                    <div><span className="text-gray-500">Tipo:</span> <span className={`font-medium ${form.tipoDocumento === 'devolucao' ? 'text-orange-600' : 'text-blue-600'}`}>{form.tipoDocumento === 'devolucao' ? 'Devolucao' : 'Entrega'}</span></div>
+                    <div><span className="text-gray-500">Data:</span> <span className="font-medium">{form.dataContrato ? new Date(form.dataContrato + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span></div>
+                    <div><span className="text-gray-500">Hora:</span> <span className="font-medium">{form.horaContrato || '-'}</span></div>
+                    <div className="col-span-2"><span className="text-gray-500">Atendente:</span> <span className="font-medium">{form.atendente || '-'}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-gray-600" />
+                    <h4 className="text-sm font-bold text-gray-800">Locatario</h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="col-span-2"><span className="text-gray-500">Nome:</span> <span className="font-medium">{form.cliente || '-'}</span></div>
+                    <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{form.cnpj || '-'}</span></div>
+                    {form.rg && <div><span className="text-gray-500">RG:</span> <span className="font-medium">{form.rg}</span></div>}
+                    {form.telefone && <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{form.telefone}</span></div>}
+                    <div className="col-span-2"><span className="text-gray-500">Contato:</span> <span className="font-medium">{form.contato || '-'}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="w-4 h-4 text-gray-600" />
+                    <h4 className="text-sm font-bold text-gray-800">Endereco</h4>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium">{form.endereco || '-'}, {form.numeroEndereco || '-'}</p>
+                    <p>{form.bairro || '-'} - {form.cidade || '-'}/{form.estado || '-'}</p>
+                    <p>CEP: {form.cep || '-'}</p>
+                    {form.referencia && <p className="text-gray-500">Ref: {form.referencia}</p>}
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="w-4 h-4 text-yellow-600" />
+                    <h4 className="text-sm font-bold text-yellow-800">Local de Entrega</h4>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium">{form.localEntrega || '-'}</p>
+                    <p>Telefone: {form.telefoneEntrega || '-'}</p>
+                  </div>
+                </div>
+
+                {form.tipoDocumento === 'devolucao' && (
+                  <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                    <h4 className="text-sm font-bold text-orange-800 mb-2">Condicoes de Devolucao</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {form.condicoesDevolucao?.danificado && <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-medium">Danificado</span>}
+                      {form.condicoesDevolucao?.extraviado && <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-medium">Extraviado</span>}
+                      {form.condicoesDevolucao?.testarEmpresa && <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-medium">Testar Empresa</span>}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-green-600" />
+                    <h4 className="text-sm font-bold text-green-800">Itens Locados ({form.itens.filter(it => it.descricao.trim()).length})</h4>
+                  </div>
+                  <div className="space-y-1">
+                    {form.itens.filter(it => it.descricao.trim()).map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{item.quantidade}x {item.descricao}</span>
+                        <span className="font-medium">R$ {((Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-green-200 text-right">
+                    <span className="text-sm font-bold text-green-800">Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wrench className="w-4 h-4 text-gray-600" />
+                    <h4 className="text-sm font-bold text-gray-800">Equipamentos</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {form.equipamentos.filter(e => e.trim()).map((eq, idx) => (
+                      <span key={idx} className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium">{eq}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="w-4 h-4 text-gray-600" />
+                    <h4 className="text-sm font-bold text-gray-800">Periodo</h4>
+                  </div>
+                  <div className="text-sm">
+                    <p><span className="text-gray-500">Inicio:</span> <span className="font-medium">{form.inicio ? new Date(form.inicio + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span></p>
+                    <p><span className="text-gray-500">Fim:</span> <span className="font-medium">{form.fim ? new Date(form.fim + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span></p>
+                  </div>
+                </div>
+
+                {form.tipoDocumento !== 'devolucao' && (
+                  <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-4 h-4 text-purple-600" />
+                      <h4 className="text-sm font-bold text-purple-800">Valores</h4>
+                    </div>
+                    <div className="text-sm">
+                      <p><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium">R$ {Number(form.valorMensal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                      <p><span className="text-gray-500">Valor Total:</span> <span className="font-medium">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    </div>
+                  </div>
+                )}
+
+                {form.observacao && (
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <h4 className="text-sm font-bold text-gray-800 mb-1">Observacoes</h4>
+                    <p className="text-sm text-gray-600">{form.observacao}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 justify-end pt-4 border-t">
+                  <Button variant="secondary" type="button" onClick={handleBackToForm} icon={ArrowLeft}>
+                    Voltar
+                  </Button>
+                  <Button type="button" onClick={handleConfirmSave} icon={saving ? Loader2 : CheckCircle} disabled={saving}
+                    className="bg-green-600 hover:bg-green-700 text-white">
+                    {saving ? 'Salvando...' : 'Confirmar Cadastro'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
 
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
@@ -595,23 +765,25 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Valor Mensal (R$) *</label>
-                  <input type="number" required value={form.valorMensal} onChange={(e) => setForm(prev => ({ ...prev, valorMensal: e.target.value }))}
-                    className="input-base" placeholder="0" />
-                </div>
-                <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$)</label>
-                    <input type="number" value={total} readOnly className="input-base bg-gray-50 font-semibold" />
-                    {form.inicio && form.fim && form.valorMensal && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {calcMonths(form.inicio, form.fim)} meses x R$ {Number(form.valorMensal).toLocaleString('pt-BR')}
-                      </p>
-                    )}
+              {form.tipoDocumento !== 'devolucao' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Valor Mensal (R$) *</label>
+                    <input type="number" required value={form.valorMensal} onChange={(e) => setForm(prev => ({ ...prev, valorMensal: e.target.value }))}
+                      className="input-base" placeholder="0" />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$)</label>
+                      <input type="number" value={total} readOnly className="input-base bg-gray-50 font-semibold" />
+                      {form.inicio && form.fim && form.valorMensal && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {calcMonths(form.inicio, form.fim)} meses x R$ {Number(form.valorMensal).toLocaleString('pt-BR')}
+                        </p>
+                      )}
 
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="assinado" checked={form.assinado} onChange={(e) => setForm(prev => ({ ...prev, assinado: e.target.checked }))}
@@ -626,6 +798,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </Button>
               </div>
             </form>
+            )}
           </motion.div>
         </motion.div>
       )}

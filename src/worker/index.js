@@ -320,70 +320,12 @@ async function handleAiExtractPdf(request, env, corsHeaders) {
 
   const isDevolucao = tipo_documento === 'devolucao' || /DEVOLU[ÇC][ÃA]O/i.test(text);
 
-  const systemPrompt = `Voce e um assistente especializado em extrair dados de comprovantes de locacao de equipamentos brasileiros da empresa EQUILOC LTDA - TRANS OBRA.
-Extraia TODOS os campos do documento e retorne APENAS um JSON valido, sem markdown, sem explicacoes.
+  const systemPrompt = `Retorne APENAS um objeto JSON {} (NAO array []) extraido deste comprovante de locacao.
 
-Tipo de documento: ${isDevolucao ? 'DEVOLUCAO (retorno de equipamentos)' : 'ENTREGA (entrega de equipamentos)'}
+Exemplo exato de formato correto:
+{"contrato":"1234/26","atendente":"NOME","locatario":"EMPRESA","cpf_cnpj":"30.652.566/0001-69","rg":"123456","telefone":"(92) 99999-9999","contato":"NOME","endereco":"RUA X","numero":"123","bairro":"CENTRO","cidade":"MANAUS","estado":"AM","cep":"69000-000","telefone_entrega":"(92) 99999-9999","local_entrega":"LOCAL","referencia":"REF","data_retirada":"25/06/2026","hora":"09:00","observacao":"","itens":[{"quantidade":1,"descricao":"EQUIPAMENTO","patrimonio":"17190007","valor_unitario":0}],"equipamentos":["EQUIPAMENTO"],"valor_total":0,"valor_mensal":0,"tipo_documento":"entrega","condicoes":{"danificado":false,"extraviado":false,"testar_empresa":false}}
 
-IMPORTANTE SOBRE NUMERACAO:
-- O numero do CONTRATO aparece geralmente no topo do documento como "XXXX/XX" (ex: 1234/26) ou apos "CONTRATO No:"
-- O numero do ORCAMENTO aparece na observacao como "ORCAMENTO NoXXXX" - este NAO e o numero do contrato
-- O campo "contrato" deve conter o numero do contrato (ex: "1234/26"), NAO o numero do orcamento
-
-Campos obrigatorios para ENTREGA:
-- contrato: numero do contrato (formato XXXX/XX, ex: "1234/26"). NUNCA confunda com numero de orcamento
-- atendente: nome do atendente
-- locatario: nome do locatario/empresa (quem recebe os equipamentos)
-- cpf_cnpj: CPF ou CNPJ do locatario
-- rg: RG do locatario (se presente no documento)
-- telefone: telefone do locatario (fone do cabecalho)
-- contato: nome do contato (pessoa que fala com a locadora, so o NOME, sem "Referencia" ou outros campos)
-- endereco: endereco do locatario (rua/avenida)
-- numero: numero do endereco (apenas o numero)
-- bairro: bairro (pode vir em 2 linhas no PDF, junte tudo)
-- cidade: cidade
-- estado: UF (2 letras)
-- cep: CEP do CLIENTE (nao da empresa, que aparece no cabecalho)
-- telefone_entrega: telefone do local de entrega/obra (Fone do local)
-- local_entrega: endereco completo do local de entrega
-- referencia: referencia do local (quinta das marinhas, etc)
-- data_retirada: data de retirada (DD/MM/AAAA)
-- hora: hora (HH:MM)
-- observacao: observacoes do contrato (incluindo numero de orcamento se houver)
-- itens: array de APENAS os equipamentos reais com {quantidade, descricao, patrimonio, data_locacao, data_devolucao, valor_unitario}. NAO inclua linhas de Declaracao, Observacao, assinatura, data de MANAUS, linhas de underscores, ou orcamento
-- equipamentos: array de strings com nomes dos equipamentos reais
-- valor_total: valor total (soma dos itens)
-- valor_mensal: valor mensal (se mentionado, senao usar o valor_total)
-- tipo_documento: "entrega"
-
-Campos obrigatorios para DEVOLUCAO:
-- contrato: numero do contrato
-- locatario: nome do locatario
-- cpf_cnpj: CPF/CNPJ
-- contato: contato
-- data_devolucao: data da devolucao
-- hora: hora
-- local_obra: local da obra
-- telefone_obra: telefone da obra
-- cidade: cidade
-- estado: UF
-- cep: CEP
-- referencia: referencia do local
-- itens: array com {quantidade, descricao, patrimonio, qtd_devolvida}. Apenas itens reais, nao inclua texto de declaracao ou observacao
-- condicoes: {danificado: bool, extraviado: bool, testar_empresa: bool}
-- tipo_documento: "devolucao"
-
-Regras:
-- Valores monetarios: retorne como NUMERO (ex: 160, 15, 0). R$ 160,00 vira 160
-- Datas: retorne como string DD/MM/AAAA
-- CPF/CNPJ: retorne com pontuacao (XX.XXX.XXX/XXXX-XX ou XXX.XXX.XXX-XX)
-- Se um campo nao for encontrado, retorne string vazia "" ou 0 para numeros
-- Para itens, se nao encontrar patrimonio, use "PAT-000"
-- O numero do contrato e DIFERENTE do numero do orcamento. Contrato aparece no topo, orcamento na observacao
-- O campo "contato" deve conter APENAS o nome da pessoa (ex: "LUIZ"), NAO inclua "Referencia", telefone ou outros dados
-- O campo "cep" deve ser o CEP do cliente/bairro, NAO o CEP da empresa que aparece no cabecalho
-- NAO inclua no array "itens": linhas de Declaracao, Observacao de orcamento, datas de MANAUS, linhas de assinatura, linhas de underscores, ou texto institucional
-- Retorne APENAS o JSON, nada mais`;
+Regras: tipo_documento="entrega" ou "devolucao". Itens=array de objetos {quantidade,descricao,patrimonio,valor_unitario}. Nao aninhe objetos. Sem markdown. Apenas JSON puro.`;
 
   const userMessage = `Extraia os dados deste comprovante:\n\n${text.slice(0, 12000)}`;
 

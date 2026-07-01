@@ -32,7 +32,6 @@ const SNAKE_TO_CAMEL = {
   cpf: 'cpf',
   rg: 'rg',
   telefone: 'telefone',
-  fone: 'telefone',
   contato: 'contato',
   endereco: 'endereco',
   numero: 'numero',
@@ -94,7 +93,7 @@ const SNAKE_TO_CAMEL = {
 
 const CAMEL_TO_SNAKE = {};
 for (const [k, v] of Object.entries(SNAKE_TO_CAMEL)) {
-  if (v !== k && k !== 'fone') CAMEL_TO_SNAKE[v] = k;
+  if (v !== k) CAMEL_TO_SNAKE[v] = k;
 }
 
 export function toCamel(obj) {
@@ -129,19 +128,6 @@ export function toSnake(obj) {
     }
   }
   return result;
-}
-
-export function toSnakeComprovante(obj) {
-  const result = toSnake(obj);
-  if (result && result.telefone !== undefined) {
-    result.fone = result.telefone;
-    delete result.telefone;
-  }
-  return result;
-}
-
-export function toCamelComprovante(obj) {
-  return toCamel(obj);
 }
 
 export function computeVencimentoDias(dataFim) {

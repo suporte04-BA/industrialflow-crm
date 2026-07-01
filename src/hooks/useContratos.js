@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
-import { toCamel, toSnake, toSnakeComprovante, computeVencimentoDias } from '../lib/converters';
+import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
 import { contratos as mockContratos } from '../data/mockData';
@@ -204,7 +204,7 @@ export function useCreateContrato() {
 
         const ctSaved = toCamel(data);
 
-        const compPayload = toSnakeComprovante({
+        const compPayload = toSnake({
           contratoId: ctSaved.id,
           contrato: ctSaved.id,
           atendente: ctSaved.atendente || '',
@@ -303,12 +303,14 @@ export function useCreateContrato() {
               .filter(name => !existingNames.has(name.toLowerCase().trim()))
               .map(name => ({
                 nome: name.trim(),
+                categoria: 'Geral',
                 status: 'locado',
-                contrato_id: ctSaved.id,
+                contrato: ctSaved.id,
                 cliente: ctSaved.cliente,
               }));
             if (newEquips.length > 0) {
-              await supabase.from('equipamentos').insert(newEquips);
+              const { error: eqErr } = await supabase.from('equipamentos').insert(newEquips);
+              if (eqErr) console.error('Erro ao criar equipamentos:', eqErr);
             }
           }
         } catch (e) {
@@ -328,9 +330,9 @@ export function useCreateContrato() {
             previsao: ctSaved.fim || null,
             valor: ctSaved.valorTotal || 0,
             observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica`,
-            contrato_id: ctSaved.id,
           };
-          await supabase.from('ordens_servico').insert(toSnake(osPayload));
+          const { error: osErr } = await supabase.from('ordens_servico').insert(toSnake(osPayload));
+          if (osErr) console.error('Erro ao criar OS:', osErr);
         } catch (e) {
           console.error('Falha ao criar OS automaticamente:', e);
         }

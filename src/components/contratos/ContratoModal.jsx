@@ -299,7 +299,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
              </div>
 
 
-            {!isEdit && !isRenew && (
+            {!isEdit && !isRenew && !showConfirm && (
               <div className="px-6 pt-4">
                 <div className="flex gap-2 mb-4">
                   <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'entrega' }))}

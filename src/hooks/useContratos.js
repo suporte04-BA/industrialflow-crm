@@ -4,6 +4,7 @@ import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
 import { contratos as mockContratos } from '../data/mockData';
+import { toast } from 'sonner';
 
 const LOCAL_KEY = 'contratos_local';
 const COMP_LOCAL_KEY = 'comprovantes_local';

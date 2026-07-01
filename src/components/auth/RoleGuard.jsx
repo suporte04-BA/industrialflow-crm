@@ -5,7 +5,7 @@ export default function RoleGuard({ children, requiredRole }) {
   const { profile, isLoadingAuth } = useAuth();
   const activeRole = profile?.role;
 
-  if (isLoadingAuth || (!activeRole && useAuth().isAuthenticated)) {
+  if (isLoadingAuth || (!activeRole && profile?.id)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">

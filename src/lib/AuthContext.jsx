@@ -107,7 +107,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!user || !isConfigured()) {
       if (!user) {
-        setProfile(null);
         profileFetchAttempted.current.clear();
       }
       return;

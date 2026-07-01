@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Trash2, FileText, Search, ChevronDown, ChevronUp, Building2, Download, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { detectDocumentType } from '../lib/validation';
 import { useComprovantes, useDeleteComprovante } from '../hooks/useComprovantes';
 import { useContratos } from '../hooks/useContratos';
 import { useDevolucoes } from '../hooks/useDevolucoes';

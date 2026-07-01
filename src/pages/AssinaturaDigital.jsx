@@ -10,10 +10,10 @@ import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
-import { formatDateBR } from '../lib/dates';
 import { isConfigured } from '../lib/supabase';
 import { generateEntregaPDF } from '../lib/pdfExport';
-import { isValidCPF, isValidCNPJ, formatCPF, formatCNPJ } from '../lib/validation';
+import { formatDateBR } from '../lib/dates';
+import { formatCPF, formatCNPJ } from '../lib/validation';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -173,11 +173,6 @@ export default function AssinaturaDigital() {
       setSendingEmail(false);
     }
   };
-
-  const cpfDigits = cpfSignatario.replace(/\D/g, '');
-  const cpfFieldType = cpfDigits.length > 11 ? 'cnpj' : 'cpf';
-  const isValidDoc = cpfFieldType === 'cnpj' ? isValidCNPJ(cpfSignatario) : isValidCPF(cpfSignatario);
-  const docLabel = cpfFieldType === 'cnpj' ? 'CNPJ' : 'CPF';
 
   const handleCpfChange = (e) => {
     const raw = e.target.value.replace(/\D/g, '');

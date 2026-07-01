@@ -94,7 +94,7 @@ const SNAKE_TO_CAMEL = {
 
 const CAMEL_TO_SNAKE = {};
 for (const [k, v] of Object.entries(SNAKE_TO_CAMEL)) {
-  if (v !== k) CAMEL_TO_SNAKE[v] = k;
+  if (v !== k && k !== 'fone') CAMEL_TO_SNAKE[v] = k;
 }
 
 export function toCamel(obj) {

@@ -141,6 +141,12 @@ export default function Contratos() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[10px] md:text-xs font-mono text-gray-400">{ct.id}</p>
                       <StatusBadge status={ct.status} />
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                        ct.tipoDocumento === 'devolucao' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {ct.tipoDocumento === 'devolucao' ? <RotateCcw className="w-2.5 h-2.5" /> : <ClipboardCheck className="w-2.5 h-2.5" />}
+                        {ct.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega'}
+                      </span>
                       {isEntregue && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700">
                           <ClipboardCheck className="w-2.5 h-2.5" /> Entregue

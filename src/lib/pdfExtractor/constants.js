@@ -23,7 +23,8 @@ export const FIELD_PATTERNS = {
     /Estado\s*:\s*([A-Z]{2})/i,
   ],
   cep: [
-    /CEP\s*:\s*([\d.-]+)/i,
+    /CEP\s*:?\s*([\d]{5}[\s.-]?[\d]{3})/i,
+    /CEP\s+([\d]{5}[\s.-]?[\d]{3})/i,
   ],
   locatario: [
     /Locat[áa]rio\s*:\s*(.+)/i,

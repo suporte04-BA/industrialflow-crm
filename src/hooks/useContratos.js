@@ -233,7 +233,7 @@ export function useCreateContrato() {
         });
         try {
           const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
-          if (compErr) console.error('Erro ao criar comprovante:', compErr);
+          if (compErr) toast.warning('Comprovante: ' + (compErr.message || 'Erro ao criar'));
           else {
             const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
             const contratoEmail = {
@@ -310,7 +310,7 @@ export function useCreateContrato() {
               }));
             if (newEquips.length > 0) {
               const { error: eqErr } = await supabase.from('equipamentos').insert(newEquips);
-              if (eqErr) console.error('Erro ao criar equipamentos:', eqErr);
+              if (eqErr) toast.warning('Equipamentos: ' + (eqErr.message || 'Erro ao criar'));
             }
           }
         } catch (e) {
@@ -332,7 +332,7 @@ export function useCreateContrato() {
             observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica`,
           };
           const { error: osErr } = await supabase.from('ordens_servico').insert(toSnake(osPayload));
-          if (osErr) console.error('Erro ao criar OS:', osErr);
+          if (osErr) toast.warning('Ordem de Serviço: ' + (osErr.message || 'Erro ao criar'));
         } catch (e) {
           console.error('Falha ao criar OS automaticamente:', e);
         }

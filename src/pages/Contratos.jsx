@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { detectDocumentType } from '../lib/validation';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
 import ContratoModal from '../components/contratos/ContratoModal';
@@ -154,7 +155,7 @@ export default function Contratos() {
                       )}
                     </div>
                     <h3 className="font-bold text-gray-900 text-sm md:text-base mt-1 truncate">{ct.cliente}</h3>
-                    {ct.cnpj && <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">CNPJ: {ct.cnpj}</p>}
+                    {ct.cnpj && <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">{detectDocumentType(ct.cnpj) === 'cpf' ? 'CPF' : 'CNPJ'}: {ct.cnpj}</p>}
                   </div>
                 </div>
 

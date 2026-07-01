@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Trash2, Search, RotateCcw, ClipboardCheck, Download, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { detectDocumentType } from '../lib/validation';
 import { useComprovantes, useDeleteComprovante } from '../hooks/useComprovantes';
 import { useContratos } from '../hooks/useContratos';
 import { useDevolucoes } from '../hooks/useDevolucoes';
@@ -55,7 +56,7 @@ function EntregaCard({ c, contratoData, isExpanded, onDelete, onGeneratePDF, onT
           <h4 className="text-xs font-semibold text-gray-500 uppercase">Detalhes do Contrato</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
-            <div><span className="text-gray-500">CNPJ:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
+            <div><span className="text-gray-500">{detectDocumentType(contratoData.cnpj) === 'cpf' ? 'CPF' : 'CNPJ'}:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
             <div><span className="text-gray-500">Status:</span> <StatusBadge status={contratoData.status} /></div>
             <div><span className="text-gray-500">Inicio:</span> <span className="font-medium">{contratoData.inicio || '-'}</span></div>
             <div><span className="text-gray-500">Fim:</span> <span className="font-medium">{contratoData.fim || '-'}</span></div>
@@ -145,7 +146,7 @@ function DevolucaoCard({ c, contratoData, isExpanded, onDelete, onToggleExpand }
               <h4 className="text-xs font-semibold text-gray-500 uppercase">Detalhes do Contrato</h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                 <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
-                <div><span className="text-gray-500">CNPJ:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
+                <div><span className="text-gray-500">{detectDocumentType(contratoData.cnpj) === 'cpf' ? 'CPF' : 'CNPJ'}:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
                 <div><span className="text-gray-500">Referencia:</span> <span className="font-medium">{contratoData.referencia || '-'}</span></div>
               </div>
             </>

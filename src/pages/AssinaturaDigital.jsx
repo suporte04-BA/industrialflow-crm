@@ -192,7 +192,7 @@ export default function AssinaturaDigital() {
     if (!selectedComprovante) { toast.error('Selecione um comprovante de entrega'); return; }
     if (!nomeSignatario.trim()) { toast.error('Preencha o nome de quem recebeu o equipamento'); return; }
     if (!cpfSignatario.trim()) { toast.error('Preencha o CPF/CNPJ de quem recebeu o equipamento'); return; }
-    if (!isValidDoc) { toast.error(`${docLabel} invalido. Verifique os digitos.`); return; }
+    // if (!isValidDoc) { toast.error(`${docLabel} invalido. Verifique os digitos.`); return; }
     if (!hasSignature) { toast.error('Faca a assinatura de quem recebeu o equipamento'); return; }
     setSaving(true);
     try {

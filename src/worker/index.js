@@ -452,8 +452,16 @@ async function handleEmailSend(request, env, corsHeaders, authHeader) {
         },
         body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, devolucao, destinatario: recipient }),
       });
-      const edgeData = await edgeRes.json();
-      if (edgeRes.ok && edgeData.success && !edgeData.skipped) {
+      
+      const text = await edgeRes.text();
+      let edgeData;
+      try {
+        edgeData = JSON.parse(text);
+      } catch {
+        edgeData = { error: 'Invalid JSON response from Edge Function' };
+      }
+      
+      if (edgeData.success && !edgeData.skipped) {
         sentCount++;
         lastStatus = 'enviado';
       } else if (edgeData.skipped) {
@@ -462,8 +470,8 @@ async function handleEmailSend(request, env, corsHeaders, authHeader) {
         lastError = edgeData.error || 'Edge function failed';
         lastStatus = 'erro';
       }
-    } catch {
-      lastError = 'Email delivery failed';
+    } catch (error) {
+      lastError = `Network error: ${error.message}`;
       lastStatus = 'erro';
     }
   }

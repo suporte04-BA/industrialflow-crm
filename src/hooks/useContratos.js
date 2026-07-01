@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
-import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
+import { toCamel, toSnake, toSnakeComprovante, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
 import { contratos as mockContratos } from '../data/mockData';
@@ -204,7 +204,7 @@ export function useCreateContrato() {
 
         const ctSaved = toCamel(data);
 
-        const compPayload = toSnake({
+        const compPayload = toSnakeComprovante({
           contratoId: ctSaved.id,
           contrato: ctSaved.id,
           atendente: ctSaved.atendente || '',
@@ -294,6 +294,47 @@ export function useCreateContrato() {
           console.error('Falha ao criar comprovante:', e);
         }
 
+        try {
+          const equipNames = (ctSaved.equipamentos || []).filter(e => e && e.trim());
+          if (equipNames.length > 0) {
+            const { data: existing } = await supabase.from('equipamentos').select('nome');
+            const existingNames = new Set((existing || []).map(e => (e.nome || '').toLowerCase()));
+            const newEquips = equipNames
+              .filter(name => !existingNames.has(name.toLowerCase().trim()))
+              .map(name => ({
+                nome: name.trim(),
+                status: 'locado',
+                contrato_id: ctSaved.id,
+                cliente: ctSaved.cliente,
+              }));
+            if (newEquips.length > 0) {
+              await supabase.from('equipamentos').insert(newEquips);
+            }
+          }
+        } catch (e) {
+          console.error('Falha ao criar equipamentos automaticamente:', e);
+        }
+
+        try {
+          const osTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao' : 'entrega';
+          const osPayload = {
+            cliente: ctSaved.cliente,
+            equipamento: (ctSaved.equipamentos || []).join(', ') || '-',
+            tipo: osTipo,
+            status: 'pendente',
+            prioridade: 'normal',
+            tecnico: ctSaved.atendente || '',
+            abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0],
+            previsao: ctSaved.fim || null,
+            valor: ctSaved.valorTotal || 0,
+            observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica`,
+            contrato_id: ctSaved.id,
+          };
+          await supabase.from('ordens_servico').insert(toSnake(osPayload));
+        } catch (e) {
+          console.error('Falha ao criar OS automaticamente:', e);
+        }
+
         return ctSaved;
       } else {
         saveToLocal(item);
@@ -364,6 +405,8 @@ export function useCreateContrato() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['equipamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['ordensServico'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });

@@ -34,10 +34,12 @@ const queryClient = new QueryClient({
     queries: {
       retry: (failureCount, error) => {
         if (error?.code === 'SUPABASE_AUTH') return false;
-        return failureCount < 3;
+        if (error?.message?.includes('Unauthorized') || error?.message?.includes('401')) return false;
+        return failureCount < 2;
       },
-      refetchOnWindowFocus: false,
-      staleTime: 30000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      staleTime: 15000,
     },
   },
 });

@@ -131,6 +131,19 @@ export function toSnake(obj) {
   return result;
 }
 
+export function toSnakeComprovante(obj) {
+  const result = toSnake(obj);
+  if (result && result.telefone !== undefined) {
+    result.fone = result.telefone;
+    delete result.telefone;
+  }
+  return result;
+}
+
+export function toCamelComprovante(obj) {
+  return toCamel(obj);
+}
+
 export function computeVencimentoDias(dataFim) {
   if (!dataFim) return null;
   const hoje = new Date();

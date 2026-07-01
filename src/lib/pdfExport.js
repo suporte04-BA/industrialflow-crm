@@ -99,7 +99,11 @@ function buildItemsTableEntrega(itens) {
     </table>`;
 }
 
-function buildSignatureBlock(signatarioNome) {
+function buildSignatureBlock(signatarioNome, signatureImg = null) {
+  const signatureHtml = signatureImg 
+    ? `<img src="${signatureImg}" style="max-height:40px;max-width:150px;display:block;margin:0 auto 5px auto;" />`
+    : `<div style="border-top:1px solid #000;height:40px;"></div>`;
+
   return `
     <div style="margin-top:40px;display:flex;justify-content:space-between;">
       <div style="width:45%;text-align:center;">
@@ -107,7 +111,7 @@ function buildSignatureBlock(signatarioNome) {
         <small style="font-size:10px;">LOCADORA</small>
       </div>
       <div style="width:45%;text-align:center;">
-        <div style="border-top:1px solid #000;height:40px;"></div>
+        ${signatureHtml}
         <small style="font-size:10px;">LOCATARIO NOME: ${esc(signatarioNome || '___________________')}</small>
       </div>
     </div>
@@ -169,8 +173,8 @@ export async function generateEntregaPDF(comprovante) {
         ${esc(c.cidade || EMPRESA.cidade)}, ${dataPorExtenso(c.data)}
       </div>
 
-      ${buildSignatureBlock(c.signatarioNome || c.nomeSignatario)}
-
+      ${buildSignatureBlock(c.signatarioNome || c.nomeSignatario, c.signatureImg || c.assinaturaImg)}
+      
       ${c.observacao ? `
       <div style="margin-top:15px;font-size:11px;">
         <strong>Observacao:</strong> ${esc(c.observacao)}
@@ -258,8 +262,8 @@ export async function generateDevolucaoPDF(devolucao) {
         ${esc(d.cidade || EMPRESA.cidade)}, ${dataPorExtenso(d.data)}
       </div>
 
-      ${buildSignatureBlock(d.signatarioNome)}
-
+      ${buildSignatureBlock(d.signatarioNome, d.signatureImg || d.assinaturaImg)}
+      
       <div style="border:1px solid #000;padding:10px;margin:15px 0;font-size:11px;">
         <strong>CIENTE QUE O(S) EQUIPAMENTO(S) ACIMA DETERMINADO(S):</strong><br><br>
         ${checkbox(condicoes.danificado)}&nbsp;&nbsp;DANIFICADO/SUJO&nbsp;&nbsp;&nbsp;&nbsp;
@@ -353,8 +357,8 @@ export async function generateContratoPDF(contrato) {
         ${esc(contrato.cidade || EMPRESA.cidade)}, ${dataPorExtenso(contrato.dataContrato)}
       </div>
 
-      ${buildSignatureBlock(contrato.contato)}
-
+      ${buildSignatureBlock(contrato.contato, contrato.signatureImg || contrato.assinaturaImg)}
+      
       ${contrato.metodoEntrega ? `
       <p style="margin-top:12px;font-size:10px;font-style:italic;">${esc(getMetodoEntregaText(contrato.metodoEntrega))}</p>` : ''}
     </div>`;

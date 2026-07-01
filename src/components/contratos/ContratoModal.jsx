@@ -301,28 +301,25 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
             {!isEdit && !isRenew && (
               <div className="px-6 pt-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-xs font-medium text-gray-600">Tipo de Comprovante:</span>
-                  <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                    <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'entrega' }))}
-                      className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
-                        form.tipoDocumento === 'entrega'
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-white text-gray-500 hover:text-gray-700 border border-gray-200'
-                      }`}>
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
-                      Entrega
-                    </button>
-                    <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'devolucao' }))}
-                      className={`flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
-                        form.tipoDocumento === 'devolucao'
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-white text-gray-500 hover:text-gray-700 border border-gray-200'
-                      }`}>
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                      Devolução
-                    </button>
-                  </div>
+                <div className="flex gap-2 mb-4">
+                  <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'entrega' }))}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all border-2 ${
+                      form.tipoDocumento === 'entrega'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                    }`}>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
+                    Entrega
+                  </button>
+                  <button type="button" onClick={() => setForm(prev => ({ ...prev, tipoDocumento: 'devolucao' }))}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all border-2 ${
+                      form.tipoDocumento === 'devolucao'
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-md'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600'
+                    }`}>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Devolução
+                  </button>
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <Button variant="secondary" size="sm" icon={showImport ? FileDown : FileUp} onClick={() => setShowImport(!showImport)}>

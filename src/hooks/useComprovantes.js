@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
-import { toCamel, toSnake } from '../lib/converters';
+import { toCamel, toSnake, toSnakeComprovante } from '../lib/converters';
 import { useRealtime } from './useRealtime';
 import { comprovantes as mockComprovantes } from '../data/mockData';
 
@@ -62,7 +62,7 @@ export function useCreateComprovante() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (newComp) => {
-      const payload = toSnake({
+      const payload = toSnakeComprovante({
         contratoId: newComp.contratoId,
         contrato: newComp.contrato,
         atendente: newComp.atendente,
@@ -121,7 +121,7 @@ export function useUpdateComprovante() {
     mutationFn: async ({ id, updates }) => {
       if (isConfigured()) {
         try {
-          const payload = toSnake(updates);
+          const payload = toSnakeComprovante(updates);
           const { data, error } = await supabase
             .from('comprovantes_entrega')
             .update(payload)

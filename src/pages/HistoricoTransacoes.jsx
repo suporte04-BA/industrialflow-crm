@@ -7,7 +7,7 @@ import { useOrdensServico } from '../hooks/useOrdensServico';
 import StatusBadge from '../components/ui/StatusBadge';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
-import { formatDateBR } from '../lib/dates';
+import { formatDateBR, parseDate } from '../lib/dates';
 
 const tipoIcons = {
   contrato: FileText,
@@ -99,8 +99,8 @@ export default function HistoricoTransacoes() {
     });
 
     return items.sort((a, b) => {
-      const da = a.data && a.data !== '-' ? new Date(a.data) : new Date(0);
-      const db = b.data && b.data !== '-' ? new Date(b.data) : new Date(0);
+      const da = parseDate(a.data) || new Date(0);
+      const db = parseDate(b.data) || new Date(0);
       return db - da;
     });
   }, [contratos, comprovantes, assinaturas, ordens]);

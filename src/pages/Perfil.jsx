@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { FileText, Download, Calendar, Building2, Wrench, Eye, TrendingUp, CheckCircle, Camera, Loader2 } from 'lucide-react';
+import { FileText, Download, Calendar, Building2, Wrench, TrendingUp, CheckCircle, Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../lib/AuthContext';
 import { supabase, isConfigured } from '../lib/supabase';
@@ -10,7 +10,7 @@ import Button from '../components/ui/Button';
 import { generateEntregaPDF } from '../lib/pdfExport';
 
 export default function Perfil() {
-  const { user, profile, viewRole, setViewRole } = useAuth();
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState('comprovantes');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -19,8 +19,7 @@ export default function Perfil() {
 
   const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
   const userEmail = profile?.email || user?.email || 'admin@transobra.com';
-  const userRole = profile?.role || 'gestor';
-  const currentView = viewRole || userRole;
+  const userRole = profile?.role || 'funcionario';
   const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
   const avatarUrl = profile?.avatarUrl || null;
 
@@ -111,18 +110,9 @@ export default function Perfil() {
            <div>
              <h2 className="text-xl font-bold text-gray-900">{userName}</h2>
              <p className="text-sm text-gray-500">{userEmail}</p>
-             <div className="flex items-center gap-2 mt-1">
-               <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 capitalize">{userRole}</span>
-               {userRole === 'gestor' && (
-                 <button
-                   onClick={() => setViewRole(currentView === 'funcionario' ? null : 'funcionario')}
-                   className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                 >
-                   <Eye className="w-3 h-3" />
-                   {currentView === 'funcionario' ? 'Ver como Gestor' : 'Ver como Funcionario'}
-                 </button>
-               )}
-             </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 capitalize">{userRole}</span>
+              </div>
            </div>
         </div>
       </div>

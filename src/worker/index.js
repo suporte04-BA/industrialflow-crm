@@ -1,8 +1,6 @@
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
   'https://industrialflow-crm.pages.dev',
-  'http://localhost:5173',
-  'http://localhost:3000',
 ];
 
 const SECURITY_HEADERS = {
@@ -14,12 +12,14 @@ const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 };
 
+const MAX_BODY_SIZE = 1024 * 1024;
+
 function getCorsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : null;
   const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
     'Access-Control-Max-Age': '86400',
     ...SECURITY_HEADERS,
   };
@@ -27,9 +27,8 @@ function getCorsHeaders(request) {
   return headers;
 }
 
-function json(data, status = 200, corsHeaders = null, cacheControl = null) {
+function json(data, status = 200, corsHeaders = null) {
   const h = corsHeaders || getCorsHeaders({ headers: new Headers() });
-  if (cacheControl) h['Cache-Control'] = cacheControl;
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...h, 'Content-Type': 'application/json' },
@@ -37,14 +36,14 @@ function json(data, status = 200, corsHeaders = null, cacheControl = null) {
 }
 
 function isValidId(id) {
-  return id && /^[a-zA-Z0-9_-]{1,128}$/.test(id) && !id.includes('/');
-}
-
-function sanitizeEdgeFuncName(name) {
-  return name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
+  return id && /^[a-zA-Z0-9_-]{1,128}$/.test(id);
 }
 
 async function parseBody(request) {
+  const cl = request.headers.get('Content-Length');
+  if (cl && parseInt(cl) > MAX_BODY_SIZE) {
+    return { error: 'Request body too large' };
+  }
   const ct = request.headers.get('Content-Type') || '';
   if (!ct.includes('application/json')) {
     return { error: 'Content-Type must be application/json' };
@@ -55,6 +54,50 @@ async function parseBody(request) {
   } catch {
     return { error: 'Invalid JSON body' };
   }
+}
+
+async function verifyJwt(token, env) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(payloadB64));
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    if (!payload.sub) return null;
+
+    const verifyRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': env.SUPABASE_ANON_KEY,
+      },
+    });
+
+    if (!verifyRes.ok) return null;
+
+    const userData = await verifyRes.json();
+    if (!userData || !userData.id) return null;
+
+    return { sub: userData.id, role: payload.role };
+  } catch {
+    return null;
+  }
+}
+
+async function getAuth(request, env) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+
+  const token = authHeader.slice(7);
+
+  const payload = await verifyJwt(token, env);
+  if (!payload || !payload.sub) return null;
+
+  const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`;
+  const result = await supabaseRequest(env, 'GET', `/profiles?id=eq.${payload.sub}&select=role`, null, serviceAuth);
+
+  const role = (Array.isArray(result.data) && result.data.length > 0) ? result.data[0].role : null;
+  return { userId: payload.sub, role };
 }
 
 async function supabaseRequest(env, method, path, body = null, authHeader = null) {
@@ -76,9 +119,7 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
   return { status: res.status, data };
 }
 
-function handleApiRoute(path, method, request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-
+async function handleApiRoute(path, method, request, env, corsHeaders) {
   if (path === '/api/health') {
     return json({ status: 'ok', timestamp: new Date().toISOString() }, 200, corsHeaders);
   }
@@ -87,12 +128,30 @@ function handleApiRoute(path, method, request, env, corsHeaders) {
     return json({
       emailRecipient: env.EMAIL_RECIPIENT || 'gestores@transobra.com.br',
       emailFrom: env.EMAIL_FROM || 'TransObra <onboarding@resend.dev>',
-      resendConfigured: !!env.RESEND_API_KEY,
     }, 200, corsHeaders);
   }
 
+  if (path === '/api/profiles' && method === 'POST') {
+    return handleProfileFetch(request, env, corsHeaders);
+  }
+
+  if (path.startsWith('/api/profiles')) {
+    const authHeader = request.headers.get('Authorization');
+    return handleCrud(path, method, request, env, authHeader, corsHeaders, 'profiles', 'profiles');
+  }
+
+  const authHeader = request.headers.get('Authorization');
+
   if (path === '/api/dashboard' && method === 'GET') {
-    return handleDashboard(env, corsHeaders);
+    return handleDashboard(env, corsHeaders, authHeader);
+  }
+
+  if (path === '/api/users/create' && method === 'POST') {
+    return handleUserCreate(request, env, corsHeaders, authHeader);
+  }
+
+  if (path === '/api/users/delete' && method === 'POST') {
+    return handleUserDelete(request, env, corsHeaders, authHeader);
   }
 
   if (path.startsWith('/api/ordens')) {
@@ -120,26 +179,26 @@ function handleApiRoute(path, method, request, env, corsHeaders) {
   }
 
   if (path === '/api/email/send' && method === 'POST') {
-    return handleEmailSend(request, env, corsHeaders);
+    return handleEmailSend(request, env, corsHeaders, authHeader);
   }
 
   if (path === '/api/ai/extract-pdf' && method === 'POST') {
-    return handleAiExtractPdf(request, env, corsHeaders);
-  }
-
-  if (path.startsWith('/api/edge/')) {
-    return handleEdgeProxy(path, method, request, env, corsHeaders);
+    return handleAiExtractPdf(request, env, corsHeaders, authHeader);
   }
 
   return json({ error: 'API route not found' }, 404, corsHeaders);
 }
 
-async function handleDashboard(env, corsHeaders) {
+async function handleDashboard(env, corsHeaders, authHeader) {
+  const auth = await getAuth({ headers: { get: () => authHeader } }, env);
+  if (!auth) return json({ error: 'Unauthorized' }, 401, corsHeaders);
+
   try {
+    const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`;
     const [os, eq, ct] = await Promise.all([
-      supabaseRequest(env, 'GET', '/ordens_servico?select=id,status,created_at,cliente,equipamento,valor,prioridade&order=created_at.desc&limit=200'),
-      supabaseRequest(env, 'GET', '/equipamentos?select=id,status&limit=200'),
-      supabaseRequest(env, 'GET', '/contratos?select=id,numero,cliente,status,valor_mensal,assinado,fim&limit=200'),
+      supabaseRequest(env, 'GET', '/ordens_servico?select=id,status,created_at,cliente,equipamento,valor,prioridade&order=created_at.desc&limit=200', null, serviceAuth),
+      supabaseRequest(env, 'GET', '/equipamentos?select=id,status&limit=200', null, serviceAuth),
+      supabaseRequest(env, 'GET', '/contratos?select=id,numero,cliente,status,valor_mensal,assinado,fim&limit=200', null, serviceAuth),
     ]);
     const osData = Array.isArray(os.data) ? os.data : [];
     const eqData = Array.isArray(eq.data) ? eq.data : [];
@@ -179,7 +238,7 @@ async function handleDashboard(env, corsHeaders) {
           ...c,
           vencimentoDias: c.fim ? Math.ceil((new Date(c.fim) - hoje) / (1000 * 60 * 60 * 24)) : null,
         })),
-    }, 200, corsHeaders, 'private, max-age=30, must-revalidate');
+    }, 200, corsHeaders);
   } catch {
     return json({ error: 'Failed to fetch dashboard' }, 500, corsHeaders);
   }
@@ -197,19 +256,19 @@ async function handleCrud(path, method, request, env, authHeader, corsHeaders, t
   }
 
   if (method === 'GET' && id && id !== routePrefix && isValidId(id)) {
-    const result = await supabaseRequest(env, 'GET', `/${table}?id=eq.${id}&select=*`);
+    const result = await supabaseRequest(env, 'GET', `/${table}?id=eq.${encodeURIComponent(id)}&select=*`);
     return json(result.data, result.status, corsHeaders);
   }
 
   if (method === 'PUT' && id && id !== routePrefix && isValidId(id)) {
     const parsed = await parseBody(request);
     if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-    const result = await supabaseRequest(env, 'PATCH', `/${table}?id=eq.${id}`, parsed.data, authHeader);
+    const result = await supabaseRequest(env, 'PATCH', `/${table}?id=eq.${encodeURIComponent(id)}`, parsed.data, authHeader);
     return json(result.data, result.status, corsHeaders);
   }
 
   if (method === 'DELETE' && id && id !== routePrefix && isValidId(id)) {
-    const result = await supabaseRequest(env, 'DELETE', `/${table}?id=eq.${id}`, null, authHeader);
+    const result = await supabaseRequest(env, 'DELETE', `/${table}?id=eq.${encodeURIComponent(id)}`, null, authHeader);
     const success = result.status >= 200 && result.status < 300;
     return json({ success, data: result.data }, result.status, corsHeaders);
   }
@@ -225,7 +284,133 @@ async function handleAssinaturaCreate(request, env, authHeader, corsHeaders) {
   return json(result.data, result.status, corsHeaders);
 }
 
-async function handleEmailSend(request, env, corsHeaders) {
+async function handleProfileFetch(request, env, corsHeaders) {
+  const parsed = await parseBody(request);
+  if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+
+  const { jwt } = parsed.data;
+  if (!jwt) return json({ error: 'JWT token required' }, 400, corsHeaders);
+
+  const payload = await verifyJwt(jwt, env);
+  if (!payload || !payload.sub) return json({ error: 'Invalid or expired token' }, 401, corsHeaders);
+
+  const userId = payload.sub;
+  const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
+  const result = await supabaseRequest(env, 'GET', `/profiles?id=eq.${userId}&select=*`, null, serviceAuth);
+
+  if (result.status >= 200 && result.status < 300 && Array.isArray(result.data) && result.data.length > 0) {
+    return json({ user: result.data[0] }, 200, corsHeaders);
+  }
+
+  return json({ error: 'Profile not found' }, 404, corsHeaders);
+}
+
+async function handleUserCreate(request, env, corsHeaders, authHeader) {
+  const auth = await getAuth({ headers: { get: () => authHeader } }, env);
+  if (!auth || auth.role !== 'admin') {
+    return json({ error: 'Unauthorized - admin only' }, 403, corsHeaders);
+  }
+
+  const parsed = await parseBody(request);
+  if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+
+  const { email, password, full_name, role } = parsed.data;
+  if (!email || !password || !full_name) {
+    return json({ error: 'email, password, and full_name are required' }, 400, corsHeaders);
+  }
+
+  if (typeof email !== 'string' || !email.includes('@') || email.length > 254) {
+    return json({ error: 'Invalid email format' }, 400, corsHeaders);
+  }
+  if (typeof password !== 'string' || password.length < 6 || password.length > 128) {
+    return json({ error: 'Password must be 6-128 characters' }, 400, corsHeaders);
+  }
+  if (typeof full_name !== 'string' || full_name.length < 2 || full_name.length > 200) {
+    return json({ error: 'Name must be 2-200 characters' }, 400, corsHeaders);
+  }
+
+  const allowedRoles = ['funcionario', 'gestor', 'admin'];
+  const userRole = allowedRoles.includes(role) ? role : 'funcionario';
+
+  const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`;
+
+  const createRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: {
+      'Authorization': serviceAuth,
+      'Content-Type': 'application/json',
+      'apikey': env.SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name, role: userRole },
+    }),
+  });
+
+  const createData = await createRes.json();
+  if (!createRes.ok) {
+    return json({ error: 'Failed to create user' }, 400, corsHeaders);
+  }
+
+  const userId = createData.id;
+  const profileResult = await supabaseRequest(env, 'POST', '/profiles', {
+    id: userId,
+    full_name,
+    email,
+    role: userRole,
+  }, serviceAuth);
+
+  if (profileResult.status >= 300) {
+    console.error('Profile insert failed for user:', userId);
+  }
+
+  return json({ user: { id: userId, email, full_name, role: userRole } }, 200, corsHeaders);
+}
+
+async function handleUserDelete(request, env, corsHeaders, authHeader) {
+  const auth = await getAuth({ headers: { get: () => authHeader } }, env);
+  if (!auth || auth.role !== 'admin') {
+    return json({ error: 'Unauthorized - admin only' }, 403, corsHeaders);
+  }
+
+  const parsed = await parseBody(request);
+  if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+
+  const { user_id } = parsed.data;
+  if (!user_id || typeof user_id !== 'string' || !isValidId(user_id)) {
+    return json({ error: 'Invalid user_id' }, 400, corsHeaders);
+  }
+
+  if (user_id === auth.userId) {
+    return json({ error: 'Cannot delete your own account' }, 400, corsHeaders);
+  }
+
+  const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`;
+
+  await supabaseRequest(env, 'DELETE', `/profiles?id=eq.${user_id}`, null, serviceAuth);
+
+  const deleteRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user_id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': serviceAuth,
+      'Content-Type': 'application/json',
+      'apikey': env.SUPABASE_ANON_KEY,
+    },
+  });
+
+  if (!deleteRes.ok) {
+    return json({ error: 'Failed to delete user' }, 400, corsHeaders);
+  }
+
+  return json({ success: true }, 200, corsHeaders);
+}
+
+async function handleEmailSend(request, env, corsHeaders, authHeader) {
+  const auth = await getAuth({ headers: { get: () => authHeader } }, env);
+  if (!auth) return json({ error: 'Unauthorized' }, 401, corsHeaders);
+
   const parsed = await parseBody(request);
   if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
 
@@ -233,7 +418,7 @@ async function handleEmailSend(request, env, corsHeaders) {
   const emailTipo = tipo || 'contrato_assinado';
 
   let recipients = [];
-  if (reqDest) {
+  if (reqDest && typeof reqDest === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqDest)) {
     recipients = [reqDest];
   } else {
     try {
@@ -248,16 +433,19 @@ async function handleEmailSend(request, env, corsHeaders) {
     }
   }
 
+  const edgeFunctionUrl = `${env.SUPABASE_URL}/functions/v1/send-email`;
+  const edgeAuth = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
+
   let lastStatus = 'pendente';
   let lastError = null;
   let sentCount = 0;
 
   for (const recipient of recipients) {
     try {
-      const edgeRes = await fetch(`${env.SUPABASE_URL}/functions/v1/send-email`, {
+      const edgeRes = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${edgeAuth}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario, devolucao, destinatario: recipient }),
@@ -269,22 +457,16 @@ async function handleEmailSend(request, env, corsHeaders) {
       } else if (edgeData.skipped) {
         lastStatus = 'skipped';
       } else {
-        lastError = edgeData.error ? JSON.stringify(edgeData.error) : 'Edge function failed';
+        lastError = edgeData.error || 'Edge function failed';
         lastStatus = 'erro';
       }
-    } catch (e) {
-      lastError = e.message;
+    } catch {
+      lastError = 'Email delivery failed';
       lastStatus = 'erro';
     }
   }
 
   const emailStatus = sentCount > 0 ? 'enviado' : lastStatus;
-  const erroMsg = sentCount > 0 ? null : lastError;
-  const assunto = emailTipo === 'contrato_criado'
-    ? `Novo Contrato ${contrato?.numero || contrato?.id || ''} - ${contrato?.cliente || ''}`
-    : emailTipo === 'devolucao_registrada'
-    ? `Comprovante de Devolucao ${devolucao?.numero || ''} - TransObra`
-    : `Contrato ${contrato?.numero || contrato?.id || comprovante?.contrato || ''} assinado`;
 
   try {
     const logSignatario = signatario ? { nome: signatario.nome, cpf: signatario.cpf, data: signatario.data } : null;
@@ -292,17 +474,20 @@ async function handleEmailSend(request, env, corsHeaders) {
       contrato_id: contrato_id || null,
       comprovante_id: comprovante_id || null,
       destinatario: recipients.join(', '),
-      assunto,
-      corpo: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario: logSignatario }),
+      assunto: `Email - ${emailTipo}`,
+      corpo: JSON.stringify({ tipo: emailTipo }),
       status: emailStatus,
-      erro_msg: erroMsg,
+      erro_msg: sentCount > 0 ? null : lastError,
     });
   } catch { /* email logging is best-effort */ }
 
-  return json({ success: emailStatus === 'enviado' || emailStatus === 'skipped', status: emailStatus, sentTo: sentCount }, emailStatus === 'erro' ? 500 : 200, corsHeaders);
+  return json({ success: emailStatus === 'enviado', status: emailStatus, sentTo: sentCount, error: lastError || null }, emailStatus === 'erro' ? 500 : 200, corsHeaders);
 }
 
-async function handleAiExtractPdf(request, env, corsHeaders) {
+async function handleAiExtractPdf(request, env, corsHeaders, authHeader) {
+  const auth = await getAuth({ headers: { get: () => authHeader } }, env);
+  if (!auth) return json({ error: 'Unauthorized' }, 401, corsHeaders);
+
   const parsed = await parseBody(request);
   if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
 
@@ -380,43 +565,21 @@ REGRAS CRITICAS:
 
 ${text.slice(0, 15000)}`;
 
-  // Helper: validate and clean AI response
   function validateAiResponse(data) {
     if (!data || typeof data !== 'object') return null;
     if (Array.isArray(data)) return null;
 
-    // Ensure required fields exist with defaults
     const defaults = {
-      contrato: '',
-      atendente: '',
-      locatario: '',
-      cpf_cnpj: '',
-      rg: '',
-      telefone: '',
-      contato: '',
-      endereco: '',
-      numero: '',
-      bairro: '',
-      cidade: '',
-      estado: '',
-      cep: '',
-      local_entrega: '',
-      telefone_entrega: '',
-      referencia: '',
-      data_retirada: '',
-      data_devolucao: '',
-      hora: '',
-      observacao: '',
-      itens: [],
-      valor_total: 0,
-      valor_mensal: 0,
+      contrato: '', atendente: '', locatario: '', cpf_cnpj: '', rg: '', telefone: '',
+      contato: '', endereco: '', numero: '', bairro: '', cidade: '', estado: '', cep: '',
+      local_entrega: '', telefone_entrega: '', referencia: '', data_retirada: '', data_devolucao: '',
+      hora: '', observacao: '', itens: [], valor_total: 0, valor_mensal: 0,
       tipo_documento: isDevolucao ? 'devolucao' : 'entrega',
       condicoes: { danificado: false, extraviado: false, testarEmpresa: false },
     };
 
     const result = { ...defaults, ...data };
 
-    // Ensure itens is array of objects
     if (!Array.isArray(result.itens)) result.itens = [];
     result.itens = result.itens.map(it => ({
       quantidade: Number(it.quantidade) || 1,
@@ -425,16 +588,13 @@ ${text.slice(0, 15000)}`;
       valor_unitario: Number(it.valor_unitario) || 0,
     }));
 
-    // Ensure numeric values
     result.valor_total = Number(result.valor_total) || 0;
     result.valor_mensal = Number(result.valor_mensal) || 0;
 
-    // Ensure tipo_documento
     if (result.tipo_documento !== 'devolucao' && result.tipo_documento !== 'entrega') {
       result.tipo_documento = isDevolucao ? 'devolucao' : 'entrega';
     }
 
-    // For devolucao, set data_devolucao from data_retirada if empty
     if (result.tipo_documento === 'devolucao' && !result.data_devolucao && result.data_retirada) {
       result.data_devolucao = result.data_retirada;
     }
@@ -442,7 +602,6 @@ ${text.slice(0, 15000)}`;
     return result;
   }
 
-  // Helper: call AI provider with retry
   async function callAI(provider, url, headers, body, extractFn) {
     try {
       const res = await fetch(url, {
@@ -450,24 +609,15 @@ ${text.slice(0, 15000)}`;
         headers,
         body: JSON.stringify(body),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
-        const errMsg = data.error?.message || `${provider} API error`;
-        console.error(`${provider} error:`, res.status, errMsg);
-        if (res.status === 429) {
-          return { error: `${provider} quota exceeded`, fallback: true };
-        }
-        return { error: errMsg };
+        if (res.status === 429) return { error: `${provider} quota exceeded`, fallback: true };
+        return { error: `${provider} API error` };
       }
-
       const content = extractFn(data);
       if (!content) return { error: `${provider} returned empty content` };
-
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return { error: `${provider} returned invalid JSON`, raw: content };
-
+      if (!jsonMatch) return { error: `${provider} returned invalid JSON` };
       try {
         const extracted = JSON.parse(jsonMatch[0]);
         const validated = validateAiResponse(extracted);
@@ -476,115 +626,47 @@ ${text.slice(0, 15000)}`;
       } catch {
         return { error: `${provider} JSON parse error` };
       }
-    } catch (e) {
-      return { error: e.message };
+    } catch {
+      return { error: `${provider} request failed` };
     }
   }
 
-  // Try Mistral first
   if (mistralKey) {
-    const result = await callAI(
-      'Mistral',
-      'https://api.mistral.ai/v1/chat/completions',
-      {
-        'Authorization': `Bearer ${mistralKey}`,
-        'Content-Type': 'application/json',
-      },
-      {
-        model: 'mistral-small-latest',
-        temperature: 0,
-        max_tokens: 2000,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-      },
-      (data) => data.choices?.[0]?.message?.content || ''
+    const result = await callAI('Mistral', 'https://api.mistral.ai/v1/chat/completions',
+      { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
+      { model: 'mistral-small-latest', temperature: 0, max_tokens: 2000,
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
+      (d) => d.choices?.[0]?.message?.content || ''
     );
-
     if (result.success) return json(result, 200, corsHeaders);
     if (result.fallback) return json(result, 200, corsHeaders);
   }
 
-  // Try Gemini
   if (geminiKey) {
-    const result = await callAI(
-      'Gemini',
+    const result = await callAI('Gemini',
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
       { 'Content-Type': 'application/json' },
-      {
-        contents: [{ parts: [{ text: userMessage }] }],
+      { contents: [{ parts: [{ text: userMessage }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 2000,
-          responseMimeType: 'application/json',
-        },
-      },
-      (data) => data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        generationConfig: { temperature: 0, maxOutputTokens: 2000, responseMimeType: 'application/json' } },
+      (d) => d.candidates?.[0]?.content?.parts?.[0]?.text || ''
     );
-
     if (result.success) return json(result, 200, corsHeaders);
     if (result.fallback) return json(result, 200, corsHeaders);
   }
 
-  // Try OpenAI
   if (openaiKey) {
-    const result = await callAI(
-      'OpenAI',
-      'https://api.openai.com/v1/chat/completions',
-      {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      {
-        model: 'gpt-4o-mini',
-        temperature: 0,
-        max_tokens: 2000,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-      },
-      (data) => data.choices?.[0]?.message?.content || ''
+    const result = await callAI('OpenAI', 'https://api.openai.com/v1/chat/completions',
+      { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+      { model: 'gpt-4o-mini', temperature: 0, max_tokens: 2000,
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }] },
+      (d) => d.choices?.[0]?.message?.content || ''
     );
-
     if (result.success) return json(result, 200, corsHeaders);
     return json({ ...result, fallback: true }, 502, corsHeaders);
   }
 
   return json({ error: 'No AI provider available', fallback: true }, 200, corsHeaders);
-}
-
-async function handleEdgeProxy(path, method, request, env, corsHeaders) {
-  const rawName = path.replace('/api/edge/', '');
-  const funcName = sanitizeEdgeFuncName(rawName);
-  if (!funcName) return json({ error: 'Invalid function name' }, 400, corsHeaders);
-
-  let body = null;
-  if (method === 'POST') {
-    const parsed = await parseBody(request);
-    if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-    body = parsed.data;
-  }
-
-  try {
-    const edgeUrl = `${env.SUPABASE_URL}/functions/v1/${funcName}`;
-    const edgeRes = await fetch(edgeUrl, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const text = await edgeRes.text();
-    let edgeData;
-    try { edgeData = JSON.parse(text); } catch { edgeData = { raw: text }; }
-    return json(edgeData, edgeRes.status, corsHeaders);
-  } catch {
-    return json({ error: 'Edge function call failed' }, 502, corsHeaders);
-  }
 }
 
 export default {
@@ -599,7 +681,11 @@ export default {
     const method = request.method;
 
     if (path.startsWith('/api/')) {
-      return handleApiRoute(path, method, request, env, corsHeaders);
+      try {
+        return await handleApiRoute(path, method, request, env, corsHeaders);
+      } catch (e) {
+        return json({ error: 'Internal server error', detail: e.message }, 500, corsHeaders);
+      }
     }
 
     const response = await env.ASSETS.fetch(request);

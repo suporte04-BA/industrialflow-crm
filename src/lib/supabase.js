@@ -14,18 +14,22 @@ export const isConfigured = () => {
 
 export const signUp = async (email, password, fullName) => {
   if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName, role: 'funcionario' },
-      emailRedirectTo: window.location.origin,
-    },
-  });
-  return { data, error };
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName, role: 'funcionario' },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    return { data, error };
+  } catch {
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
+  }
 };
 
-export const signUpByName = async (name, password, role) => {
+export const signUpByName = async (name, password) => {
   if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
   const email = name
     .toLowerCase()
@@ -35,38 +39,54 @@ export const signUpByName = async (name, password, role) => {
     .replace(/\s+/g, '')
     .trim() + '@transobra.local';
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: name, role: role || 'funcionario' },
-      emailRedirectTo: window.location.origin,
-    },
-  });
-  return { data, error };
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name, role: 'funcionario' },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    return { data, error };
+  } catch {
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
+  }
 };
 
 export const signIn = async (email, password) => {
   if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  return { data, error };
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    return { data, error };
+  } catch {
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
+  }
 };
 
 export const signInByName = async (name, password) => {
   if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
 
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('email')
-    .ilike('full_name', name)
-    .limit(1);
+  try {
+    const { data: profiles, error: profileErr } = await supabase
+      .from('profiles')
+      .select('email')
+      .ilike('full_name', name)
+      .limit(1);
 
-  if (!profiles || profiles.length === 0) {
-    return { data: null, error: { message: 'Usuario nao encontrado. Use o email para entrar.' } };
+    if (profileErr) {
+      return { data: null, error: { message: 'Erro ao buscar usuario. Tente usar o email para entrar.' } };
+    }
+
+    if (!profiles || profiles.length === 0) {
+      return { data: null, error: { message: 'Usuario nao encontrado. Use o email para entrar.' } };
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email: profiles[0].email, password });
+    return { data, error };
+  } catch {
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
   }
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email: profiles[0].email, password });
-  return { data, error };
 };
 
 export const signOut = async () => {
@@ -76,8 +96,26 @@ export const signOut = async () => {
 
 export const getCurrentUser = async () => {
   if (!isConfigured()) return { user: null, error: { message: 'Supabase nao configurado' } };
-  const { data: { user }, error } = await supabase.auth.getUser();
-  return { user, error };
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (user?.id && user.access_token) {
+      const response = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt: user.access_token })
+      });
+      if (response.ok) {
+        const { user: profile } = await response.json();
+        return { user: { ...user, ...profile }, error: null };
+      }
+    }
+    return { user, error };
+  } catch (e) {
+    console.error('Worker profile fetch failed:', e);
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return { user, error };
+  }
 };
 
 export const storage = {

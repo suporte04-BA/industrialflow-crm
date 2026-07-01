@@ -37,7 +37,7 @@ function NavLink({ item, onNavigate }) {
   );
 }
 
-function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate, avatarUrl }) {
+function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, initials, handleLogout, onNavigate, avatarUrl }) {
   return (
     <>
       <div className="flex-1 overflow-y-auto py-3">
@@ -72,17 +72,6 @@ function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, 
             </div>
           </div>
 
-          <div className="flex gap-1 mb-3 px-1">
-            <button onClick={() => switchRole('gestor')}
-              className={`flex-1 px-2 py-1.5 text-[10px] font-semibold rounded transition-colors ${currentRole === 'gestor' ? 'bg-yellow-400 text-[#1C1C1C]' : 'bg-white/5 text-gray-500 hover:bg-white/10'}`}>
-              Gestor
-            </button>
-            <button onClick={() => switchRole('funcionario')}
-              className={`flex-1 px-2 py-1.5 text-[10px] font-semibold rounded transition-colors ${currentRole === 'funcionario' ? 'bg-yellow-400 text-[#1C1C1C]' : 'bg-white/5 text-gray-500 hover:bg-white/10'}`}>
-              Funcionario
-            </button>
-          </div>
-
           <button onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-2 w-full text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
             <LogOut size={16} />
@@ -95,8 +84,8 @@ function SidebarContent({ navItems, navItemsSec, userName, userEmail, userRole, 
 }
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
-  const { user, profile, logout, isGestor, viewRole, setViewRole } = useAuth();
-  const currentRole = viewRole || profile?.role || 'gestor';
+  const { user, profile, logout, isGestor } = useAuth();
+  const currentRole = profile?.role || 'funcionario';
   const navItems = isGestor ? gestorNav : funcionarioNav;
   const navItemsSec = isGestor ? gestorNavSec : [];
   const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
@@ -110,14 +99,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
     window.location.href = '/login';
   };
 
-  const switchRole = (newRole) => {
-    setViewRole(newRole);
-    toast.success(`Visualizando como ${newRole === 'gestor' ? 'Gestor' : 'Funcionario'}`);
-  };
-
   const onNavigate = () => setMobileOpen(false);
 
-  const sidebarProps = { navItems, navItemsSec, userName, userEmail, userRole, currentRole, initials, switchRole, handleLogout, onNavigate, avatarUrl: profile?.avatarUrl };
+  const sidebarProps = { navItems, navItemsSec, userName, userEmail, userRole, initials, handleLogout, onNavigate, avatarUrl: profile?.avatarUrl };
 
   return (
     <>

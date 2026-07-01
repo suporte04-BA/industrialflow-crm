@@ -7,7 +7,7 @@
  * Parse any date value to a Date object
  * Accepts: 'YYYY-MM-DD', 'DD/MM/AAAA', 'MM/DD/YYYY', Date object, timestamp
  */
-function parseDate(value) {
+export function parseDate(value) {
   if (!value) return null;
   if (value instanceof Date && !isNaN(value.getTime())) return value;
 

@@ -142,7 +142,7 @@ function buildContratoAssinadoHTML(data) {
           ${s.assinaturaImagem ? `
           <div style="margin-top:10px;">
             <p style="font-size:13px;color:#555;"><strong>Assinatura:</strong></p>
-            <img src="${esc(s.assinaturaImagem)}" style="max-width:300px;height:auto;border:1px solid #ddd;border-radius:4px;background:white;padding:5px;" />
+            <img src="${s.assinaturaImagem}" style="max-width:300px;height:auto;border:1px solid #ddd;border-radius:4px;background:white;padding:5px;" />
           </div>` : ""}
         </div>` : ""}
 

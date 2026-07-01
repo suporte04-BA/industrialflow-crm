@@ -39,7 +39,8 @@ export function useUsuarios() {
       }
       return (data || []).map(toCamel);
     },
-    staleTime: 10000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   return {
@@ -71,43 +72,21 @@ export function useCreateUsuario() {
         return local;
       }
 
-      try {
-        const { data, error } = await supabase.auth.signUp({
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email,
           password,
-          options: {
-            data: { full_name: fullName, role: role || 'funcionario' },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-
-        if (data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.user.id,
-              full_name: fullName,
-              email,
-              role: role || 'funcionario',
-            });
-          if (profileError) console.error('Profile insert error:', profileError);
-        }
-
-        return { id: data.user?.id, fullName, email, role: role || 'funcionario' };
-      } catch {
-        const local = {
-          id: crypto.randomUUID(),
-          fullName,
-          email,
+          full_name: fullName,
           role: role || 'funcionario',
-          createdAt: new Date().toISOString(),
-        };
-        const stored = getLocal();
-        stored.unshift(local);
-        saveLocal(stored);
-        return local;
-      }
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar usuario');
+
+      return { id: data.user?.id, fullName, email, role: role || 'funcionario' };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
@@ -192,11 +171,19 @@ export function useDeleteUsuario() {
         }
       }
 
-      const { error } = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .delete()
         .eq('id', id);
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      try {
+        await fetch('/api/users/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: id }),
+        });
+      } catch { /* best effort */ }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });

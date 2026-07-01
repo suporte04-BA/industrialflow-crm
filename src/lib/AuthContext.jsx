@@ -1,36 +1,63 @@
-import { useState, createContext, useContext, useEffect, useMemo } from 'react';
+import { useState, createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import { supabase, isConfigured } from './supabase';
 import { toCamel } from './converters';
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [viewRole, setViewRole] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+async function fetchProfileWithRetry(userObj, accessToken, retries = 2) {
+  if (!isConfigured()) return null;
 
-  const fetchProfile = async (userId) => {
-    if (!isConfigured()) return null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (accessToken) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const response = await fetch('/api/profiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt: accessToken }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          const { user: profileData } = await response.json();
+          return toCamel(profileData);
+        }
+      }
+    } catch {
+      // Worker might be cold-starting, retry
+    }
+
+    // Fallback: query Supabase directly
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', userObj?.id)
         .single();
-      if (error) return null;
-      return toCamel(data);
+      if (!error && data) return toCamel(data);
     } catch {
-      return null;
+      // Supabase query failed
     }
-  };
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+    if (attempt < retries) {
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const profileFetchAttempted = useRef(new Set());
+
   useEffect(() => {
     if (!isConfigured()) {
       const mockAuth = localStorage.getItem('transobra_mock_auth');
-      const mockRole = localStorage.getItem('transobra_mock_role') || 'gestor';
+      const mockRole = localStorage.getItem('transobra_mock_role') || 'funcionario';
       if (mockAuth) {
         setUser({ id: 'mock', email: 'admin@transobra.com' });
         setProfile({ id: 'mock', role: mockRole, fullName: 'Admin TransObra', email: 'admin@transobra.com' });
@@ -40,45 +67,65 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    let authTimeout = setTimeout(() => {
-      setIsLoadingAuth(false);
-    }, 3000);
+    let mounted = true;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      clearTimeout(authTimeout);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      setIsAuthenticated(!!currentUser);
-      if (currentUser) {
-        const prof = await fetchProfile(currentUser.id);
-        setProfile(prof);
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        setIsAuthenticated(!!currentUser);
+      } catch {
+        if (!mounted) return;
+      } finally {
+        if (mounted) setIsLoadingAuth(false);
       }
-      setIsLoadingAuth(false);
-    }).catch(() => {
-      clearTimeout(authTimeout);
-      setIsLoadingAuth(false);
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      clearTimeout(authTimeout);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      setIsAuthenticated(!!currentUser);
-      if (currentUser) {
-        const prof = await fetchProfile(currentUser.id);
-        setProfile(prof);
-      } else {
-        setProfile(null);
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!mounted) return;
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        setIsAuthenticated(!!currentUser);
       }
-      setIsLoadingAuth(false);
-    });
+    );
 
     return () => {
-      clearTimeout(authTimeout);
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!user || !isConfigured()) {
+      if (!user) {
+        setProfile(null);
+        profileFetchAttempted.current.clear();
+      }
+      return;
+    }
+
+    const cacheKey = user.id;
+    if (profileFetchAttempted.current.has(cacheKey)) return;
+
+    let cancelled = false;
+    profileFetchAttempted.current.add(cacheKey);
+
+    const loadProfile = async () => {
+      const session = (await supabase.auth.getSession()).data?.session;
+      if (cancelled) return;
+      const prof = await fetchProfileWithRetry(user, session?.access_token, 2);
+      if (!cancelled) setProfile(prof);
+    };
+
+    loadProfile();
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   const logout = async () => {
     if (isConfigured()) {
@@ -89,9 +136,10 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setProfile(null);
     setIsAuthenticated(false);
+    profileFetchAttempted.current.clear();
   };
 
-  const loginAsDemo = (role = 'gestor') => {
+  const loginAsDemo = (role = 'funcionario') => {
     localStorage.setItem('transobra_mock_auth', 'true');
     localStorage.setItem('transobra_mock_role', role);
     setUser({ id: 'mock', email: 'admin@transobra.com' });
@@ -104,28 +152,26 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasRole = (requiredRole) => {
-    const activeRole = viewRole || profile?.role;
+    const activeRole = profile?.role;
     if (!activeRole) return false;
     if (activeRole === 'admin') return true;
     return activeRole === requiredRole;
   };
 
   const isGestor = useMemo(() => {
-    const activeRole = viewRole || profile?.role;
+    const activeRole = profile?.role;
     return activeRole === 'gestor' || activeRole === 'admin';
-  }, [profile, viewRole]);
+  }, [profile]);
 
   const isFuncionario = useMemo(() => {
-    const activeRole = viewRole || profile?.role;
+    const activeRole = profile?.role;
     return activeRole === 'funcionario' || activeRole === 'user';
-  }, [profile, viewRole]);
+  }, [profile]);
 
   return (
     <AuthContext.Provider value={{
       user,
       profile,
-      viewRole,
-      setViewRole,
       isAuthenticated,
       isLoadingAuth,
       logout,

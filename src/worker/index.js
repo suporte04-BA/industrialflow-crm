@@ -128,6 +128,8 @@ async function handleApiRoute(path, method, request, env, corsHeaders) {
     return json({
       emailRecipient: env.EMAIL_RECIPIENT || 'gestores@transobra.com.br',
       emailFrom: env.EMAIL_FROM || 'TransObra <onboarding@resend.dev>',
+      supabaseUrl: env.SUPABASE_URL || '',
+      supabaseAnonKey: env.SUPABASE_ANON_KEY || '',
     }, 200, corsHeaders);
   }
 

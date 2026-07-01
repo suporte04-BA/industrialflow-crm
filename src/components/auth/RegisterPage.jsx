@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signUp } from '../../lib/supabase';
-import { supabase, isConfigured } from '../../lib/supabase';
+import { signUp, isConfigured, loadConfig } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft } from 'lucide-react';
 
@@ -18,6 +18,7 @@ export default function RegisterPage() {
     if (!form.password || form.password.length < 6) { toast.error('Senha deve ter no minimo 6 caracteres'); return; }
     if (form.password !== form.confirmPassword) { toast.error('As senhas nao conferem'); return; }
 
+    await loadConfig();
     if (!isConfigured()) {
       toast.error('Supabase nao configurado. Verifique as variaveis de ambiente.');
       return;

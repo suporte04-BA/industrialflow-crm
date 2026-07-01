@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signIn, signInByName, isConfigured } from '../../lib/supabase';
+import { signIn, signInByName, isConfigured, loadConfig } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -14,6 +14,7 @@ export default function LoginPage() {
     if (!form.name.trim()) { toast.error('Preencha o nome/email'); return; }
     if (!form.password.trim()) { toast.error('Preencha a senha'); return; }
 
+    await loadConfig();
     if (!isConfigured()) {
       toast.error('Supabase nao configurado. Verifique as variaveis de ambiente.');
       return;

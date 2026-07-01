@@ -1,5 +1,5 @@
 import { useState, createContext, useContext, useEffect, useMemo, useRef } from 'react';
-import { supabase, isConfigured } from './supabase';
+import { supabase, isConfigured, loadConfig } from './supabase';
 import { toCamel } from './converters';
 
 const AuthContext = createContext();
@@ -55,21 +55,24 @@ export const AuthProvider = ({ children }) => {
   const profileFetchAttempted = useRef(new Set());
 
   useEffect(() => {
-    if (!isConfigured()) {
-      const mockAuth = localStorage.getItem('transobra_mock_auth');
-      const mockRole = localStorage.getItem('transobra_mock_role') || 'funcionario';
-      if (mockAuth) {
-        setUser({ id: 'mock', email: 'admin@transobra.com' });
-        setProfile({ id: 'mock', role: mockRole, fullName: 'Admin TransObra', email: 'admin@transobra.com' });
-        setIsAuthenticated(true);
-      }
-      setIsLoadingAuth(false);
-      return;
-    }
-
     let mounted = true;
+    let subscription = null;
 
-    const initAuth = async () => {
+    const init = async () => {
+      await loadConfig();
+
+      if (!isConfigured()) {
+        const mockAuth = localStorage.getItem('transobra_mock_auth');
+        const mockRole = localStorage.getItem('transobra_mock_role') || 'funcionario';
+        if (mockAuth) {
+          setUser({ id: 'mock', email: 'admin@transobra.com' });
+          setProfile({ id: 'mock', role: mockRole, fullName: 'Admin TransObra', email: 'admin@transobra.com' });
+          setIsAuthenticated(true);
+        }
+        if (mounted) setIsLoadingAuth(false);
+        return;
+      }
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
@@ -81,22 +84,23 @@ export const AuthProvider = ({ children }) => {
       } finally {
         if (mounted) setIsLoadingAuth(false);
       }
+
+      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+        (_event, session) => {
+          if (!mounted) return;
+          const currentUser = session?.user ?? null;
+          setUser(currentUser);
+          setIsAuthenticated(!!currentUser);
+        }
+      );
+      subscription = sub;
     };
 
-    initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!mounted) return;
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        setIsAuthenticated(!!currentUser);
-      }
-    );
+    init();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, []);
 

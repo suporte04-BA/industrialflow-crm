@@ -1,15 +1,70 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+let _supabase = null;
+let _config = null;
+let _configPromise = null;
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-);
+export async function loadConfig() {
+  if (_config) return _config;
+  if (_configPromise) return _configPromise;
 
-export const isConfigured = () => {
-  return supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder');
+  _configPromise = (async () => {
+    try {
+      const res = await fetch('/api/config');
+      if (!res.ok) throw new Error('Config fetch failed');
+      const data = await res.json();
+      _config = {
+        supabaseUrl: data.supabaseUrl || '',
+        supabaseAnonKey: data.supabaseAnonKey || '',
+        emailRecipient: data.emailRecipient || '',
+        emailFrom: data.emailFrom || '',
+      };
+      if (_config.supabaseUrl && _config.supabaseAnonKey) {
+        _supabase = createClient(_config.supabaseUrl, _config.supabaseAnonKey);
+      }
+      return _config;
+    } catch {
+      _config = { supabaseUrl: '', supabaseAnonKey: '', emailRecipient: '', emailFrom: '' };
+      return _config;
+    }
+  })();
+
+  return _configPromise;
+}
+
+export function isConfigured() {
+  if (_config?.supabaseUrl && _config?.supabaseAnonKey) return true;
+  const envUrl = import.meta.env?.VITE_SUPABASE_URL;
+  const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+  return !!(envUrl && envKey && !envUrl.includes('placeholder'));
+}
+
+function getClient() {
+  if (_supabase) return _supabase;
+
+  const envUrl = import.meta.env?.VITE_SUPABASE_URL || '';
+  const envKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
+  if (envUrl && envKey && !envUrl.includes('placeholder')) {
+    _supabase = createClient(envUrl, envKey);
+    return _supabase;
+  }
+
+  const cfgUrl = _config?.supabaseUrl || '';
+  const cfgKey = _config?.supabaseAnonKey || '';
+  if (cfgUrl && cfgKey) {
+    _supabase = createClient(cfgUrl, cfgKey);
+    return _supabase;
+  }
+
+  _supabase = createClient('https://placeholder.supabase.co', 'placeholder-key');
+  return _supabase;
+}
+
+export const supabase = {
+  get auth() { return getClient().auth; },
+  from(table) { return getClient().from(table); },
+  get storage() { return getClient().storage; },
+  rpc(fn, params) { return getClient().rpc(fn, params); },
 };
 
 export const signUp = async (email, password, fullName) => {

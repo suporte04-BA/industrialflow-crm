@@ -94,6 +94,19 @@ export function matchCPFWithComprovante(cpfSignatario, comprovante) {
   };
 }
 
+export function isValidCEP(cep) {
+  if (!cep) return false;
+  const digits = cep.replace(/\D/g, '');
+  return digits.length === 8;
+}
+
+export function formatCEP(value) {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
 export function nameToEmail(name) {
   if (!name) return '';
   const normalized = name

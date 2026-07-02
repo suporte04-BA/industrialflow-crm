@@ -179,7 +179,7 @@ export default function Perfil() {
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.contrato}</span>
                         <StatusBadge status={c.status} />
-                        {c.assinado && <StatusBadge status="assinado" />}
+                        {c.assinado && c.status !== 'assinado' && <StatusBadge status="assinado" />}
                       </div>
                       <h4 className="font-semibold text-gray-900 truncate">{c.locatario}</h4>
                       <div className="text-sm text-gray-500 mt-1">

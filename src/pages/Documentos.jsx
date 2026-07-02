@@ -25,7 +25,7 @@ function EntregaCard({ c, contratoData, isExpanded, onDelete, onGeneratePDF, onT
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{c.contrato}</span>
             <StatusBadge status={c.status} />
-            {c.assinado && <StatusBadge status="assinado" />}
+            {c.assinado && c.status !== 'assinado' && <StatusBadge status="assinado" />}
           </div>
           <h3 className="font-semibold text-gray-900 truncate">{c.locatario}</h3>
           <div className="text-sm text-gray-500 mt-1 space-y-0.5">
@@ -111,7 +111,7 @@ function DevolucaoCard({ c, contratoData, isExpanded, onDelete, onToggleExpand }
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-mono bg-orange-50 text-orange-700 px-2 py-0.5 rounded">{c.contrato}</span>
             <StatusBadge status={c.status} />
-            {c.assinado && <StatusBadge status="assinado" />}
+            {c.assinado && c.status !== 'assinado' && <StatusBadge status="assinado" />}
           </div>
           <h3 className="font-semibold text-gray-900 truncate">{c.locatario}</h3>
           <div className="text-sm text-gray-500 mt-1 space-y-0.5">
@@ -195,7 +195,7 @@ export default function Documentos() {
 
   const filterByTab = (list, tab) => {
     return list.filter((c) => {
-      if (tab === 'entrega') return c.tipoDocumento !== 'devolucao';
+      if (tab === 'entrega') return c.tipoDocumento === 'entrega';
       return c.tipoDocumento === 'devolucao';
     });
   };

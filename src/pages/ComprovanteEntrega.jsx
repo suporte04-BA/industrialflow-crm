@@ -100,7 +100,7 @@ export default function ComprovanteEntrega() {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.contrato}</span>
                       <StatusBadge status={c.status} />
-                      {c.assinado && <StatusBadge status="assinado" />}
+                      {c.assinado && c.status !== 'assinado' && <StatusBadge status="assinado" />}
                       {jaDevolvido && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Devolvido</span>}
                       {contratoData && (
                         <button

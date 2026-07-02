@@ -135,6 +135,7 @@ export default function Contratos() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {ctList.map((ct) => {
             const isEntregue = ct.status === 'entregue' || comprovantes?.some(c => (c.contratoId || c.contrato_id) === ct.id && c.assinado);
+            const showEntregueBadge = isEntregue && ct.status !== 'entregue';
             return (
               <div key={ct.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
@@ -148,7 +149,7 @@ export default function Contratos() {
                         {ct.tipoDocumento === 'devolucao' ? <RotateCcw className="w-2.5 h-2.5" /> : <ClipboardCheck className="w-2.5 h-2.5" />}
                         {ct.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega'}
                       </span>
-                      {isEntregue && (
+                      {showEntregueBadge && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700">
                           <ClipboardCheck className="w-2.5 h-2.5" /> Entregue
                         </span>

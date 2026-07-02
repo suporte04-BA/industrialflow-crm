@@ -4,7 +4,7 @@ import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, CheckCircle, ArrowLef
 import { toast } from 'sonner';
 import Button from '../ui/Button';
 import PdfImportButton from '../common/PdfImportButton';
-import { isValidCPF, isValidCNPJ, formatCPFCNPJ, detectDocumentType } from '../../lib/validation';
+import { isValidCPF, isValidCNPJ, formatCPFCNPJ, detectDocumentType, isValidCEP, formatCEP } from '../../lib/validation';
 
 const emptyItem = { quantidade: 1, descricao: '', patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 };
 const emptyCondicoes = { danificado: false, extraviado: false, testarEmpresa: false };
@@ -216,6 +216,7 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     if (!form.cidade.trim()) { toast.error('Preencha a cidade'); return; }
     if (!form.estado.trim()) { toast.error('Preencha o estado'); return; }
     if (!form.cep.trim()) { toast.error('Preencha o CEP'); return; }
+    if (!isValidCEP(form.cep)) { toast.error('CEP invalido (use 8 digitos: XXXXX-XXX)'); return; }
     if (!form.localEntrega.trim()) { toast.error('Preencha o local de entrega'); return; }
     if (!form.telefoneEntrega.trim()) { toast.error('Preencha o telefone do local de entrega'); return; }
     if (!form.inicio) { toast.error('Preencha a data de início'); return; }
@@ -595,8 +596,8 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                 </div>
                  <div className="mt-3">
                    <label className="block text-xs font-medium text-gray-600 mb-1">CEP *</label>
-                   <input type="text" required value={form.cep} onChange={(e) => setForm(prev => ({ ...prev, cep: e.target.value }))}
-                     className="input-base max-w-full sm:max-w-[200px]" placeholder="00000-000" />
+                    <input type="text" required value={form.cep} onChange={(e) => setForm(prev => ({ ...prev, cep: formatCEP(e.target.value) }))}
+                      className="input-base max-w-full sm:max-w-[200px]" placeholder="00000-000" maxLength={9} />
                  </div>
               </div>
 

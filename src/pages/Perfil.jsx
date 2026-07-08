@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Download, Calendar, Building2, Wrench } from 'lucide-react';
+import { FileText, Download, Calendar, Building2, Wrench, Eye, TrendingUp, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../lib/AuthContext';
 import { useContratos } from '../hooks/useContratos';
@@ -9,7 +9,7 @@ import Button from '../components/ui/Button';
 import { generateComprovantePDF } from '../lib/pdfExport';
 
 export default function Perfil() {
-  const { user, profile } = useAuth();
+  const { user, profile, viewRole, setViewRole } = useAuth();
   const [activeTab, setActiveTab] = useState('comprovantes');
   const { data: contratos } = useContratos();
   const { data: comprovantes } = useComprovantes();
@@ -17,6 +17,7 @@ export default function Perfil() {
   const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
   const userEmail = profile?.email || user?.email || 'admin@transobra.com';
   const userRole = profile?.role || 'gestor';
+  const currentView = viewRole || userRole;
   const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const myComprovantes = (comprovantes || []).slice(0, 20);
@@ -38,16 +39,28 @@ export default function Perfil() {
           <div className="w-16 h-16 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
             <span className="text-2xl font-bold text-gray-900">{initials}</span>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">{userName}</h2>
-            <p className="text-sm text-gray-500">{userEmail}</p>
-            <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 capitalize">{userRole}</span>
-          </div>
+           <div>
+             <h2 className="text-xl font-bold text-gray-900">{userName}</h2>
+             <p className="text-sm text-gray-500">{userEmail}</p>
+             <div className="flex items-center gap-2 mt-1">
+               <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 capitalize">{userRole}</span>
+               {userRole === 'gestor' && (
+                 <button
+                   onClick={() => setViewRole(currentView === 'funcionario' ? null : 'funcionario')}
+                   className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                 >
+                   <Eye className="w-3 h-3" />
+                   {currentView === 'funcionario' ? 'Ver como Gestor' : 'Ver como Funcionario'}
+                 </button>
+               )}
+             </div>
+           </div>
         </div>
       </div>
 
       <div className="flex gap-2">
         {[
+          { key: 'relatorio', label: 'Relatorio', icon: TrendingUp },
           { key: 'comprovantes', label: 'Comprovantes', icon: FileText },
           { key: 'contratos', label: 'Contratos', icon: Building2 },
         ].map((tab) => (
@@ -60,6 +73,35 @@ export default function Perfil() {
           </button>
         ))}
       </div>
+
+      {activeTab === 'relatorio' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><FileText className="w-5 h-5" /></div>
+              <h4 className="font-semibold text-gray-700">Entregas Realizadas</h4>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{(comprovantes || []).length}</p>
+            <p className="text-xs text-gray-500 mt-1">Total de comprovantes registrados</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-green-50 rounded-lg text-green-600"><CheckCircle className="w-5 h-5" /></div>
+              <h4 className="font-semibold text-gray-700">Assinaturas Digitais</h4>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{(comprovantes || []).filter(c => c.assinado).length}</p>
+            <p className="text-xs text-gray-500 mt-1">Documentos assinados digitalmente</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600"><Building2 className="w-5 h-5" /></div>
+              <h4 className="font-semibold text-gray-700">Contratos Vinculados</h4>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{(contratos || []).length}</p>
+            <p className="text-xs text-gray-500 mt-1">Total de contratos no sistema</p>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'comprovantes' && (
         <div className="space-y-3">

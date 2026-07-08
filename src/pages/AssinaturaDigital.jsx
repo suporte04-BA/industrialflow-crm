@@ -12,6 +12,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { formatDateBR } from '../lib/dates';
 import { isConfigured } from '../lib/supabase';
 import { generateComprovantePDF } from '../lib/pdfExport';
+import { isValidCPF, formatCPF, matchCPFWithComprovante } from '../lib/validation';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
@@ -64,7 +65,6 @@ export default function AssinaturaDigital() {
 
   const startDraw = (e) => {
     setIsDrawing(true);
-    setHasSignature(true);
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
     ctx.beginPath();
@@ -80,7 +80,14 @@ export default function AssinaturaDigital() {
     ctx.stroke();
   };
 
-  const endDraw = () => setIsDrawing(false);
+  const endDraw = () => {
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const hasPixels = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
+    setHasSignature(hasPixels);
+  };
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -94,31 +101,50 @@ export default function AssinaturaDigital() {
     if (!isConfigured()) return;
     setSendingEmail(true);
     try {
+      const imagemBase64 = canvasRef.current.toDataURL('image/png');
       const emailData = {
+        tipo: 'contrato_assinado',
         contrato_id: contrato?.id || null,
         comprovante_id: comprovante?.id || null,
         destinatario: emailRecipient,
         contrato: contrato ? {
           id: contrato.id,
+          numero: contrato.numero,
           cliente: contrato.cliente,
           cnpj: contrato.cnpj,
+          rg: contrato.rg,
           equipamentos: contrato.equipamentos,
           inicio: contrato.inicio,
           fim: contrato.fim,
           valorMensal: contrato.valorMensal,
           valorTotal: contrato.valorTotal,
+          atendente: contrato.atendente,
+          localEntrega: contrato.localEntrega,
+          endereco: contrato.endereco,
+          numero_endereco: contrato.numeroEndereco,
+          bairro: contrato.bairro,
+          cidade: contrato.cidade,
+          estado: contrato.estado,
+          cep: contrato.cep,
+          telefone: contrato.telefone,
+          email: contrato.email,
+          contato: contrato.contato,
         } : null,
         comprovante: {
           id: comprovante?.id,
           contrato: comprovante?.contrato,
           locatario: comprovante?.locatario,
+          cpf: comprovante?.cpf,
+          rg: comprovante?.rg,
           endereco: comprovante?.endereco,
           cidade: comprovante?.cidade,
           total: comprovante?.total,
         },
         signatario: {
           nome: signatario,
+          cpf: cpfSignatario,
           data: new Date().toISOString(),
+          assinaturaImagem: imagemBase64,
         },
       };
 
@@ -127,8 +153,8 @@ export default function AssinaturaDigital() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(emailData),
       });
-    } catch {
-      // Email failure is non-blocking
+    } catch (err) {
+      console.error('Erro ao enviar email:', err);
     } finally {
       setSendingEmail(false);
     }
@@ -136,8 +162,12 @@ export default function AssinaturaDigital() {
 
   const handleSave = async () => {
     if (!selectedComprovante) { toast.error('Selecione um comprovante'); return; }
-    if (!nomeSignatario) { toast.error('Preencha o nome do signatario'); return; }
-    if (!hasSignature) { toast.error('Faca sua assinatura'); return; }
+    if (!nomeSignatario.trim()) { toast.error('Preencha o nome do signatario'); return; }
+    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF do signatario'); return; }
+    if (!isValidCPF(cpfSignatario)) { toast.error('CPF invalido. Verifique os digitos.'); return; }
+    const cpfMatch = matchCPFWithComprovante(cpfSignatario, selectedComp);
+    if (!cpfMatch.valid) { toast.error(cpfMatch.message); return; }
+    if (!hasSignature) { toast.error('Faca sua assinatura no quadro ao lado'); return; }
     setSaving(true);
     try {
       const imagem = canvasRef.current.toDataURL('image/png');
@@ -169,7 +199,7 @@ export default function AssinaturaDigital() {
         );
 
         try {
-          await generateComprovantePDF({ ...comp, assinado: true, nomeSignatario, dataAssinatura: new Date().toISOString() });
+          await generateComprovantePDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString() });
         } catch {
           // PDF generation failure is non-blocking
         }
@@ -187,6 +217,10 @@ export default function AssinaturaDigital() {
       setSaving(false);
     }
   };
+
+  const availableComprovantes = (comprovantes || []).filter(
+    (c) => !c.assinado && c.status !== 'assinado' && c.status !== 'cancelado'
+  );
 
   const selectedComp = (comprovantes || []).find((c) => c.id === selectedComprovante);
   const selectedContrato = selectedComp?.contratoId ? (contratos || []).find((c) => c.id === selectedComp.contratoId) : null;
@@ -207,12 +241,15 @@ export default function AssinaturaDigital() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Comprovante de Entrega *</label>
-              <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base">
+              <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base" required>
                 <option value="">Selecione...</option>
-                {comprovantes?.filter(c => !c.assinado).map((c) => (
+                {availableComprovantes.map((c) => (
                   <option key={c.id} value={c.id}>{c.contrato} - {c.locatario}</option>
                 ))}
               </select>
+              {availableComprovantes.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">Nenhum comprovante pendente de assinatura</p>
+              )}
             </div>
 
             {selectedContrato && (
@@ -222,10 +259,14 @@ export default function AssinaturaDigital() {
                   <span className="text-sm font-semibold text-blue-800">Dados do Contrato</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-xs">
-                  <div><span className="text-gray-500">Contrato:</span> <span className="font-medium">{selectedContrato.id}</span></div>
+                  <div><span className="text-gray-500">Contrato:</span> <span className="font-medium">{selectedContrato.numero || selectedContrato.id}</span></div>
                   <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{selectedContrato.cliente}</span></div>
+                  <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{selectedContrato.cnpj || '-'}</span></div>
+                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedContrato.rg || '-'}</span></div>
+                  <div><span className="text-gray-500">Atendente:</span> <span className="font-medium">{selectedContrato.atendente || '-'}</span></div>
                   <div><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(selectedContrato.equipamentos) ? selectedContrato.equipamentos.join(', ') : '-'}</span></div>
                   <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(selectedContrato.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
+                  <div><span className="text-gray-500">Local Entrega:</span> <span className="font-medium">{selectedContrato.localEntrega || '-'}</span></div>
                 </div>
               </div>
             )}
@@ -238,8 +279,13 @@ export default function AssinaturaDigital() {
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-xs">
                   <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>
+                  <div><span className="text-gray-500">CPF:</span> <span className="font-medium">{selectedComp.cpf || '-'}</span></div>
+                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg || '-'}</span></div>
+                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.fone || '-'}</span></div>
                   <div><span className="text-gray-500">Cidade:</span> <span className="font-medium">{selectedComp.cidade}{selectedComp.estado ? `/${selectedComp.estado}` : ''}</span></div>
-                  {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}</span></div>}
+                  <div><span className="text-gray-500">Contato:</span> <span className="font-medium">{selectedComp.contato || '-'}</span></div>
+                  {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}{selectedComp.bairro ? ` - ${selectedComp.bairro}` : ''}</span></div>}
+                  {selectedComp.localEntrega && <div className="col-span-2"><span className="text-gray-500">Local Entrega:</span> <span className="font-medium">{selectedComp.localEntrega}</span></div>}
                   {selectedComp.itens && selectedComp.itens.length > 0 && <div><span className="text-gray-500">Itens:</span> <span className="font-medium">{selectedComp.itens.length} item(ns)</span></div>}
                   <div><span className="text-gray-500">Total:</span> <span className="font-medium text-green-600">R$ {Number(selectedComp.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                 </div>
@@ -248,16 +294,17 @@ export default function AssinaturaDigital() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatario *</label>
-              <input type="text" value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
+              <input type="text" required value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
                 className="input-base" placeholder="Nome completo" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
-              <input type="text" value={cpfSignatario} onChange={(e) => setCpfSignatario(e.target.value)}
-                className="input-base" placeholder="000.000.000-00" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
+              <input type="text" required value={cpfSignatario}
+                onChange={(e) => setCpfSignatario(formatCPF(e.target.value))}
+                className="input-base" placeholder="000.000.000-00" maxLength={14} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura *</label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden">
                 <canvas ref={canvasRef} width={500} height={200}
                   className="w-full cursor-crosshair touch-none min-h-[150px] sm:min-h-[200px]"

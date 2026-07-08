@@ -23,7 +23,7 @@ export function useComprovantes() {
       }
       const items = (data || []).map(toCamel);
       localStorage.setItem('comprovantes_local', JSON.stringify(items));
-      return items.length > 0 ? items : mockComprovantes;
+      return items;
     },
     staleTime: 5000,
     retry: 1,
@@ -139,6 +139,8 @@ export function useUpdateComprovante() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['assinaturas'] });
+      queryClient.invalidateQueries({ queryKey: ['contratos'] });
     },
   });
 }

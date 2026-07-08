@@ -3,8 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Credentials check: if missing, supabase client uses placeholder and isConfigured() returns false
-
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-key'
@@ -23,7 +21,40 @@ export const signUp = async (email, password, fullName) => {
   return { data, error };
 };
 
+export const signUpByName = async (name, password, role) => {
+  const email = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '')
+    .trim() + '@transobra.local';
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name: name, role: role || 'funcionario' },
+      emailRedirectTo: window.location.origin,
+    },
+  });
+  return { data, error };
+};
+
 export const signIn = async (email, password) => {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  return { data, error };
+};
+
+export const signInByName = async (name, password) => {
+  const email = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '')
+    .trim() + '@transobra.local';
+
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   return { data, error };
 };

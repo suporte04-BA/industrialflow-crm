@@ -10,6 +10,8 @@ const pageTitles = {
   '/contratos': { title: 'Contratos', subtitle: 'Contratos ativos, vencendo e vencidos' },
   '/comprovantes': { title: 'Comprovantes de Entrega', subtitle: 'Bens locados entregues e registrados' },
   '/assinatura': { title: 'Assinatura Digital', subtitle: 'Assine contratos e documentos' },
+  '/historico': { title: 'Historico de Transacoes', subtitle: 'Todas as movimentacoes do sistema' },
+  '/usuarios': { title: 'Gestao de Usuarios', subtitle: 'Cadastrar e gerenciar funcoes' },
   '/perfil': { title: 'Meu Perfil', subtitle: 'Informacoes e relatorios' },
 };
 
@@ -21,7 +23,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      <div className="lg:ml-64">
+      <div className="lg:ml-60">
         <Header title={pageInfo.title} subtitle={pageInfo.subtitle} setMobileOpen={setMobileOpen} />
         <main className="p-4 md:p-6">
           <Outlet />

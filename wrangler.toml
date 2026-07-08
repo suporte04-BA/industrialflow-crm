@@ -2,10 +2,13 @@ name = "transobras"
 main = "src/worker/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
+account_id = "3b8a5aa418a5d7ae254ba675291f540c"
 
 [vars]
 EMAIL_RECIPIENT = "gestores@transobra.com.br"
-EMAIL_FROM = "TransObra <onboarding@resend.dev>"
+EMAIL_FROM = "TransObra <transobras.no.replay@gmail.com>"
+GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGpTQJjzoutni0CvlcaRsJ9sM8dM-Wzv4g74PkjZRkYslmdIZcho6nhB9zfMw7wOe9/exec"
+GOOGLE_SCRIPT_API_KEY = "transobra-email-key-2026"
 
 [assets]
 directory = "dist"

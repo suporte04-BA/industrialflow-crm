@@ -80,6 +80,8 @@ export function useCreateAssinatura() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['assinaturas'] });
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['contratos'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

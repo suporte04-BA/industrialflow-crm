@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>TransObra - Google Apps Script</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background: #f9fafb; }
+    h1 { color: #1a1a1a; }
+    .step { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; }
+    .step h3 { margin: 0 0 8px; color: #374151; }
+    .step p { margin: 4px 0; color: #6b7280; font-size: 14px; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .code-block { background: #1a1a2e; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+    .btn { display: inline-block; background: #eab308; color: #1a1a1a; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 8px 0; }
+    .btn:hover { background: #ca8a04; }
+  </style>
+</head>
+<body>
+  <h1>TransObra - Configuracao do Email</h1>
+  <p>Siga os passos abaixo para configurar o envio de email via Google Apps Script.</p>
+
+  <div class="step">
+    <h3>Passo 1: Acesse o Google Apps Script</h3>
+    <p>Acesse: <a href="https://script.google.com" target="_blank">https://script.google.com</a></p>
+    <p>Faca login com a conta <code>transobras.no.replay@gmail.com</code></p>
+  </div>
+
+  <div class="step">
+    <h3>Passo 2: Crie um novo projeto</h3>
+    <p>Clique em "Novo projeto" e cole o codigo abaixo no editor.</p>
+  </div>
+
+  <div class="step">
+    <h3>Passo 3: Cole o codigo</h3>
+    <p>Selecione todo o codigo existente, delete e cole o codigo abaixo:</p>
+    <div class="code-block" id="code"></div>
+    <button class="btn" onclick="copyCode()">Copiar Codigo</button>
+  </div>
+
+  <div class="step">
+    <h3>Passo 4: Salve e deploy</h3>
+    <p>1. Faca login com a conta <code>transobras.no.replay@gmail.com</code></p>
+    <p>2. Clique em "Novo projeto" e cole o codigo abaixo</p>
+    <p>3. Faca login com a conta <code>transobras.no.replay@gmail.com</code></p>
+    <p>4. Salve o projeto com nome "TransObra Email"</p>
+    <p>5. Clique em "Implantar" -> "Nova implantacao"</p>
+    <p>6. Tipo: "API Web", Execute como: "Eu", Quem pode acessar: "Qualquer pessoa"</p>
+    <p>7. Copie a URL da implantacao</p>
+    <p>8. Atualize a variavel <code>GOOGLE_SCRIPT_URL</code> no <code>wrangler.toml</code></p>
+  </div>
+
+  <div class="step">
+    <h3>Passo 5: Verifique</h3>
+    <p>Acesse a URL da implantacao no navegador. Deve retornar:</p>
+    <p><code>{"status":"ok","message":"TransObra Email API v3"}</code></p>
+  </div>
+
+  <script>
+    const code = `const API_KEY = 'transobra-email-key-2026';
+const SENDER_NAME = 'TransObra - Gestao de Locacao';
+const REPLY_TO = 'transobras.no.replay@gmail.com';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+
+    if (data.apiKey !== API_KEY) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: 'Invalid API key' })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (!data.to || !data.subject) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: 'Missing "to" or "subject"' })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const recipients = data.to.split(',').map(r => r.trim()).filter(Boolean);
+
+    for (const recipient of recipients) {
+      GmailApp.sendEmail(recipient, data.subject, data.body || '', {
+        htmlBody: data.htmlBody || null,
+        name: SENDER_NAME,
+        replyTo: REPLY_TO,
+        noReply: true,
+      });
+
+      if (recipients.length > 1) {
+        Utilities.sleep(1000);
+      }
+    }
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: true, sent: recipients.length })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: err.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: 'ok', message: 'TransObra Email API v3' })
+  ).setMimeType(ContentService.MimeType.JSON);
+}`;
+
+    document.getElementById('code').textContent = code;
+
+    function copyCode() {
+      navigator.clipboard.writeText(code).then(() => {
+        alert('Codigo copiado!');
+      });
+    }
+  </script>
+</body>
+</html>

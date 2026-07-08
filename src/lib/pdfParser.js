@@ -21,6 +21,7 @@ export async function extractTextFromPDF(file) {
         str: item.str,
         x: Math.round(item.transform[4]),
         y: Math.round(item.transform[5]),
+        width: Math.round(item.width),
       }))
       .filter(item => item.str.trim().length > 0);
 
@@ -44,7 +45,19 @@ export async function extractTextFromPDF(file) {
 
     for (const row of rows) {
       row.sort((a, b) => a.x - b.x);
-      const line = row.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
+
+      const parts = [];
+      let lastX = 0;
+      for (const item of row) {
+        const gap = item.x - lastX;
+        if (gap > 20 && parts.length > 0) {
+          parts.push('  ');
+        }
+        parts.push(item.str);
+        lastX = item.x + (item.width || item.str.length * 6);
+      }
+
+      const line = parts.join(' ').replace(/\s+/g, ' ').trim();
       if (line.length > 0) {
         fullText += line + '\n';
       }

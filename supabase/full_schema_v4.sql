@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS contratos (
   fim DATE NOT NULL,
   valor_total DECIMAL(10,2) DEFAULT 0,
   valor_mensal DECIMAL(10,2) DEFAULT 0,
-  status TEXT DEFAULT 'ativo' CHECK (status IN ('ativo', 'vencendo', 'vencido', 'cancelado')),
+  status TEXT DEFAULT 'ativo' CHECK (status IN ('ativo', 'vencendo', 'vencido', 'cancelado', 'entregue')),
   assinado BOOLEAN DEFAULT FALSE,
   endereco TEXT,
   bairro TEXT,
@@ -68,6 +68,16 @@ CREATE TABLE IF NOT EXISTS contratos (
   telefone TEXT,
   email TEXT,
   contato TEXT,
+  numero_endereco TEXT,
+  data_contrato TEXT,
+  hora_contrato TEXT,
+  atendente TEXT,
+  rg TEXT,
+  numero TEXT,
+  local_entrega TEXT,
+  telefone_entrega TEXT,
+  itens JSONB DEFAULT '[]',
+  observacao TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

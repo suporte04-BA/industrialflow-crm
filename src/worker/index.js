@@ -34,6 +34,13 @@ function json(data, status = 200, corsHeaders = null) {
   });
 }
 
+function computeVencimentoDias(dataFim) {
+  if (!dataFim) return null;
+  const hoje = new Date();
+  const fim = new Date(dataFim);
+  return Math.ceil((fim - hoje) / (1000 * 60 * 60 * 24));
+}
+
 function isValidId(id) {
   return id && /^[a-zA-Z0-9_-]{1,128}$/.test(id) && !id.includes('/');
 }
@@ -87,6 +94,212 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
   return { status: res.status, data };
 }
 
+function buildAssunto(tipo, contrato, comprovante) {
+  const numero = contrato?.numero || contrato?.id || comprovante?.contrato || '';
+  const cliente = contrato?.cliente || '';
+  switch (tipo) {
+    case 'contrato_criado': return `Novo Contrato ${numero} - ${cliente}`;
+    case 'contrato_assinado': return `Contrato ${numero} assinado - ${cliente}`;
+    case 'contrato_renovado': return `Contrato ${numero} renovado - ${cliente}`;
+    case 'devolucao_registrada': return `Devolucao registrada - Contrato ${numero}`;
+    case 'role_change': return `Alteracao de funcao - ${contrato?.nome || cliente}`;
+    default: return `TransObra - Notificacao ${numero}`;
+  }
+}
+
+function emailFooter() {
+  return `
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:14px;color:#6b7280;text-align:center;line-height:1.6;">
+      <p style="margin:0 0 4px;"><strong>TransObra - Gestao de Locacao de Equipamentos</strong></p>
+      <p style="margin:0 0 4px;">Rua Exemplo, 123 - Centro - Salvador/BA - CEP 40000-000</p>
+      <p style="margin:0 0 4px;">Telefone: (71) 99999-0000</p>
+      <p style="margin:0 0 4px;">E-mail: contato@transobra.com.br</p>
+      <p style="margin:0 0 4px;">CNPJ: 00.000.000/0001-00</p>
+      <p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">Este e um e-mail automatico do sistema TransObra.</p>
+      <p style="margin:0;font-size:12px;color:#9ca3af;">Se nao deseja mais receber, entre em contato conosco.</p>
+    </div>`;
+}
+
+function htmlWrapper(headerColor, headerTitle, content) {
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;">
+    <div style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <div style="background:${headerColor};padding:24px 28px;">
+        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${headerTitle}</h1>
+      </div>
+      <div style="padding:28px;">
+        ${content}
+        ${emailFooter()}
+      </div>
+    </div></body></html>`;
+}
+
+function infoRow(label, value) {
+  return `<tr>
+    <td style="padding:10px 12px;font-size:15px;color:#6b7280;width:45%;border-bottom:1px solid #f3f4f6;">${label}</td>
+    <td style="padding:10px 12px;font-size:15px;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${value}</td>
+  </tr>`;
+}
+
+function buildContratoCriadoHtml(contrato) {
+  const num = escapeHtml(contrato?.numero || contrato?.id || '-');
+  const cliente = escapeHtml(contrato?.cliente || '-');
+  const cnpj = escapeHtml(contrato?.cnpj || '-');
+  const equipamentos = Array.isArray(contrato?.equipamentos) ? escapeHtml(contrato.equipamentos.join(', ')) : '-';
+  const valor = Number(contrato?.valorMensal || 0).toLocaleString('pt-BR');
+  const inicio = escapeHtml(contrato?.inicio || '-');
+  const fim = escapeHtml(contrato?.fim || '-');
+  const endereco = escapeHtml([contrato?.endereco, contrato?.numero_endereco, contrato?.bairro].filter(Boolean).join(', ') || '-');
+
+  const content = `
+    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">Um <strong>novo contrato</strong> foi cadastrado no sistema. Abaixo estao os dados:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${infoRow('Contrato', num)}
+      ${infoRow('Cliente', cliente)}
+      ${infoRow('CNPJ/CPF', cnpj)}
+      ${infoRow('Equipamentos', equipamentos)}
+      ${infoRow('Periodo', `${inicio} a ${fim}`)}
+      ${infoRow('Valor Mensal', `R$ ${valor}/mes`)}
+      ${infoRow('Endereco de Entrega', endereco)}
+    </table>
+    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes deste contrato.</p>`;
+
+  return htmlWrapper('#eab308', 'Novo Contrato Cadastrado', content);
+}
+
+function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
+  const num = escapeHtml(contrato?.numero || contrato?.id || comprovante?.contrato || '-');
+  const cliente = escapeHtml(contrato?.cliente || comprovante?.locatario || '-');
+  const nome = escapeHtml(signatario?.nome || '-');
+  const data = signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-';
+
+  const content = `
+    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">O contrato abaixo foi <strong>assinado digitalmente</strong> com sucesso:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${infoRow('Contrato', num)}
+      ${infoRow('Cliente', cliente)}
+      ${infoRow('Assinado por', nome)}
+      ${infoRow('Data da Assinatura', data)}
+    </table>
+    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+
+  return htmlWrapper('#22c55e', 'Contrato Assinado', content);
+}
+
+function buildContratoRenovadoHtml(contrato) {
+  const num = escapeHtml(contrato?.numero || contrato?.id || '-');
+  const cliente = escapeHtml(contrato?.cliente || '-');
+  const fim = escapeHtml(contrato?.fim || '-');
+  const valor = Number(contrato?.valorMensal || 0).toLocaleString('pt-BR');
+
+  const content = `
+    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">O contrato abaixo foi <strong>renovado</strong> com sucesso:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${infoRow('Contrato', num)}
+      ${infoRow('Cliente', cliente)}
+      ${infoRow('Nova Validade', fim)}
+      ${infoRow('Valor Mensal', `R$ ${valor}/mes`)}
+    </table>
+    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+
+  return htmlWrapper('#3b82f6', 'Contrato Renovado', content);
+}
+
+function buildDevolucaoHtml(contrato, comprovante) {
+  const num = escapeHtml(contrato?.numero || contrato?.id || comprovante?.contrato || '-');
+  const cliente = escapeHtml(contrato?.cliente || comprovante?.locatario || '-');
+
+  const content = `
+    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">Uma <strong>devolucao de equipamento</strong> foi registrada no sistema:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${infoRow('Contrato', num)}
+      ${infoRow('Cliente', cliente)}
+    </table>
+    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+
+  return htmlWrapper('#f97316', 'Devolucao Registrada', content);
+}
+
+function buildRoleChangeHtml(usuario) {
+  const nome = escapeHtml(usuario?.nome || '-');
+  const email = escapeHtml(usuario?.email || '-');
+  const novaFuncao = escapeHtml(usuario?.novaFuncao || '-');
+
+  const content = `
+    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">A <strong>funcao</strong> de um usuario foi alterada no sistema:</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${infoRow('Usuario', nome)}
+      ${infoRow('E-mail', email)}
+      ${infoRow('Nova Funcao', novaFuncao)}
+    </table>
+    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+
+  return htmlWrapper('#8b5cf6', 'Alteracao de Funcao', content);
+}
+
+function buildPlainText(tipo, contrato, comprovante, signatario, usuario) {
+  const num = contrato?.numero || contrato?.id || comprovante?.contrato || '-';
+  const cliente = contrato?.cliente || comprovante?.locatario || '-';
+  const footer = '\n\n====================================\nTransObra - Gestao de Locacao de Equipamentos\nRua Exemplo, 123 - Centro - Salvador/BA - CEP 40000-000\nTelefone: (71) 99999-0000\nE-mail: contato@transobra.com.br\nCNPJ: 00.000.000/0001-00\n====================================\n\nEste e um e-mail automatico do sistema TransObra.\nSe nao deseja mais receber, entre em contato conosco.';
+  switch (tipo) {
+    case 'contrato_criado':
+      return `NOVO CONTRATO CADASTRADO - TransObra\n\nUm novo contrato foi cadastrado no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : '-'}\nPeriodo: ${contrato?.inicio || '-'} a ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mes\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    case 'contrato_assinado':
+      return `CONTRATO ASSINADO - TransObra\n\nO contrato foi assinado digitalmente com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nAssinado por: ${signatario?.nome || '-'}\nData da Assinatura: ${signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    case 'contrato_renovado':
+      return `CONTRATO RENOVADO - TransObra\n\nO contrato foi renovado com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nNova Validade: ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mes\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    case 'devolucao_registrada':
+      return `DEVOLUCAO REGISTRADA - TransObra\n\nUma devolucao de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    case 'role_change':
+      return `ALTERACAO DE FUNCAO - TransObra\n\nA funcao de um usuario foi alterada no sistema.\n\nUsuario: ${usuario?.nome || '-'}\nE-mail: ${usuario?.email || '-'}\nNova Funcao: ${usuario?.novaFuncao || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    default:
+      return `NOTIFICACAO - TransObra\n\nContrato: ${num}\nCliente: ${cliente}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+  }
+}
+
+async function sendEmailViaGoogleScript(env, data) {
+  const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
+
+  let htmlBody = '';
+  switch (tipo) {
+    case 'contrato_criado': htmlBody = buildContratoCriadoHtml(contrato); break;
+    case 'contrato_assinado': htmlBody = buildContratoAssinadoHtml(contrato, comprovante, signatario); break;
+    case 'contrato_renovado': htmlBody = buildContratoRenovadoHtml(contrato); break;
+    case 'devolucao_registrada': htmlBody = buildDevolucaoHtml(contrato, comprovante); break;
+    case 'role_change': htmlBody = buildRoleChangeHtml(usuario); break;
+    default: htmlBody = buildContratoCriadoHtml(contrato);
+  }
+
+  const plainBody = buildPlainText(tipo, contrato, comprovante, signatario, usuario);
+  const assunto = buildAssunto(tipo, contrato, comprovante);
+
+  const scriptUrl = env.GOOGLE_SCRIPT_URL;
+  if (!scriptUrl) {
+    return { success: false, error: 'GOOGLE_SCRIPT_URL not configured' };
+  }
+
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: destinatario,
+        subject: assunto,
+        body: plainBody,
+        htmlBody: htmlBody,
+        apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
+      }),
+    });
+
+    const result = await res.json();
+    if (res.ok && result.success) {
+      return { success: true };
+    }
+    return { success: false, error: result.error || `Apps Script returned ${res.status}` };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 export default {
   async fetch(request, env) {
     const corsHeaders = getCorsHeaders(request);
@@ -125,6 +338,11 @@ export default {
           const eqData = Array.isArray(eq.data) ? eq.data : [];
           const ctData = Array.isArray(ct.data) ? ct.data : [];
 
+          const ctWithVencimento = ctData.map(c => ({
+            ...c,
+            vencimentoDias: computeVencimentoDias(c.fim),
+          }));
+
           return json({
             metricas: {
               totalOS: osData.length,
@@ -133,13 +351,15 @@ export default {
               equipamentosLocados: eqData.filter(e => e.status === 'locado').length,
               equipamentosDisponiveis: eqData.filter(e => e.status === 'disponivel').length,
               equipamentosManutencao: eqData.filter(e => e.status === 'manutencao').length,
-              contratosAtivos: ctData.filter(c => c.status === 'ativo').length,
-              contratosVencendo: ctData.filter(c => c.status === 'vencendo').length,
-              contratosVencidos: ctData.filter(c => c.status === 'vencido').length,
-              receitaMensal: ctData.filter(c => c.status === 'ativo').reduce((s, c) => s + (c.valor_mensal || 0), 0),
+              contratosAtivos: ctWithVencimento.filter(c => c.status === 'ativo').length,
+              contratosVencendo: ctWithVencimento.filter(c => c.vencimentoDias != null && c.vencimentoDias > 0 && c.vencimentoDias <= 30).length,
+              contratosVencidos: ctWithVencimento.filter(c => c.vencimentoDias != null && c.vencimentoDias <= 0).length,
+              receitaMensal: ctWithVencimento.filter(c => c.status === 'ativo').reduce((s, c) => s + (c.valor_mensal || 0), 0),
             },
             recentOS: osData.slice(0, 5),
-            alertasContratos: ctData.filter(c => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado),
+            alertasContratos: ctWithVencimento.filter(c =>
+              (c.vencimentoDias != null && c.vencimentoDias <= 30) || !c.assinado
+            ),
           }, 200, corsHeaders);
         } catch (err) {
           return json({ error: 'Failed to fetch dashboard' }, 500, corsHeaders);
@@ -275,44 +495,43 @@ export default {
       if (path === '/api/email/send' && method === 'POST') {
         const parsed = await parseBody(request);
         if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-        const { contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
+        const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
         const destinatario = reqDest || env.EMAIL_RECIPIENT || 'gestores@transobra.com.br';
+        const emailTipo = tipo || 'contrato_assinado';
 
         let emailStatus = 'pendente';
         let erroMsg = null;
 
         try {
-          const edgeRes = await fetch(`${env.SUPABASE_URL}/functions/v1/send-email`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ contrato, comprovante, signatario, destinatario }),
+          const result = await sendEmailViaGoogleScript(env, {
+            tipo: emailTipo,
+            destinatario,
+            contrato,
+            comprovante,
+            signatario,
           });
-          const edgeData = await edgeRes.json();
-          if (edgeRes.ok && edgeData.success) {
-            emailStatus = 'enviado';
-          } else {
-            erroMsg = edgeData.error ? JSON.stringify(edgeData.error) : 'Edge function failed';
-            emailStatus = 'erro';
-          }
+          emailStatus = result.success ? 'enviado' : 'erro';
+          erroMsg = result.error || null;
         } catch (e) {
           erroMsg = e.message;
           emailStatus = 'erro';
         }
 
-        await supabaseRequest(env, 'POST', '/email_logs', {
-          contrato_id: contrato_id || null,
-          comprovante_id: comprovante_id || null,
-          destinatario,
-          assunto: `Contrato ${contrato?.id || comprovante?.contrato || ''} assinado`,
-          corpo: JSON.stringify({ contrato, comprovante, signatario }),
-          status: emailStatus,
-          erro_msg: erroMsg,
-        });
+        const assunto = buildAssunto(emailTipo, contrato, comprovante);
 
-        return json({ success: true, status: emailStatus }, 200, corsHeaders);
+        try {
+          await supabaseRequest(env, 'POST', '/email_logs', {
+            contrato_id: contrato_id || null,
+            comprovante_id: comprovante_id || null,
+            destinatario,
+            assunto,
+            corpo: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario }),
+            status: emailStatus,
+            erro_msg: erroMsg,
+          });
+        } catch { /* email logging is best-effort */ }
+
+        return json({ success: emailStatus === 'enviado', status: emailStatus }, 200, corsHeaders);
       }
 
       if (path.startsWith('/api/edge/')) {

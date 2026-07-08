@@ -14,6 +14,12 @@ function parseDate(value) {
   const str = String(value).trim();
   if (!str || str === '-' || str === 'undefined' || str === 'null') return null;
 
+  // ISO datetime: YYYY-MM-DDTHH:MM:SSZ or similar
+  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+    const dt = new Date(str);
+    return !isNaN(dt.getTime()) ? dt : null;
+  }
+
   // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     const [y, m, d] = str.split('-').map(Number);

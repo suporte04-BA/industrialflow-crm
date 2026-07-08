@@ -42,10 +42,30 @@ export function useDashboard() {
       const eqLocados = eq.filter((e) => e.status === 'locado').length;
       const eqDisponiveis = eq.filter((e) => e.status === 'disponivel').length;
       const eqManutencao = eq.filter((e) => e.status === 'manutencao').length;
-      const ctAtivos = ct.filter((c) => c.status === 'ativo').length;
-      const ctVencendo = ct.filter((c) => c.status === 'vencendo').length;
-      const ctVencidos = ct.filter((c) => c.status === 'vencido').length;
-      const receitaMensal = ct.filter((c) => c.status === 'ativo').reduce((sum, c) => sum + (c.valorMensal || 0), 0);
+      const ctAtivos = ct.filter((c) => {
+        const ef = c.vencimentoDias != null
+          ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
+          : c.status;
+        return ef === 'ativo';
+      }).length;
+      const ctVencendo = ct.filter((c) => {
+        const ef = c.vencimentoDias != null
+          ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
+          : c.status;
+        return ef === 'vencendo';
+      }).length;
+      const ctVencidos = ct.filter((c) => {
+        const ef = c.vencimentoDias != null
+          ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
+          : c.status;
+        return ef === 'vencido';
+      }).length;
+      const receitaMensal = ct.filter((c) => {
+        const ef = c.vencimentoDias != null
+          ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
+          : c.status;
+        return ef === 'ativo';
+      }).reduce((sum, c) => sum + (c.valorMensal || 0), 0);
 
       const now = new Date();
       const mesesLabels = [];
@@ -78,7 +98,7 @@ export function useDashboard() {
         },
         recentOS: os.slice(0, 5),
         alertasContratos: ct.filter(
-          (c) => c.status === 'vencendo' || c.status === 'vencido' || !c.assinado
+          (c) => (c.vencimentoDias != null && c.vencimentoDias <= 30) || !c.assinado
         ),
       };
     },

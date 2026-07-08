@@ -7,6 +7,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [viewRole, setViewRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
@@ -91,18 +92,28 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasRole = (requiredRole) => {
-    if (!profile) return false;
-    if (profile.role === 'admin') return true;
-    return profile.role === requiredRole;
+    const activeRole = viewRole || profile?.role;
+    if (!activeRole) return false;
+    if (activeRole === 'admin') return true;
+    return activeRole === requiredRole;
   };
 
-  const isGestor = useMemo(() => profile?.role === 'gestor' || profile?.role === 'admin', [profile]);
-  const isFuncionario = useMemo(() => profile?.role === 'funcionario', [profile]);
+  const isGestor = useMemo(() => {
+    const activeRole = viewRole || profile?.role;
+    return activeRole === 'gestor' || activeRole === 'admin';
+  }, [profile, viewRole]);
+
+  const isFuncionario = useMemo(() => {
+    const activeRole = viewRole || profile?.role;
+    return activeRole === 'funcionario' || activeRole === 'user';
+  }, [profile, viewRole]);
 
   return (
     <AuthContext.Provider value={{
       user,
       profile,
+      viewRole,
+      setViewRole,
       isAuthenticated,
       isLoadingAuth,
       logout,

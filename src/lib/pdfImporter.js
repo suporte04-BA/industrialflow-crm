@@ -12,7 +12,7 @@ export async function parseComprovantePDF(file) {
 
 function cleanValue(val) {
   if (!val) return '';
-  return val.replace(/^[:\s]+/, '').replace(/[:\s]+$/, '').replace(/\s+/g, ' ').trim();
+  return val.replace(/^[:\s/]+/, '').replace(/[:\s/]+$/, '').replace(/\s+/g, ' ').trim();
 }
 
 function findAfterLabel(lines, patterns, opts = {}) {
@@ -72,6 +72,7 @@ function extractFields(lines) {
     observacao: '',
     local_entrega: '',
     telefone_entrega: '',
+    equipamentos: [],
     itens: [],
     valores: { subtotal: 0, desconto: 0, frete: 0, total: 0 },
   };
@@ -113,7 +114,7 @@ function extractFields(lines) {
   ]);
 
   fields.cpf_cnpj = findAfterLabel(lines, [
-    /(?:CPF|CNPJ)\s*[:.]?\s*([\d./-]+)/i,
+    /(?:CPF|CNPJ)\s*[:.]?\s*\/?\s*([\d./-]+)/i,
   ]);
 
   fields.rg = findAfterLabel(lines, [
@@ -164,10 +165,43 @@ function extractFields(lines) {
     /(?:Observação|Observacao|Observações|Obs\.?)\s*[:.]\s*(.+)/i,
   ]);
 
+  fields.equipamentos = extractEquipamentos(lines);
   fields.itens = extractItems(lines);
   fields.valores = extractValues(lines);
 
   return fields;
+}
+
+function extractEquipamentos(lines) {
+  const equipamentos = [];
+
+  const equipLabelPattern = /(?:Equipamento|EQUIPAMENTO|Maquina|Máquina|Bem|Item)\s*(?:\d+\s*[:.]\s*|[:.]+\s*)(.+)/i;
+
+  const excludePattern = /devem|condicoes|condições|entrega|manutencao|manutenção|conta\s+da|locadora|por\s+conta|preventiva|mesmas/i;
+
+  for (const line of lines) {
+    const match = line.match(equipLabelPattern);
+    if (match) {
+      const equip = cleanValue(match[1]);
+      if (equip.length > 2 && !equipamentos.includes(equip) && !excludePattern.test(equip)) {
+        equipamentos.push(equip);
+      }
+    }
+  }
+
+  if (equipamentos.length === 0) {
+    for (const line of lines) {
+      if (excludePattern.test(line)) continue;
+      if (/(?:Escavadeira|Grua|Trator|Compactador|Empilhadeira|Retroescavadeira|Perfuratriz|Pa\s+Carregadeira|Carregadeira|Mini\s+Pa|Backhoe|Bulldozer|Motor\s+Estacionário|Gerador|Compressor)/i.test(line)) {
+        const parts = line.split(/\d/)[0].trim();
+        if (parts.length > 3 && !equipamentos.some(e => line.toLowerCase().includes(e.toLowerCase()))) {
+          equipamentos.push(parts);
+        }
+      }
+    }
+  }
+
+  return equipamentos;
 }
 
 function extractNumeroFromEndereco(lines, endereco, contrato) {
@@ -193,14 +227,15 @@ function isFieldLine(line) {
   return FIELD_LINE_PATTERN.test(line);
 }
 
+const valuePattern = /(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{4,}(?:[.,]\d{1,2})?)/;
+const datePattern = /(\d{2}[/-]\d{2}[/-]\d{2,4})/;
+
 function extractItems(lines) {
   const items = [];
-  const valuePattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/;
-  const datePattern = /(\d{2}[/-]\d{2}[/-]\d{2,4})/;
 
   let startIdx = 0;
   for (let i = 0; i < lines.length; i++) {
-    if (/(?:DESCRIÇÃO|Descricao|ITEM|Item|Qtde|Quantidade|Descri|Bem|Equipamento|BENFEITORIAS?)/i.test(lines[i])) {
+    if (/(?:DESCRIÇÃO|Descricao|ITEM|Item|Qtde|Quantidade|Descri|Bem|Equipamento|BENFEITORIAS?|DESCRI)/i.test(lines[i])) {
       startIdx = i + 1;
       break;
     }
@@ -240,14 +275,14 @@ function extractItems(lines) {
       dates.push(m[1]);
     }
 
-    const qtyMatch = line.match(/^(?:\s*)(\d{1,3})\s/);
+    const qtyMatch = line.match(/(?:^|\s)(\d{1,3})\s/);
     const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
     const patrimMatch = line.match(/(?:Patrim\.?|PATRIM\.?)\s*(\d+)/i);
     const patrimonio = patrimMatch ? patrimMatch[1] : '';
 
     let desc = line
-      .replace(/^(?:\d{1,3})\s+/, '')
+      .replace(/^(?:\s*\d{1,3}\s+)?/, '')
       .replace(new RegExp(valuePattern, 'g'), '')
       .replace(new RegExp(datePattern, 'g'), '')
       .replace(/Patrim\.?\s*\d+/gi, '')
@@ -257,7 +292,7 @@ function extractItems(lines) {
       .replace(/\s+/g, ' ')
       .trim();
 
-    if (desc.length >= 1) {
+    if (desc.length >= 2) {
       items.push({
         descricao: desc,
         quantidade: qty,
@@ -289,11 +324,11 @@ function extractItems(lines) {
 
       const patrimMatch = line.match(/(?:Patrim\.?|PATRIM\.?)\s*(\d+)/i);
 
-      const qtyMatch = line.match(/^(?:\s*)(\d{1,3})\s/);
+      const qtyMatch = line.match(/(?:^|\s)(\d{1,3})\s/);
       const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
       let desc = line
-        .replace(/^(?:\d{1,3})\s+/, '')
+        .replace(/^(?:\s*\d{1,3}\s+)?/, '')
         .replace(new RegExp(valuePattern, 'g'), '')
         .replace(new RegExp(datePattern, 'g'), '')
         .replace(/Patrim\.?\s*\d+/gi, '')
@@ -303,7 +338,7 @@ function extractItems(lines) {
         .replace(/\s+/g, ' ')
         .trim();
 
-      if (desc.length >= 1) {
+      if (desc.length >= 2) {
         items.push({
           descricao: desc,
           quantidade: qty,

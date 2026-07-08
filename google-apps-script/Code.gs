@@ -12,13 +12,19 @@ function doPost(e) {
       ).setMimeType(ContentService.MimeType.JSON);
     }
 
-    if (!data.to || !data.subject) {
-      return ContentService.createTextOutput(
-        JSON.stringify({ success: false, error: 'Missing "to" or "subject"' })
-      ).setMimeType(ContentService.MimeType.JSON);
+    // Accept both "to" (string) and "recipients" (array) formats
+    let recipients = [];
+    if (Array.isArray(data.recipients)) {
+      recipients = data.recipients.filter(Boolean);
+    } else if (data.to) {
+      recipients = data.to.split(',').map(r => r.trim()).filter(Boolean);
     }
 
-    const recipients = data.to.split(',').map(r => r.trim()).filter(Boolean);
+    if (recipients.length === 0 || !data.subject) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: 'Missing recipients or subject' })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
 
     const inlineImages = {};
     if (data.inlineImages && typeof data.inlineImages === 'object') {

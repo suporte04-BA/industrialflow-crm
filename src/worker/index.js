@@ -456,7 +456,7 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
   }
 }
 
-// Email fallback order: Resend (SPF/DKIM/DMARC) → Maileroo (custom domain) → Google Apps Script (consumer Gmail - spam risk)
+// Email fallback order: Google Apps Script (inline images) → Maileroo (DKIM) → Resend (SPF/DKIM)
 async function sendEmailWithFallback(env, data) {
   const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
 
@@ -472,11 +472,9 @@ async function sendEmailWithFallback(env, data) {
   const plainBody = buildPlainText(tipo, contrato, comprovante, signatario, usuario);
   const assunto = buildAssunto(tipo, contrato, comprovante);
 
-  // 1st: Resend (proper SPF/DKIM/DMARC - best deliverability)
-  if (env.RESEND_API_KEY) {
-    const result = await sendEmailViaResend(env, assunto, htmlBody, destinatario);
-    if (result.success) return { ...result, provider: 'resend' };
-  }
+  // 1st: Google Apps Script (supports inline images via cid:)
+  const gasResult = await sendEmailViaGoogleScript(env, data);
+  if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
 
   // 2nd: Maileroo (custom domain with DKIM)
   if (env.MAILEROO_API_KEY) {
@@ -484,9 +482,11 @@ async function sendEmailWithFallback(env, data) {
     if (result.success) return result;
   }
 
-  // 3rd: Google Apps Script (last resort - consumer Gmail has DMARC issues)
-  const gasResult = await sendEmailViaGoogleScript(env, data);
-  if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
+  // 3rd: Resend (proper SPF/DKIM/DMARC, no inline images)
+  if (env.RESEND_API_KEY) {
+    const result = await sendEmailViaResend(env, assunto, htmlBody, destinatario);
+    if (result.success) return { ...result, provider: 'resend' };
+  }
 
   return { success: false, error: `All providers failed. Last: ${gasResult.error}` };
 }

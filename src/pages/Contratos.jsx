@@ -48,39 +48,8 @@ export default function Contratos() {
   const clearSearch = () => { setSearchInput(''); setFilters(prev => ({ ...prev, search: '' })); };
 
   const handleCreate = async (data) => {
-    const result = await createCt.mutateAsync(data);
+    await createCt.mutateAsync(data);
     toast.success('Contrato criado com sucesso!');
-    try {
-      const emailBody = {
-        tipo: 'contrato_criado',
-        contrato_id: result?.id || null,
-        destinatario: '',
-        contrato: {
-          id: result?.id || '',
-          numero: result?.numero || data.numero || '',
-          cliente: result?.cliente || data.cliente || '',
-          cnpj: result?.cnpj || data.cnpj || '',
-          equipamentos: result?.equipamentos || data.equipamentos || [],
-          inicio: result?.inicio || data.inicio || '',
-          fim: result?.fim || data.fim || '',
-          valorMensal: result?.valorMensal || data.valorMensal || 0,
-          valorTotal: result?.valorTotal || data.valorTotal || 0,
-          atendente: result?.atendente || data.atendente || '',
-          localEntrega: result?.localEntrega || data.localEntrega || '',
-          cidade: result?.cidade || data.cidade || '',
-          estado: result?.estado || data.estado || '',
-        },
-      };
-      const emailRes = await fetch('/api/email/send', {
-        method: 'POST',
-        headers: await getEmailHeaders(),
-        body: JSON.stringify(emailBody),
-      });
-      const emailResult = await emailRes.json().catch(() => ({}));
-      if (!emailRes.ok || emailResult.error) {
-        toast.warning('Email de novo contrato falhou: ' + (emailResult.error || 'Erro desconhecido'));
-      }
-    } catch (e) { toast.warning('Email de novo contrato falhou: ' + e.message); }
   };
 
   const handleUpdate = async (data) => {

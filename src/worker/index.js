@@ -299,9 +299,9 @@ ${sectionBlock('Dados da Devolucao', '#111827', '#f97316', r)}
 }
 
 function buildRoleChangeHtml(usuario) {
-  const nome = escapeHtml(usuario?.nome || '-');
-  const email = escapeHtml(usuario?.email || '-');
-  const novaFuncao = escapeHtml(usuario?.novaFuncao || '-');
+  const nome = esc(usuario?.nome || '-');
+  const email = esc(usuario?.email || '-');
+  const novaFuncao = esc(usuario?.novaFuncao || '-');
 
   const r = [
     row('Usuario', nome, { bold: true }),
@@ -744,6 +744,57 @@ export default {
           return json(edgeData, edgeRes.status, corsHeaders);
         } catch {
           return json({ error: 'Edge function call failed' }, 502, corsHeaders);
+        }
+      }
+
+      if (path.startsWith('/api/users/')) {
+        const segments = path.split('/');
+        const action = segments[segments.length - 1];
+
+        if (action === 'create' && method === 'POST') {
+          const parsed = await parseBody(request);
+          if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+          try {
+            const { email, password, full_name, role } = parsed.data;
+            const result = await supabaseRequest(env, 'POST', '/auth/v1/admin/users', {
+              email, password, email_confirm: true,
+              user_metadata: { full_name, role },
+            }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+            return json(result.data, result.status, corsHeaders);
+          } catch (e) {
+            return json({ error: e.message }, 500, corsHeaders);
+          }
+        }
+
+        if (action === 'role-change' && method === 'POST') {
+          const parsed = await parseBody(request);
+          if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+          const { user_id, user_name, user_email, new_role } = parsed.data;
+          try {
+            await supabaseRequest(env, 'PATCH', `/profiles?id=eq.${user_id}`, { role: new_role }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+          } catch { /* best effort */ }
+          try {
+            const emailResult = await sendEmailWithFallback(env, {
+              tipo: 'role_change',
+              destinatario: user_email,
+              usuario: { nome: user_name, email: user_email, novaFuncao: new_role },
+            });
+            return json({ success: emailResult.success, status: emailResult.success ? 'enviado' : 'erro' }, 200, corsHeaders);
+          } catch {
+            return json({ success: false, status: 'erro' }, 200, corsHeaders);
+          }
+        }
+
+        if (action === 'delete' && method === 'POST') {
+          const parsed = await parseBody(request);
+          if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+          try {
+            const { user_id } = parsed.data;
+            const result = await supabaseRequest(env, 'DELETE', `/auth/v1/admin/users/${user_id}`, null, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+            return json(result.data, result.status, corsHeaders);
+          } catch (e) {
+            return json({ error: e.message }, 500, corsHeaders);
+          }
         }
       }
 

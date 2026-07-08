@@ -210,6 +210,14 @@ export default function DevolucaoEntrega() {
         contrato_id: devolucao.contratoId || null,
         comprovante_id: devolucao.comprovanteId || null,
         destinatario: '',
+        contrato: {
+          numero: devolucao.numero,
+          cliente: devolucao.locatario || '',
+        },
+        comprovante: {
+          contrato: devolucao.numero,
+          locatario: devolucao.locatario || '',
+        },
         devolucao: {
           numero: devolucao.numero,
           locatario: devolucao.locatario,

@@ -112,19 +112,24 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const PAGE_W = 595, PAGE_H = 842, ML = 45, MR = 45;
   const CW = PAGE_W - ML - MR, TOP_MARGIN = PAGE_H - 40, BOTTOM_MARGIN = 55;
+  const LABEL_W = 130;
   let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   let y = TOP_MARGIN;
+  let pageCount = 1;
 
   function checkPage(needed) {
     if (y - needed < BOTTOM_MARGIN) {
-      drawFooter(page);
+      drawFooter(page, pageCount);
       page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pageCount++;
       y = TOP_MARGIN;
     }
   }
-  function drawFooter(p) {
-    p.drawRectangle({ x: ML, y: 38, width: CW, height: 1, color: rgb(0.07, 0.09, 0.15) });
-    p.drawText('TRANSOBRA CRM - Sistema de Gestao de Locacao', { x: ML + 4, y: 42, size: 7, font: helvetica, color: rgb(0.5, 0.5, 0.5) });
+  function drawFooter(p, num) {
+    p.drawRectangle({ x: ML, y: 38, width: CW, height: 1, color: rgb(0.82, 0.82, 0.82) });
+    p.drawText('TRANSOBRA CRM - Sistema de Gestao de Locacao', { x: ML + 4, y: 42, size: 7, font: helvetica, color: rgb(0.55, 0.55, 0.55) });
+    p.drawText(`Pagina ${num}`, { x: PAGE_W - MR - 40, y: 42, size: 7, font: helvetica, color: rgb(0.55, 0.55, 0.55) });
+    p.drawText('AV TARUMA, 1605 - MANAUS/AM - (92) 99386-7171', { x: ML + 4, y: 32, size: 6.5, font: helvetica, color: rgb(0.65, 0.65, 0.65) });
   }
   function wrapText(text, font, fontSize, maxWidth) {
     const words = String(text || '-').split(/\s+/);
@@ -143,9 +148,9 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
       const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
       let logoImage;
       try { logoImage = await pdfDoc.embedJpg(logoBytes); } catch { logoImage = await pdfDoc.embedPng(logoBytes); }
-      const logoW = 110, logoH = (logoImage.height / logoImage.width) * logoW;
+      const logoW = 120, logoH = (logoImage.height / logoImage.width) * logoW;
       page.drawImage(logoImage, { x: ML, y: y - logoH + 8, width: logoW, height: logoH });
-      y -= logoH + 10;
+      y -= logoH + 12;
     }
   } catch {
     page.drawText('TRANSOBRA - LOCACAO DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: rgb(0, 0, 0) });
@@ -153,43 +158,50 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
   }
 
   page.drawText('AV TARUMA, 1605 - MANAUS/AM - (92) 99386-7171', { x: ML, y, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4) });
-  y -= 8;
-  page.drawRectangle({ x: ML, y: y - 2, width: CW, height: 2.5, color: rgb(0.92, 0.70, 0.06) });
-  y -= 20;
-  page.drawText((title || '').toUpperCase(), { x: ML, y, size: 13, font: helveticaBold, color: rgb(0, 0, 0) });
+  y -= 6;
+  page.drawRectangle({ x: ML, y: y - 1, width: CW, height: 3, color: rgb(0.92, 0.70, 0.06) });
   y -= 22;
 
+  page.drawText((title || '').toUpperCase(), { x: ML, y, size: 14, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
+  y -= 8;
+  page.drawRectangle({ x: ML, y: y - 1, width: 60, height: 2, color: rgb(0.92, 0.70, 0.06) });
+  y -= 24;
+
   for (const sec of sections) {
-    checkPage(33);
+    checkPage(40);
     if (sec.title) {
-      page.drawRectangle({ x: ML, y: y - 3, width: CW, height: 18, color: rgb(0.07, 0.09, 0.15) });
-      page.drawText(sec.title.toUpperCase(), { x: ML + 8, y: y + 1, size: 8.5, font: helveticaBold, color: rgb(1, 1, 1) });
-      y -= 22;
+      page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
+      page.drawText(sec.title.toUpperCase(), { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
+      y -= 28;
     }
     const items = (sec.items || []).filter(Boolean);
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const label = (item.label || '') + ':';
       const valueStr = String(item.value || '-');
-      const valueLines = wrapText(valueStr, helvetica, 9, CW - 158);
-      const neededH = Math.max(15, valueLines.length * 12 + 4);
+      const valueLines = wrapText(valueStr, helvetica, 9.5, CW - LABEL_W - 20);
+      const neededH = Math.max(22, valueLines.length * 13 + 8);
       checkPage(neededH);
-      const bgColor = i % 2 === 0 ? rgb(0.97, 0.97, 0.97) : rgb(1, 1, 1);
+
+      const bgColor = i % 2 === 0 ? rgb(0.96, 0.96, 0.98) : rgb(1, 1, 1);
       page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: bgColor });
-      page.drawText(label, { x: ML + 6, y: y - 2, size: 9, font: helveticaBold, color: rgb(0.15, 0.15, 0.15) });
+
+      page.drawText(label, { x: ML + 8, y: y - 1, size: 9, font: helveticaBold, color: rgb(0.12, 0.12, 0.12) });
+
       for (let li = 0; li < valueLines.length; li++) {
-        page.drawText(valueLines[li], { x: ML + 158, y: y - 2 - li * 12, size: 9, font: helvetica, color: rgb(0.25, 0.25, 0.25) });
+        page.drawText(valueLines[li], { x: ML + LABEL_W + 10, y: y - 1 - li * 13, size: 9.5, font: helvetica, color: rgb(0.22, 0.22, 0.22) });
       }
       y -= neededH;
     }
-    y -= 6;
+    y -= 10;
   }
 
   if (signatureImgB64) {
     try {
-      checkPage(100); y -= 4;
-      page.drawText('Assinatura Digital:', { x: ML + 4, y, size: 10, font: helveticaBold, color: rgb(0, 0, 0) });
-      y -= 10;
+      checkPage(120); y -= 6;
+      page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
+      page.drawText('ASSINATURA DIGITAL', { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
+      y -= 30;
       let pngBytes;
       if (signatureImgB64.startsWith('data:image')) {
         pngBytes = Uint8Array.from(atob(signatureImgB64.split(',')[1]), c => c.charCodeAt(0));
@@ -197,14 +209,14 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
         pngBytes = Uint8Array.from(atob(signatureImgB64), c => c.charCodeAt(0));
       }
       const sigImage = await pdfDoc.embedPng(pngBytes);
-      const displayW = 200, finalH = Math.min((sigImage.height / sigImage.width) * displayW, 70);
-      page.drawRectangle({ x: ML + 2, y: y - finalH - 4, width: displayW + 4, height: finalH + 4, borderWidth: 1, borderColor: rgb(0, 0, 0), color: rgb(1, 1, 1) });
-      page.drawImage(sigImage, { x: ML + 4, y: y - finalH - 2, width: displayW, height: finalH });
-      y -= finalH + 16;
+      const displayW = 220, finalH = Math.min((sigImage.height / sigImage.width) * displayW, 80);
+      page.drawRectangle({ x: ML + 2, y: y - finalH - 6, width: displayW + 8, height: finalH + 8, borderWidth: 1.5, borderColor: rgb(0.75, 0.75, 0.75), color: rgb(1, 1, 1), borderRadius: 4 });
+      page.drawImage(sigImage, { x: ML + 6, y: y - finalH - 2, width: displayW, height: finalH });
+      y -= finalH + 20;
     } catch (e) { console.error('[PDF] Signature embed failed:', e.message); }
   }
 
-  drawFooter(page);
+  drawFooter(page, pageCount);
   return await pdfDoc.saveAsBase64();
 }
 
@@ -273,25 +285,44 @@ function buildContratoCriadoHtml(contrato) {
     c.rg ? row('RG', fmt(c.rg)) : '',
     c.atendente ? row('Atendente', fmt(c.atendente)) : '',
     row('Tipo', `<span style="display:inline-block;background:#EAB308;color:#111827;font-size:10px;font-weight:800;padding:3px 10px;text-transform:uppercase;letter-spacing:0.5px;">ENTREGA</span>`),
+  ].filter(Boolean).join('');
+
+  const equipSection = [
     row('Equipamentos', esc(equips)),
     c.inicio ? row('Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
     c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
-    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
   ].filter(Boolean).join('');
 
-  return emailWrapper(`
+  const addrSection = [
+    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+    c.cidade ? row('Cidade', `${fmt(c.cidade)}${c.estado ? `/${esc(c.estado)}` : ''}`) : '',
+    c.cep ? row('CEP', fmt(c.cep)) : '',
+    c.contato ? row('Contato', fmt(c.contato)) : '',
+    c.telefone ? row('Telefone', fmt(c.telefone)) : '',
+  ].filter(Boolean).join('');
+
+  let html = `
 ${brandHeader('Novo Contrato', 'SISTEMA DE GESTAO DE LOCACAO', 'ENTREGA', '#111827', '#EAB308')}
 <tr><td style="padding:28px 30px 12px;">
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Novo Contrato Cadastrado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Um novo contrato foi registrado no sistema.</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Um novo contrato foi registrado no sistema. Confira os detalhes abaixo.</div>
 ${sectionBlock('Dados do Contrato', '#111827', '#EAB308', r)}
+${sectionBlock('Equipamentos e Valores', '#111827', '#EAB308', equipSection)}`;
+
+  if (addrSection) {
+    html += `${sectionBlock('Endereco e Contato', '#111827', '#EAB308', addrSection)}`;
+  }
+
+  html += `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
 <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
 </td></tr></table>
-</td></tr>`);
+</td></tr>`;
+
+  return emailWrapper(html);
 }
 
 function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
@@ -382,23 +413,60 @@ ${sectionBlock('Dados da Renovacao', '#111827', '#3b82f6', r)}
 function buildDevolucaoHtml(contrato, comprovante) {
   const c = contrato || {};
   const comp = comprovante || {};
+  const dev = comp._devolucao || {};
+  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : (Array.isArray(comp.itens) ? comp.itens.map(i => i.nome || i.descricao || i).join(', ') : '');
+  const itens = Array.isArray(comp.itens) ? comp.itens : [];
 
   const r = [
-    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero || comp.contrato)}</span>`),
+    row('Numero', `<span style="font-size:16px;font-weight:900;color:#f97316;">${fmt(c.numero || comp.contrato)}</span>`),
     row('Cliente', fmt(c.cliente || comp.locatario), { bold: true }),
+    c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
+    c.telefone ? row('Telefone', fmt(c.telefone)) : '',
   ].filter(Boolean).join('');
 
-  return emailWrapper(`
+  const equipRows = equips ? [
+    row('Equipamentos', esc(equips)),
+    c.inicio ? row('Periodo Original', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
+  ].filter(Boolean).join('') : '';
+
+  const devRows = [
+    dev.data ? row('Data Devolucao', fmt(dev.data)) : '',
+    dev.hora ? row('Hora', fmt(dev.hora)) : '',
+    dev.localObra ? row('Local Obra', fmt(dev.localObra)) : '',
+    dev.signatarioNome ? row('Recebido por', fmt(dev.signatarioNome)) : '',
+    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+  ].filter(Boolean).join('');
+
+  const condRows = dev.condicoes ? row('Condicoes', fmt(dev.condicoes)) : '';
+
+  let html = `
 ${brandHeader('Devolucao Registrada', 'SISTEMA DE GESTAO DE LOCACAO', 'DEVOLUCAO', '#111827', '#f97316')}
 <tr><td style="padding:28px 30px 12px;">
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Devolucao de Equipamento</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Uma devolucao de equipamento foi registrada no sistema.</div>
-${sectionBlock('Dados da Devolucao', '#111827', '#f97316', r)}
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Uma devolucao de equipamento foi registrada no sistema. Confira os detalhes abaixo.</div>
+${sectionBlock('Dados do Contrato', '#111827', '#f97316', r)}`;
+
+  if (equipRows) {
+    html += `${sectionBlock('Dados da Locacao', '#111827', '#f97316', equipRows)}`;
+  }
+  if (devRows) {
+    html += `${sectionBlock('Dados da Devolucao', '#111827', '#f97316', devRows)}`;
+  }
+  if (condRows) {
+    html += `${sectionBlock('Observacoes', '#111827', '#f97316', condRows)}`;
+  }
+
+  html += `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
 <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
 </td></tr></table>
-</td></tr>`);
+</td></tr>`;
+
+  return emailWrapper(html);
 }
 
 function buildRoleChangeHtml(usuario) {
@@ -436,8 +504,11 @@ function buildPlainText(tipo, contrato, comprovante, signatario, usuario) {
       return `CONTRATO ASSINADO - TransObra\n\nO contrato foi assinado digitalmente com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nAssinado por: ${signatario?.nome || '-'}\nData da Assinatura: ${signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'contrato_renovado':
       return `CONTRATO RENOVADO - TransObra\n\nO contrato foi renovado com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nNova Validade: ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mes\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
-    case 'devolucao_registrada':
-      return `DEVOLUCAO REGISTRADA - TransObra\n\nUma devolucao de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    case 'devolucao_registrada': {
+      const dev = comprovante?._devolucao || {};
+      const equips = Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : (Array.isArray(comprovante?.itens) ? comprovante.itens.map(i => i.nome || i.descricao || i).join(', ') : '-');
+      return `DEVOLUCAO REGISTRADA - TransObra\n\nUma devolucao de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${equips}\nData Devolucao: ${dev.data || '-'}\nHora: ${dev.hora || '-'}\nLocal Obra: ${dev.localObra || '-'}\nRecebido por: ${dev.signatarioNome || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+    }
     case 'role_change':
       return `ALTERACAO DE FUNCAO - TransObra\n\nA funcao de um usuario foi alterada no sistema.\n\nUsuario: ${usuario?.nome || '-'}\nE-mail: ${usuario?.email || '-'}\nNova Funcao: ${usuario?.novaFuncao || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     default:
@@ -446,14 +517,18 @@ function buildPlainText(tipo, contrato, comprovante, signatario, usuario) {
 }
 
 async function sendEmailViaGoogleScript(env, data) {
-  const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
+  const { tipo, destinatario, contrato, comprovante, signatario, usuario, devolucao } = data;
 
   let htmlBody = '';
   switch (tipo) {
     case 'contrato_criado': htmlBody = buildContratoCriadoHtml(contrato); break;
     case 'contrato_assinado': htmlBody = buildContratoAssinadoHtml(contrato, comprovante, signatario); break;
     case 'contrato_renovado': htmlBody = buildContratoRenovadoHtml(contrato); break;
-    case 'devolucao_registrada': htmlBody = buildDevolucaoHtml(contrato, comprovante); break;
+    case 'devolucao_registrada': {
+      const devComp = { ...(comprovante || {}), _devolucao: devolucao || {} };
+      htmlBody = buildDevolucaoHtml(contrato, devComp);
+      break;
+    }
     case 'role_change': htmlBody = buildRoleChangeHtml(usuario); break;
     default: htmlBody = buildContratoCriadoHtml(contrato);
   }
@@ -470,53 +545,93 @@ async function sendEmailViaGoogleScript(env, data) {
   if (LOGO_BASE64) {
     inlineImages.logo = LOGO_BASE64;
   }
-  if (signatario?.assinaturaImagem) {
-    const raw = (signatario.assinaturaImagem.includes(',') ? signatario.assinaturaImagem.split(',')[1] : signatario.assinaturaImagem).replace(/\s/g, '').replace(/\n/g, '');
+  const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
+  if (sigImg) {
+    const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
     if (raw && raw.length > 100) {
       inlineImages.assinatura = raw;
     }
   }
 
   const attachments = [];
-  if (['contrato_assinado', 'contrato_renovado', 'contrato_criado'].includes(tipo)) {
+  if (['contrato_assinado', 'contrato_renovado', 'contrato_criado', 'devolucao_registrada'].includes(tipo)) {
     try {
       const pdfSections = [];
       if (contrato) {
         pdfSections.push({ title: 'Dados do Contrato', items: [
           { label: 'Numero', value: contrato.numero },
           { label: 'Cliente', value: contrato.cliente },
-          { label: 'CPF/CNPJ', value: contrato.cnpj || contrato.cpf_cnpj },
+          contrato.cnpj ? { label: 'CPF/CNPJ', value: contrato.cnpj || contrato.cpf_cnpj } : null,
+          contrato.rg ? { label: 'RG', value: contrato.rg } : null,
           contrato.atendente ? { label: 'Atendente', value: contrato.atendente } : null,
+          contrato.telefone ? { label: 'Telefone', value: contrato.telefone } : null,
+        ].filter(Boolean) });
+        const equipItems = [
           { label: 'Equipamentos', value: Array.isArray(contrato.equipamentos) ? contrato.equipamentos.join(', ') : '' },
           contrato.inicio ? { label: 'Periodo', value: `${contrato.inicio} a ${contrato.fim}` } : null,
-          contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}` } : null,
-          { label: 'Valor Total', value: contrato.valorTotal ? `R$ ${Number(contrato.valorTotal).toFixed(2)}` : '' },
+          contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}/mes` } : null,
+          contrato.valorTotal ? { label: 'Valor Total', value: `R$ ${Number(contrato.valorTotal).toFixed(2)}` } : null,
+        ].filter(Boolean);
+        if (equipItems.length > 0) {
+          pdfSections.push({ title: 'Equipamentos e Valores', items: equipItems });
+        }
+        const addrItems = [
           contrato.localEntrega ? { label: 'Local Entrega', value: contrato.localEntrega } : null,
-        ].filter(Boolean) });
+          contrato.endereco ? { label: 'Endereco', value: `${contrato.endereco}${contrato.numero_endereco ? `, ${contrato.numero_endereco}` : ''}${contrato.bairro ? ` - ${contrato.bairro}` : ''}` } : null,
+          contrato.cidade ? { label: 'Cidade', value: `${contrato.cidade}${contrato.estado ? `/${contrato.estado}` : ''}` } : null,
+          contrato.cep ? { label: 'CEP', value: contrato.cep } : null,
+          contrato.contato ? { label: 'Contato', value: contrato.contato } : null,
+        ].filter(Boolean);
+        if (addrItems.length > 0) {
+          pdfSections.push({ title: 'Endereco e Contato', items: addrItems });
+        }
       }
-      if (comprovante && tipo === 'contrato_assinado') {
-        pdfSections.push({ title: 'Dados da Entrega', items: [
-          { label: 'Locatario', value: comprovante.locatario },
-          { label: 'CPF', value: comprovante.cpf },
-          comprovante.endereco ? { label: 'Endereco', value: comprovante.endereco } : null,
-          { label: 'Total', value: comprovante.total ? `R$ ${Number(comprovante.total).toFixed(2)}` : '' },
-        ].filter(Boolean) });
+      if (tipo === 'contrato_assinado') {
+        if (comprovante) {
+          pdfSections.push({ title: 'Dados da Entrega', items: [
+            { label: 'Locatario', value: comprovante.locatario },
+            { label: 'CPF', value: comprovante.cpf },
+            comprovante.endereco ? { label: 'Endereco', value: comprovante.endereco } : null,
+            { label: 'Total', value: comprovante.total ? `R$ ${Number(comprovante.total).toFixed(2)}` : '' },
+          ].filter(Boolean) });
+        }
+        if (signatario) {
+          pdfSections.push({ title: 'Assinatura Digital', items: [
+            { label: 'Nome', value: signatario.nome },
+            { label: 'CPF', value: signatario.cpf },
+            { label: 'Data/Hora', value: signatario.data ? new Date(signatario.data).toLocaleString('pt-BR') : '' },
+          ] });
+        }
       }
-      if (signatario && tipo === 'contrato_assinado') {
-        pdfSections.push({ title: 'Assinatura Digital', items: [
-          { label: 'Nome', value: signatario.nome },
-          { label: 'CPF', value: signatario.cpf },
-          { label: 'Data/Hora', value: signatario.data ? new Date(signatario.data).toLocaleString('pt-BR') : '' },
-        ] });
+      if (tipo === 'devolucao_registrada') {
+        const devData = comprovante?._devolucao || data.devolucao || {};
+        const devItems = [
+          devData.data ? { label: 'Data Devolucao', value: devData.data } : null,
+          devData.hora ? { label: 'Hora', value: devData.hora } : null,
+          devData.localObra ? { label: 'Local Obra', value: devData.localObra } : null,
+          devData.signatarioNome ? { label: 'Recebido por', value: devData.signatarioNome } : null,
+          devData.condicoes ? { label: 'Condicoes', value: devData.condicoes } : null,
+        ].filter(Boolean);
+        if (devItems.length > 0) {
+          pdfSections.push({ title: 'Dados da Devolucao', items: devItems });
+        }
+        if (signatario) {
+          pdfSections.push({ title: 'Assinatura Digital', items: [
+            { label: 'Nome', value: signatario.nome || devData.signatarioNome },
+            { label: 'Data/Hora', value: signatario.data || devData.data ? `${devData.data || ''} ${devData.hora || ''}`.trim() : '' },
+          ] });
+        }
       }
       const pdfTitle = tipo === 'contrato_assinado' ? 'Comprovante de Entrega Assinado' :
-                        tipo === 'contrato_renovado' ? 'Contrato Renovado' : 'Novo Contrato';
-      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem);
+                        tipo === 'contrato_renovado' ? 'Contrato Renovado' :
+                        tipo === 'devolucao_registrada' ? 'Devolucao de Equipamento' : 'Novo Contrato';
+      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || (comprovante?._devolucao?.assinaturaImagem));
       const pdfName = tipo === 'contrato_assinado' ? `comprovante-entrega-${contrato?.numero || 'doc'}.pdf` :
                       tipo === 'contrato_renovado' ? `contrato-renovado-${contrato?.numero || 'doc'}.pdf` :
+                      tipo === 'devolucao_registrada' ? `devolucao-${contrato?.numero || comprovante?.contrato || 'doc'}.pdf` :
                       `contrato-${contrato?.numero || 'doc'}.pdf`;
       attachments.push({ filename: pdfName, content: pdfB64, mimeType: 'application/pdf' });
-    } catch { /* pdf is best-effort */ }
+    } catch (e) { console.error('[EMAIL] PDF attachment failed:', e.message); }
   }
 
   try {
@@ -608,14 +723,18 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
 
 // Email fallback order: Google Apps Script (inline images) → Maileroo (DKIM) → Resend (SPF/DKIM)
 async function sendEmailWithFallback(env, data) {
-  const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
+  const { tipo, destinatario, contrato, comprovante, signatario, usuario, devolucao } = data;
 
   let htmlBody = '';
   switch (tipo) {
     case 'contrato_criado': htmlBody = buildContratoCriadoHtml(contrato); break;
     case 'contrato_assinado': htmlBody = buildContratoAssinadoHtml(contrato, comprovante, signatario); break;
     case 'contrato_renovado': htmlBody = buildContratoRenovadoHtml(contrato); break;
-    case 'devolucao_registrada': htmlBody = buildDevolucaoHtml(contrato, comprovante); break;
+    case 'devolucao_registrada': {
+      const devComp = { ...(comprovante || {}), _devolucao: devolucao || {} };
+      htmlBody = buildDevolucaoHtml(contrato, devComp);
+      break;
+    }
     case 'role_change': htmlBody = buildRoleChangeHtml(usuario); break;
     default: htmlBody = buildContratoCriadoHtml(contrato);
   }

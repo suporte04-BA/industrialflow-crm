@@ -83,6 +83,30 @@ wrangler secret put SUPABASE_JWT_SECRET
 
 ---
 
+## EMAIL FALLBACK ORDER
+
+O sistema de email usa 3 providers em cadeia de fallback:
+
+| Ordem | Provider | Limite | Endpoint |
+|-------|----------|--------|----------|
+| 1 | **Google Apps Script** (primary) | 100 destinatários/dia (janela rolante 24h) | `script.google.com` |
+| 2 | **Maileroo** (secondary) | 3.000 emails/mês | `smtp.maileroo.com/api/v2` |
+| 3 | **Resend** (tertiary) | 3.000 emails/mês, 100/dia | `api.resend.com` |
+
+**Fluxo:** Tenta Google Apps Script → se falhar (quota/cota) → tenta Maileroo → se falhar → tenta Resend → se todos falharem → erro logado.
+
+**Secrets necessários no Worker:**
+- `GOOGLE_SCRIPT_URL` + `GOOGLE_SCRIPT_API_KEY` (em wrangler.toml [vars])
+- `MAILEROO_API_KEY` + `MAILEROO_FROM` (secret + var)
+- `RESEND_API_KEY` (secret)
+
+**Provider de dominio verificado:**
+- Maileroo: `notificacoes@a36a5312d126d178.maileroo.org`
+- Resend: `onboarding@resend.dev` (dominio padrao)
+- Google Apps Script: `transobras.no.replay@gmail.com` (Gmail)
+
+---
+
 ## EDGE FUNCTIONS DO SUPABASE
 
 ### Instalar Supabase CLI

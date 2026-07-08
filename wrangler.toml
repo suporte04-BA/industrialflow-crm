@@ -4,6 +4,13 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 account_id = "3b8a5aa418a5d7ae254ba675291f540c"
 
+# ============================================
+# Email Fallback Order:
+# 1. Google Apps Script (primary) - 100 recipients/day rolling 24h
+# 2. Maileroo (secondary) - 3,000 emails/month
+# 3. Resend (tertiary) - 3,000 emails/month, 100/day
+# ============================================
+
 [vars]
 EMAIL_RECIPIENT = "gestores@transobra.com.br"
 EMAIL_FROM = "TransObra <transobras.no.replay@gmail.com>"

@@ -358,6 +358,7 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
   }
 }
 
+// Email fallback order: Google Apps Script → Maileroo → Resend
 async function sendEmailWithFallback(env, data) {
   const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
 

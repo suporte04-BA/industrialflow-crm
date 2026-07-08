@@ -292,12 +292,97 @@ async function sendEmailViaGoogleScript(env, data) {
 
     const result = await res.json();
     if (res.ok && result.success) {
-      return { success: true };
+      return { success: true, _subject: assunto, _html: htmlBody };
     }
-    return { success: false, error: result.error || `Apps Script returned ${res.status}` };
+    return { success: false, error: result.error || `Apps Script returned ${res.status}`, _subject: assunto, _html: htmlBody };
   } catch (e) {
-    return { success: false, error: e.message };
+    return { success: false, error: e.message, _subject: assunto, _html: htmlBody };
   }
+}
+
+async function sendEmailViaResend(env, subject, html, destinatario) {
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) return { success: false, error: 'RESEND_API_KEY not configured' };
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || 'TransObra <onboarding@resend.dev>',
+        to: [destinatario],
+        subject,
+        html,
+        reply_to: 'transobras.no.replay@gmail.com',
+        headers: { 'X-Entity-Ref-ID': `transobra-${Date.now()}` },
+      }),
+    });
+    const data = await res.json();
+    if (res.ok && data.id) {
+      return { success: true, provider: 'resend' };
+    }
+    return { success: false, error: data.message || data.error || `Resend returned ${res.status}` };
+  } catch (err) {
+    return { success: false, error: `Resend request failed: ${err.message}` };
+  }
+}
+
+async function sendEmailViaMaileroo(env, subject, html, destinatario) {
+  const apiKey = env.MAILEROO_API_KEY;
+  if (!apiKey) return { success: false, error: 'MAILEROO_API_KEY not configured' };
+
+  const senderEmail = env.MAILEROO_FROM || 'notificacoes@transobra.app';
+  try {
+    const res = await fetch('https://smtp.maileroo.com/api/v2/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+      },
+      body: JSON.stringify({
+        from: { address: senderEmail, display_name: 'TransObra' },
+        to: [{ address: destinatario }],
+        subject,
+        html,
+        plain: html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(),
+        tags: { sistema: 'transobra' },
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      return { success: true, provider: 'maileroo' };
+    }
+    return { success: false, error: data.message || 'Maileroo returned error' };
+  } catch (err) {
+    return { success: false, error: `Maileroo request failed: ${err.message}` };
+  }
+}
+
+async function sendEmailWithFallback(env, data) {
+  const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
+
+  let htmlBody = '';
+  switch (tipo) {
+    case 'contrato_criado': htmlBody = buildContratoCriadoHtml(contrato); break;
+    case 'contrato_assinado': htmlBody = buildContratoAssinadoHtml(contrato, comprovante, signatario); break;
+    case 'contrato_renovado': htmlBody = buildContratoRenovadoHtml(contrato); break;
+    case 'devolucao_registrada': htmlBody = buildDevolucaoHtml(contrato, comprovante); break;
+    case 'role_change': htmlBody = buildRoleChangeHtml(usuario); break;
+    default: htmlBody = buildContratoCriadoHtml(contrato);
+  }
+  const plainBody = buildPlainText(tipo, contrato, comprovante, signatario, usuario);
+  const assunto = buildAssunto(tipo, contrato, comprovante);
+
+  let result = await sendEmailViaGoogleScript(env, data);
+  if (result.success) return { ...result, provider: 'google_apps_script' };
+
+  let fallbackResult = await sendEmailViaMaileroo(env, assunto, htmlBody, destinatario);
+  if (fallbackResult.success) return fallbackResult;
+
+  fallbackResult = await sendEmailViaResend(env, assunto, htmlBody, destinatario);
+  if (fallbackResult.success) return fallbackResult;
+
+  return { success: false, error: `All providers failed. Last: ${result.error}` };
 }
 
 export default {
@@ -503,7 +588,7 @@ export default {
         let erroMsg = null;
 
         try {
-          const result = await sendEmailViaGoogleScript(env, {
+          const result = await sendEmailWithFallback(env, {
             tipo: emailTipo,
             destinatario,
             contrato,

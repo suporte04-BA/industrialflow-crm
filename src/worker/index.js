@@ -1,3 +1,5 @@
+import { LOGO_BASE64 } from './logo-base64.js';
+
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
   'https://industrialflow-crm.pages.dev',
@@ -49,14 +51,23 @@ function sanitizeEdgeFuncName(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function esc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function fmt(v) {
+  if (v === null || v === undefined || v === '') return '-';
+  return esc(String(v));
+}
+
+function fmtMoney(v) {
+  return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+}
+
+function fmtDateBR(v) {
+  if (!v) return '-';
+  try { return new Date(v).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }); } catch { return esc(String(v)); }
 }
 
 async function parseBody(request) {
@@ -107,116 +118,184 @@ function buildAssunto(tipo, contrato, comprovante) {
   }
 }
 
-function emailFooter() {
-  return `
-    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:14px;color:#6b7280;text-align:center;line-height:1.6;">
-      <p style="margin:0 0 4px;"><strong>TransObra - Gestao de Locacao de Equipamentos</strong></p>
-      <p style="margin:0 0 4px;">Rua Exemplo, 123 - Centro - Salvador/BA - CEP 40000-000</p>
-      <p style="margin:0 0 4px;">Telefone: (71) 99999-0000</p>
-      <p style="margin:0 0 4px;">E-mail: contato@transobra.com.br</p>
-      <p style="margin:0 0 4px;">CNPJ: 00.000.000/0001-00</p>
-      <p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">Este e um e-mail automatico do sistema TransObra.</p>
-      <p style="margin:0;font-size:12px;color:#9ca3af;">Se nao deseja mais receber, entre em contato conosco.</p>
-    </div>`;
+function emailWrapper(content) {
+  const footer = `<tr><td style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:20px 30px;text-align:center;">
+<p style="font-size:11px;color:#6B7280;margin:0 0 6px 0;">TransObra - Locacao de Equipamentos</p>
+<p style="font-size:10px;color:#9CA3AF;margin:0 0 4px 0;">Endereco: Manaus, AM - Brasil | Tel: (92) 3300-0000</p>
+<p style="font-size:10px;color:#9CA3AF;margin:0;">Este e um email transacional enviado pelo sistema TransObra CRM.</p>
+</td></tr>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:#111827;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#111827;"><tr><td align="center" style="padding:32px 16px;">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:0;overflow:hidden;border-collapse:collapse;">${content}${footer}</table>
+</td></tr></table></body></html>`;
 }
 
-function htmlWrapper(headerColor, headerTitle, content) {
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;">
-    <div style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-      <div style="background:${headerColor};padding:24px 28px;">
-        <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${headerTitle}</h1>
-      </div>
-      <div style="padding:28px;">
-        ${content}
-        ${emailFooter()}
-      </div>
-    </div></body></html>`;
+function brandHeader(title, subtitle, badgeText, headerBg, badgeBg) {
+  const logoImg = `<img src="cid:logo" style="height:34px;width:auto;display:block;" alt="TransObra" />`;
+  return `<tr><td style="background:${headerBg};padding:0;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="padding:18px 30px 14px;">
+${logoImg}
+<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-top:6px;letter-spacing:2px;text-transform:uppercase;">${subtitle}</div>
+</td>
+<td align="right" valign="middle" style="padding:24px 30px 20px;">
+<div style="background:${badgeBg};color:${headerBg === '#EAB308' ? '#111827' : '#fff'};font-size:10px;font-weight:800;padding:6px 16px;border-radius:0;text-transform:uppercase;letter-spacing:1.5px;">${badgeText}</div>
+</td></tr>
+<tr><td colspan="2" style="height:4px;background:#EAB308;"></td></tr>
+</table>
+</td></tr>`;
 }
 
-function infoRow(label, value) {
-  return `<tr>
-    <td style="padding:10px 12px;font-size:15px;color:#6b7280;width:45%;border-bottom:1px solid #f3f4f6;">${label}</td>
-    <td style="padding:10px 12px;font-size:15px;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${value}</td>
-  </tr>`;
+function sectionBlock(title, headerColor, borderColor, rows) {
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-left:4px solid ${borderColor};margin-bottom:20px;">
+<tr><td style="padding:12px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-left:none;">
+<div style="font-size:11px;font-weight:800;color:${headerColor};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid ${borderColor};">${title}</div>
+<table width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+</td></tr></table>`;
+}
+
+function row(label, value, opts = {}) {
+  const { bold, color, w } = opts;
+  return `<tr><td style="padding:5px 0;color:#6b7280;width:${w || '130px'};vertical-align:top;font-size:12px;"><strong>${label}</strong></td><td style="padding:5px 0;color:${color || '#111827'};font-size:13px;${bold ? 'font-weight:700;' : ''}">${value}</td></tr>`;
 }
 
 function buildContratoCriadoHtml(contrato) {
-  const num = escapeHtml(contrato?.numero || contrato?.id || '-');
-  const cliente = escapeHtml(contrato?.cliente || '-');
-  const cnpj = escapeHtml(contrato?.cnpj || '-');
-  const equipamentos = Array.isArray(contrato?.equipamentos) ? escapeHtml(contrato.equipamentos.join(', ')) : '-';
-  const valor = Number(contrato?.valorMensal || 0).toLocaleString('pt-BR');
-  const inicio = escapeHtml(contrato?.inicio || '-');
-  const fim = escapeHtml(contrato?.fim || '-');
-  const endereco = escapeHtml([contrato?.endereco, contrato?.numero_endereco, contrato?.bairro].filter(Boolean).join(', ') || '-');
+  const c = contrato || {};
+  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
-  const content = `
-    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">Um <strong>novo contrato</strong> foi cadastrado no sistema. Abaixo estao os dados:</p>
-    <table style="width:100%;border-collapse:collapse;">
-      ${infoRow('Contrato', num)}
-      ${infoRow('Cliente', cliente)}
-      ${infoRow('CNPJ/CPF', cnpj)}
-      ${infoRow('Equipamentos', equipamentos)}
-      ${infoRow('Periodo', `${inicio} a ${fim}`)}
-      ${infoRow('Valor Mensal', `R$ ${valor}/mes`)}
-      ${infoRow('Endereco de Entrega', endereco)}
-    </table>
-    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes deste contrato.</p>`;
+  const r = [
+    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('Cliente', fmt(c.cliente), { bold: true }),
+    row('CPF/CNPJ', fmt(c.cnpj || c.cpf_cnpj)),
+    c.rg ? row('RG', fmt(c.rg)) : '',
+    c.atendente ? row('Atendente', fmt(c.atendente)) : '',
+    row('Tipo', `<span style="display:inline-block;background:#EAB308;color:#111827;font-size:10px;font-weight:800;padding:3px 10px;text-transform:uppercase;letter-spacing:0.5px;">ENTREGA</span>`),
+    row('Equipamentos', esc(equips)),
+    c.inicio ? row('Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
+    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+  ].filter(Boolean).join('');
 
-  return htmlWrapper('#eab308', 'Novo Contrato Cadastrado', content);
+  return emailWrapper(`
+${brandHeader('Novo Contrato', 'SISTEMA DE GESTAO DE LOCACAO', 'ENTREGA', '#111827', '#EAB308')}
+<tr><td style="padding:28px 30px 12px;">
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Novo Contrato Cadastrado</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Um novo contrato foi registrado no sistema.</div>
+${sectionBlock('Dados do Contrato', '#111827', '#EAB308', r)}
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+</td></tr></table>
+</td></tr>`);
 }
 
 function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
-  const num = escapeHtml(contrato?.numero || contrato?.id || comprovante?.contrato || '-');
-  const cliente = escapeHtml(contrato?.cliente || comprovante?.locatario || '-');
-  const nome = escapeHtml(signatario?.nome || '-');
-  const data = signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-';
+  const c = contrato || {};
+  const comp = comprovante || {};
+  const s = signatario || {};
+  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
-  const content = `
-    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">O contrato abaixo foi <strong>assinado digitalmente</strong> com sucesso:</p>
-    <table style="width:100%;border-collapse:collapse;">
-      ${infoRow('Contrato', num)}
-      ${infoRow('Cliente', cliente)}
-      ${infoRow('Assinado por', nome)}
-      ${infoRow('Data da Assinatura', data)}
-    </table>
-    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+  const rContrato = [
+    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('Cliente', fmt(c.cliente), { bold: true }),
+    c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
+    c.rg ? row('RG', fmt(c.rg)) : '',
+    c.atendente ? row('Atendente', fmt(c.atendente)) : '',
+    row('Equipamentos', esc(equips)),
+    c.inicio ? row('Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
+    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+    c.cidade ? row('Cidade/UF', `${fmt(c.cidade)}/${fmt(c.estado)}`) : '',
+    c.cep ? row('CEP', fmt(c.cep)) : '',
+    c.telefone ? row('Telefone', fmt(c.telefone)) : '',
+  ].filter(Boolean).join('');
 
-  return htmlWrapper('#22c55e', 'Contrato Assinado', content);
+  const rEntrega = [
+    row('Locatario', fmt(comp.locatario), { bold: true }),
+    comp.cpf ? row('CPF', fmt(comp.cpf)) : '',
+    comp.rg ? row('RG', fmt(comp.rg)) : '',
+    comp.endereco ? row('Endereco', fmt(comp.endereco)) : '',
+    comp.cidade ? row('Cidade', fmt(comp.cidade)) : '',
+    row('Total', `R$ ${fmtMoney(comp.total)}`, { bold: true, color: '#16a34a' }),
+  ].filter(Boolean).join('');
+
+  let assinaturaHtml = '';
+  if (s.nome) {
+    const sigImgTag = s.assinaturaImagem ? `<img src="${esc(s.assinaturaImagem)}" style="max-width:280px;height:auto;border:2px solid #22c55e;background:#fff;padding:8px;" alt="Assinatura" />` : '';
+    assinaturaHtml = sectionBlock('Assinatura Digital do Recebedor', '#166534', '#22c55e', [
+      row('Nome', fmt(s.nome), { bold: true }),
+      row('CPF', fmt(s.cpf)),
+      row('Data/Hora', s.data ? fmtDateBR(s.data) : '-'),
+      sigImgTag ? `<tr><td colspan="2" style="padding-top:10px;"><div style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;">ASSINATURA:</div>${sigImgTag}</td></tr>` : '',
+    ].filter(Boolean).join(''));
+  }
+
+  return emailWrapper(`
+${brandHeader('Comprovante de Entrega', 'COMPROVANTE DE ENTREGA ASSINADO DIGITALMENTE', 'ENTREGA', '#EAB308', '#111827')}
+<tr><td style="padding:28px 30px 12px;">
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Comprovante de Entrega Assinado</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. Valido como prova de recebimento.</div>
+${c.id ? sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato) : ''}
+${comp.id ? sectionBlock('Dados da Entrega', '#1e40af', '#2563eb', rEntrega) : ''}
+${assinaturaHtml}
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+</td></tr></table>
+</td></tr>`);
 }
 
 function buildContratoRenovadoHtml(contrato) {
-  const num = escapeHtml(contrato?.numero || contrato?.id || '-');
-  const cliente = escapeHtml(contrato?.cliente || '-');
-  const fim = escapeHtml(contrato?.fim || '-');
-  const valor = Number(contrato?.valorMensal || 0).toLocaleString('pt-BR');
+  const c = contrato || {};
+  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
-  const content = `
-    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">O contrato abaixo foi <strong>renovado</strong> com sucesso:</p>
-    <table style="width:100%;border-collapse:collapse;">
-      ${infoRow('Contrato', num)}
-      ${infoRow('Cliente', cliente)}
-      ${infoRow('Nova Validade', fim)}
-      ${infoRow('Valor Mensal', `R$ ${valor}/mes`)}
-    </table>
-    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+  const r = [
+    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('Cliente', fmt(c.cliente), { bold: true }),
+    c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
+    row('Equipamentos', esc(equips)),
+    c.inicio ? row('Novo Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
+  ].filter(Boolean).join('');
 
-  return htmlWrapper('#3b82f6', 'Contrato Renovado', content);
+  return emailWrapper(`
+${brandHeader('Contrato Renovado', 'SISTEMA DE GESTAO DE LOCACAO', 'RENOVACAO', '#111827', '#3b82f6')}
+<tr><td style="padding:28px 30px 12px;">
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Contrato Renovado</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O contrato foi renovado com sucesso.</div>
+${sectionBlock('Dados da Renovacao', '#111827', '#3b82f6', r)}
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+</td></tr></table>
+</td></tr>`);
 }
 
 function buildDevolucaoHtml(contrato, comprovante) {
-  const num = escapeHtml(contrato?.numero || contrato?.id || comprovante?.contrato || '-');
-  const cliente = escapeHtml(contrato?.cliente || comprovante?.locatario || '-');
+  const c = contrato || {};
+  const comp = comprovante || {};
 
-  const content = `
-    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">Uma <strong>devolucao de equipamento</strong> foi registrada no sistema:</p>
-    <table style="width:100%;border-collapse:collapse;">
-      ${infoRow('Contrato', num)}
-      ${infoRow('Cliente', cliente)}
-    </table>
-    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+  const r = [
+    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero || comp.contrato)}</span>`),
+    row('Cliente', fmt(c.cliente || comp.locatario), { bold: true }),
+  ].filter(Boolean).join('');
 
-  return htmlWrapper('#f97316', 'Devolucao Registrada', content);
+  return emailWrapper(`
+${brandHeader('Devolucao Registrada', 'SISTEMA DE GESTAO DE LOCACAO', 'DEVOLUCAO', '#111827', '#f97316')}
+<tr><td style="padding:28px 30px 12px;">
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Devolucao de Equipamento</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Uma devolucao de equipamento foi registrada no sistema.</div>
+${sectionBlock('Dados da Devolucao', '#111827', '#f97316', r)}
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+</td></tr></table>
+</td></tr>`);
 }
 
 function buildRoleChangeHtml(usuario) {
@@ -224,16 +303,23 @@ function buildRoleChangeHtml(usuario) {
   const email = escapeHtml(usuario?.email || '-');
   const novaFuncao = escapeHtml(usuario?.novaFuncao || '-');
 
-  const content = `
-    <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 20px;">A <strong>funcao</strong> de um usuario foi alterada no sistema:</p>
-    <table style="width:100%;border-collapse:collapse;">
-      ${infoRow('Usuario', nome)}
-      ${infoRow('E-mail', email)}
-      ${infoRow('Nova Funcao', novaFuncao)}
-    </table>
-    <p style="color:#6b7280;font-size:14px;margin-top:20px;line-height:1.5;">Acesse o sistema TransObra para visualizar todos os detalhes.</p>`;
+  const r = [
+    row('Usuario', nome, { bold: true }),
+    row('E-mail', email),
+    row('Nova Funcao', novaFuncao),
+  ].filter(Boolean).join('');
 
-  return htmlWrapper('#8b5cf6', 'Alteracao de Funcao', content);
+  return emailWrapper(`
+${brandHeader('Alteracao de Funcao', 'SISTEMA DE GESTAO DE LOCACAO', 'ADMIN', '#111827', '#8b5cf6')}
+<tr><td style="padding:28px 30px 12px;">
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Alteracao de Funcao</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">A funcao de um usuario foi alterada no sistema.</div>
+${sectionBlock('Dados da Alteracao', '#111827', '#8b5cf6', r)}
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+</td></tr></table>
+</td></tr>`);
 }
 
 function buildPlainText(tipo, contrato, comprovante, signatario, usuario) {
@@ -277,6 +363,11 @@ async function sendEmailViaGoogleScript(env, data) {
     return { success: false, error: 'GOOGLE_SCRIPT_URL not configured' };
   }
 
+  const inlineImages = {};
+  if (LOGO_BASE64) {
+    inlineImages.logo = LOGO_BASE64;
+  }
+
   try {
     const res = await fetch(scriptUrl, {
       method: 'POST',
@@ -287,6 +378,7 @@ async function sendEmailViaGoogleScript(env, data) {
         body: plainBody,
         htmlBody: htmlBody,
         apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
+        inlineImages,
       }),
     });
 

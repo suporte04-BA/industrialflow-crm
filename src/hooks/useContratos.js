@@ -3,7 +3,7 @@ import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
-import { contratos as mockContratos, comprovantes as mockComprovantes } from '../data/mockData';
+import { contratos as mockContratos } from '../data/mockData';
 
 const LOCAL_KEY = 'contratos_local';
 const COMP_LOCAL_KEY = 'comprovantes_local';

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, AlertTriangle, CheckCircle, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
@@ -219,9 +219,9 @@ export default function Contratos() {
         </div>
       )}
 
-      <ContratoModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} />
-      <ContratoModal isOpen={!!editingCt} onClose={() => setEditingCt(null)} onSave={handleUpdate} contrato={editingCt} />
-      <ContratoModal isOpen={!!renewTarget} onClose={() => setRenewTarget(null)} onSave={handleRenew} contrato={renewTarget} isRenew />
+      <ContratoModal key="create" isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} />
+      <ContratoModal key={editingCt?.id || 'edit'} isOpen={!!editingCt} onClose={() => setEditingCt(null)} onSave={handleUpdate} contrato={editingCt} />
+      <ContratoModal key={renewTarget?.id || 'renew'} isOpen={!!renewTarget} onClose={() => setRenewTarget(null)} onSave={handleRenew} contrato={renewTarget} isRenew />
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
         title="Excluir Contrato" message={`Tem certeza que deseja excluir o contrato ${deleteTarget?.id}? Esta acao nao pode ser desfeita.`}
         confirmLabel="Excluir" danger />

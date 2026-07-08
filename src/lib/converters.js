@@ -68,12 +68,6 @@ const SNAKE_TO_CAMEL = {
   numero_endereco: 'numeroEndereco',
   data_contrato: 'dataContrato',
   hora_contrato: 'horaContrato',
-  atendente: 'atendente',
-  rg: 'rg',
-  local_entrega: 'localEntrega',
-  telefone_entrega: 'telefoneEntrega',
-  itens: 'itens',
-  observacao: 'observacao',
 };
 
 const CAMEL_TO_SNAKE = {};

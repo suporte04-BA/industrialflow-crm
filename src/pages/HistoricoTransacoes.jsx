@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { History, FileText, PenLine, Package, ClipboardList, Building2, Search, Filter } from 'lucide-react';
+import { FileText, PenLine, Package, ClipboardList, Building2, Search } from 'lucide-react';
 import { useContratos } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
 import { useAssinaturas } from '../hooks/useAssinaturas';
@@ -33,7 +33,7 @@ export default function HistoricoTransacoes() {
   const { data: comprovantes, isLoading: l2 } = useComprovantes();
   const { data: assinaturas, isLoading: l3 } = useAssinaturas();
   const { data: ordens, isLoading: l4 } = useOrdensServico();
-  const { data: equipamentos, isLoading: l5 } = useEquipamentos();
+  const { isLoading: l5 } = useEquipamentos();
 
   const isLoading = l1 || l2 || l3 || l4 || l5;
 

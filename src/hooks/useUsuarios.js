@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, isConfigured } from '../lib/supabase';
-import { toCamel, toSnake } from '../lib/converters';
+import { toCamel } from '../lib/converters';
 import { nameToEmail } from '../lib/validation';
 
 const LOCAL_KEY = 'usuarios_local';
@@ -13,10 +13,7 @@ function saveLocal(items) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
 }
 
-function getGestorCount() {
-  const users = getLocal();
-  return users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
-}
+
 
 export function useUsuarios() {
   const query = useQuery({
@@ -100,7 +97,7 @@ export function useCreateUsuario() {
         }
 
         return { id: data.user?.id, fullName, email, role: role || 'funcionario' };
-      } catch (err) {
+      } catch {
         const local = {
           id: crypto.randomUUID(),
           fullName,
@@ -123,7 +120,7 @@ export function useCreateUsuario() {
 export function useUpdateUsuarioRole() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, role, currentUserId }) => {
+    mutationFn: async ({ id, role }) => {
       const users = getLocal();
       const targetUser = users.find((u) => u.id === id);
 

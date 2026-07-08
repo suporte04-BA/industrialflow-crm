@@ -6,13 +6,13 @@ account_id = "3b8a5aa418a5d7ae254ba675291f540c"
 
 # ============================================
 # Email Fallback Order:
-# 1. Google Apps Script (primary) - 100 recipients/day rolling 24h
-# 2. Maileroo (secondary) - 3,000 emails/month
-# 3. Resend (tertiary) - 3,000 emails/month, 100/day
+# 1. Resend (primary) - SPF/DKIM/DMARC, 100/day free tier
+# 2. Maileroo (secondary) - custom domain DKIM, 3,000/month
+# 3. Google Apps Script (last resort) - consumer Gmail, DMARC issues
 # ============================================
 
 [vars]
-EMAIL_RECIPIENT = "gestores@transobra.com.br"
+EMAIL_RECIPIENT = "suporte04@baeletrica.com.br"
 EMAIL_FROM = "TransObra <transobras.no.replay@gmail.com>"
 MAILEROO_FROM = "notificacoes@a36a5312d126d178.maileroo.org"
 GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZwI_X_0tZW3H3wQ__qeGi7KgpZmxOekrhZ4XV0WdcIhz3xjdLxGEm2ymfQNJsjUkV/exec"

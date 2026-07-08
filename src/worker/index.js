@@ -456,7 +456,7 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
   }
 }
 
-// Email fallback order: Google Apps Script → Maileroo → Resend
+// Email fallback order: Resend (SPF/DKIM/DMARC) → Maileroo (custom domain) → Google Apps Script (consumer Gmail - spam risk)
 async function sendEmailWithFallback(env, data) {
   const { tipo, destinatario, contrato, comprovante, signatario, usuario } = data;
 
@@ -472,16 +472,23 @@ async function sendEmailWithFallback(env, data) {
   const plainBody = buildPlainText(tipo, contrato, comprovante, signatario, usuario);
   const assunto = buildAssunto(tipo, contrato, comprovante);
 
-  let result = await sendEmailViaGoogleScript(env, data);
-  if (result.success) return { ...result, provider: 'google_apps_script' };
+  // 1st: Resend (proper SPF/DKIM/DMARC - best deliverability)
+  if (env.RESEND_API_KEY) {
+    const result = await sendEmailViaResend(env, assunto, htmlBody, destinatario);
+    if (result.success) return { ...result, provider: 'resend' };
+  }
 
-  let fallbackResult = await sendEmailViaMaileroo(env, assunto, htmlBody, destinatario);
-  if (fallbackResult.success) return fallbackResult;
+  // 2nd: Maileroo (custom domain with DKIM)
+  if (env.MAILEROO_API_KEY) {
+    const result = await sendEmailViaMaileroo(env, assunto, htmlBody, destinatario);
+    if (result.success) return result;
+  }
 
-  fallbackResult = await sendEmailViaResend(env, assunto, htmlBody, destinatario);
-  if (fallbackResult.success) return fallbackResult;
+  // 3rd: Google Apps Script (last resort - consumer Gmail has DMARC issues)
+  const gasResult = await sendEmailViaGoogleScript(env, data);
+  if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
 
-  return { success: false, error: `All providers failed. Last: ${result.error}` };
+  return { success: false, error: `All providers failed. Last: ${gasResult.error}` };
 }
 
 export default {
@@ -680,24 +687,51 @@ export default {
         const parsed = await parseBody(request);
         if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
         const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
-        const destinatario = reqDest || env.EMAIL_RECIPIENT || 'gestores@transobra.com.br';
         const emailTipo = tipo || 'contrato_assinado';
+
+        // Resolve recipients from Supabase profiles (gestores/admins)
+        let recipients = [];
+        try {
+          const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
+          const profilesResult = await supabaseRequest(env, 'GET', '/profiles?role=in.(admin,gestor)&select=email', null, serviceAuth);
+          if (profilesResult.data && Array.isArray(profilesResult.data) && profilesResult.data.length > 0) {
+            recipients = profilesResult.data.map((p) => p.email).filter(Boolean);
+          }
+        } catch { /* fallback below */ }
+        if (recipients.length === 0) {
+          recipients = [env.EMAIL_RECIPIENT || 'suporte04@baeletrica.com.br'];
+        }
+        // Add explicit destinatario if provided and valid
+        if (reqDest && typeof reqDest === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqDest) && !recipients.includes(reqDest)) {
+          recipients.push(reqDest);
+        }
 
         let emailStatus = 'pendente';
         let erroMsg = null;
+        let sentCount = 0;
 
-        try {
-          const result = await sendEmailWithFallback(env, {
-            tipo: emailTipo,
-            destinatario,
-            contrato,
-            comprovante,
-            signatario,
-          });
-          emailStatus = result.success ? 'enviado' : 'erro';
-          erroMsg = result.error || null;
-        } catch (e) {
-          erroMsg = e.message;
+        for (const recipient of recipients) {
+          try {
+            const result = await sendEmailWithFallback(env, {
+              tipo: emailTipo,
+              destinatario: recipient,
+              contrato,
+              comprovante,
+              signatario,
+            });
+            if (result.success) {
+              sentCount++;
+              emailStatus = 'enviado';
+            } else {
+              erroMsg = result.error || 'Email failed';
+            }
+          } catch (e) {
+            erroMsg = e.message;
+            emailStatus = 'erro';
+          }
+        }
+
+        if (sentCount === 0 && emailStatus !== 'enviado') {
           emailStatus = 'erro';
         }
 
@@ -707,15 +741,15 @@ export default {
           await supabaseRequest(env, 'POST', '/email_logs', {
             contrato_id: contrato_id || null,
             comprovante_id: comprovante_id || null,
-            destinatario,
+            destinatario: recipients.join(', '),
             assunto,
             corpo: JSON.stringify({ tipo: emailTipo, contrato, comprovante, signatario }),
             status: emailStatus,
-            erro_msg: erroMsg,
+            erro_msg: sentCount > 0 ? null : erroMsg,
           });
         } catch { /* email logging is best-effort */ }
 
-        return json({ success: emailStatus === 'enviado', status: emailStatus }, 200, corsHeaders);
+        return json({ success: emailStatus === 'enviado', status: emailStatus, sentTo: sentCount }, 200, corsHeaders);
       }
 
       if (path.startsWith('/api/edge/')) {
@@ -773,16 +807,31 @@ export default {
           try {
             await supabaseRequest(env, 'PATCH', `/profiles?id=eq.${user_id}`, { role: new_role }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
           } catch { /* best effort */ }
+
+          // Resolve recipients from Supabase profiles (gestores/admins) + the affected user
+          let recipients = [user_email].filter(Boolean);
           try {
-            const emailResult = await sendEmailWithFallback(env, {
-              tipo: 'role_change',
-              destinatario: user_email,
-              usuario: { nome: user_name, email: user_email, novaFuncao: new_role },
-            });
-            return json({ success: emailResult.success, status: emailResult.success ? 'enviado' : 'erro' }, 200, corsHeaders);
-          } catch {
-            return json({ success: false, status: 'erro' }, 200, corsHeaders);
+            const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
+            const profilesResult = await supabaseRequest(env, 'GET', '/profiles?role=in.(admin,gestor)&select=email', null, serviceAuth);
+            if (profilesResult.data && Array.isArray(profilesResult.data)) {
+              const adminEmails = profilesResult.data.map((p) => p.email).filter(Boolean);
+              recipients = [...new Set([...recipients, ...adminEmails])];
+            }
+          } catch { /* use default */ }
+
+          let sentCount = 0;
+          for (const recipient of recipients) {
+            try {
+              const emailResult = await sendEmailWithFallback(env, {
+                tipo: 'role_change',
+                destinatario: recipient,
+                usuario: { nome: user_name, email: user_email, novaFuncao: new_role },
+              });
+              if (emailResult.success) sentCount++;
+            } catch { /* best effort */ }
           }
+
+          return json({ success: sentCount > 0, status: sentCount > 0 ? 'enviado' : 'erro', sentTo: sentCount }, 200, corsHeaders);
         }
 
         if (action === 'delete' && method === 'POST') {

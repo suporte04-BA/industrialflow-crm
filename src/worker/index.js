@@ -1,3 +1,4 @@
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
 
 const ALLOWED_ORIGINS = [
@@ -103,6 +104,108 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
   try { data = JSON.parse(text); } catch { data = text; }
 
   return { status: res.status, data };
+}
+
+async function generatePdfBase64(title, sections, signatureImgB64) {
+  const pdfDoc = await PDFDocument.create();
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const PAGE_W = 595, PAGE_H = 842, ML = 45, MR = 45;
+  const CW = PAGE_W - ML - MR, TOP_MARGIN = PAGE_H - 40, BOTTOM_MARGIN = 55;
+  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  let y = TOP_MARGIN;
+
+  function checkPage(needed) {
+    if (y - needed < BOTTOM_MARGIN) {
+      drawFooter(page);
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      y = TOP_MARGIN;
+    }
+  }
+  function drawFooter(p) {
+    p.drawRectangle({ x: ML, y: 38, width: CW, height: 1, color: rgb(0.07, 0.09, 0.15) });
+    p.drawText('TRANSOBRA CRM - Sistema de Gestao de Locacao', { x: ML + 4, y: 42, size: 7, font: helvetica, color: rgb(0.5, 0.5, 0.5) });
+  }
+  function wrapText(text, font, fontSize, maxWidth) {
+    const words = String(text || '-').split(/\s+/);
+    const lines = []; let currentLine = '';
+    for (const word of words) {
+      const testLine = currentLine ? currentLine + ' ' + word : word;
+      if (font.widthOfTextAtSize(testLine, fontSize) > maxWidth && currentLine) { lines.push(currentLine); currentLine = word; }
+      else { currentLine = testLine; }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines.length > 0 ? lines : ['-'];
+  }
+
+  try {
+    if (LOGO_BASE64) {
+      const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
+      let logoImage;
+      try { logoImage = await pdfDoc.embedJpg(logoBytes); } catch { logoImage = await pdfDoc.embedPng(logoBytes); }
+      const logoW = 110, logoH = (logoImage.height / logoImage.width) * logoW;
+      page.drawImage(logoImage, { x: ML, y: y - logoH + 8, width: logoW, height: logoH });
+      y -= logoH + 10;
+    }
+  } catch {
+    page.drawText('TRANSOBRA - LOCACAO DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: rgb(0, 0, 0) });
+    y -= 16;
+  }
+
+  page.drawText('AV TARUMA, 1605 - MANAUS/AM - (92) 99386-7171', { x: ML, y, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4) });
+  y -= 8;
+  page.drawRectangle({ x: ML, y: y - 2, width: CW, height: 2.5, color: rgb(0.92, 0.70, 0.06) });
+  y -= 20;
+  page.drawText((title || '').toUpperCase(), { x: ML, y, size: 13, font: helveticaBold, color: rgb(0, 0, 0) });
+  y -= 22;
+
+  for (const sec of sections) {
+    checkPage(33);
+    if (sec.title) {
+      page.drawRectangle({ x: ML, y: y - 3, width: CW, height: 18, color: rgb(0.07, 0.09, 0.15) });
+      page.drawText(sec.title.toUpperCase(), { x: ML + 8, y: y + 1, size: 8.5, font: helveticaBold, color: rgb(1, 1, 1) });
+      y -= 22;
+    }
+    const items = (sec.items || []).filter(Boolean);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const label = (item.label || '') + ':';
+      const valueStr = String(item.value || '-');
+      const valueLines = wrapText(valueStr, helvetica, 9, CW - 158);
+      const neededH = Math.max(15, valueLines.length * 12 + 4);
+      checkPage(neededH);
+      const bgColor = i % 2 === 0 ? rgb(0.97, 0.97, 0.97) : rgb(1, 1, 1);
+      page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: bgColor });
+      page.drawText(label, { x: ML + 6, y: y - 2, size: 9, font: helveticaBold, color: rgb(0.15, 0.15, 0.15) });
+      for (let li = 0; li < valueLines.length; li++) {
+        page.drawText(valueLines[li], { x: ML + 158, y: y - 2 - li * 12, size: 9, font: helvetica, color: rgb(0.25, 0.25, 0.25) });
+      }
+      y -= neededH;
+    }
+    y -= 6;
+  }
+
+  if (signatureImgB64) {
+    try {
+      checkPage(100); y -= 4;
+      page.drawText('Assinatura Digital:', { x: ML + 4, y, size: 10, font: helveticaBold, color: rgb(0, 0, 0) });
+      y -= 10;
+      let pngBytes;
+      if (signatureImgB64.startsWith('data:image')) {
+        pngBytes = Uint8Array.from(atob(signatureImgB64.split(',')[1]), c => c.charCodeAt(0));
+      } else {
+        pngBytes = Uint8Array.from(atob(signatureImgB64), c => c.charCodeAt(0));
+      }
+      const sigImage = await pdfDoc.embedPng(pngBytes);
+      const displayW = 200, finalH = Math.min((sigImage.height / sigImage.width) * displayW, 70);
+      page.drawRectangle({ x: ML + 2, y: y - finalH - 4, width: displayW + 4, height: finalH + 4, borderWidth: 1, borderColor: rgb(0, 0, 0), color: rgb(1, 1, 1) });
+      page.drawImage(sigImage, { x: ML + 4, y: y - finalH - 2, width: displayW, height: finalH });
+      y -= finalH + 16;
+    } catch (e) { console.error('[PDF] Signature embed failed:', e.message); }
+  }
+
+  drawFooter(page);
+  return await pdfDoc.saveAsBase64();
 }
 
 function buildAssunto(tipo, contrato, comprovante) {
@@ -225,7 +328,7 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
 
   let assinaturaHtml = '';
   if (s.nome) {
-    const sigImgTag = s.assinaturaImagem ? `<img src="${esc(s.assinaturaImagem)}" style="max-width:280px;height:auto;border:2px solid #22c55e;background:#fff;padding:8px;" alt="Assinatura" />` : '';
+    const sigImgTag = s.assinaturaImagem ? `<img src="cid:assinatura" style="max-width:280px;height:auto;border:2px solid #22c55e;background:#fff;padding:8px;" alt="Assinatura" />` : '';
     assinaturaHtml = sectionBlock('Assinatura Digital do Recebedor', '#166534', '#22c55e', [
       row('Nome', fmt(s.nome), { bold: true }),
       row('CPF', fmt(s.cpf)),
@@ -374,6 +477,48 @@ async function sendEmailViaGoogleScript(env, data) {
     }
   }
 
+  const attachments = [];
+  if (['contrato_assinado', 'contrato_renovado', 'contrato_criado'].includes(tipo)) {
+    try {
+      const pdfSections = [];
+      if (contrato) {
+        pdfSections.push({ title: 'Dados do Contrato', items: [
+          { label: 'Numero', value: contrato.numero },
+          { label: 'Cliente', value: contrato.cliente },
+          { label: 'CPF/CNPJ', value: contrato.cnpj || contrato.cpf_cnpj },
+          contrato.atendente ? { label: 'Atendente', value: contrato.atendente } : null,
+          { label: 'Equipamentos', value: Array.isArray(contrato.equipamentos) ? contrato.equipamentos.join(', ') : '' },
+          contrato.inicio ? { label: 'Periodo', value: `${contrato.inicio} a ${contrato.fim}` } : null,
+          contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}` } : null,
+          { label: 'Valor Total', value: contrato.valorTotal ? `R$ ${Number(contrato.valorTotal).toFixed(2)}` : '' },
+          contrato.localEntrega ? { label: 'Local Entrega', value: contrato.localEntrega } : null,
+        ].filter(Boolean) });
+      }
+      if (comprovante && tipo === 'contrato_assinado') {
+        pdfSections.push({ title: 'Dados da Entrega', items: [
+          { label: 'Locatario', value: comprovante.locatario },
+          { label: 'CPF', value: comprovante.cpf },
+          comprovante.endereco ? { label: 'Endereco', value: comprovante.endereco } : null,
+          { label: 'Total', value: comprovante.total ? `R$ ${Number(comprovante.total).toFixed(2)}` : '' },
+        ].filter(Boolean) });
+      }
+      if (signatario && tipo === 'contrato_assinado') {
+        pdfSections.push({ title: 'Assinatura Digital', items: [
+          { label: 'Nome', value: signatario.nome },
+          { label: 'CPF', value: signatario.cpf },
+          { label: 'Data/Hora', value: signatario.data ? new Date(signatario.data).toLocaleString('pt-BR') : '' },
+        ] });
+      }
+      const pdfTitle = tipo === 'contrato_assinado' ? 'Comprovante de Entrega Assinado' :
+                        tipo === 'contrato_renovado' ? 'Contrato Renovado' : 'Novo Contrato';
+      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem);
+      const pdfName = tipo === 'contrato_assinado' ? `comprovante-entrega-${contrato?.numero || 'doc'}.pdf` :
+                      tipo === 'contrato_renovado' ? `contrato-renovado-${contrato?.numero || 'doc'}.pdf` :
+                      `contrato-${contrato?.numero || 'doc'}.pdf`;
+      attachments.push({ filename: pdfName, content: pdfB64, mimeType: 'application/pdf' });
+    } catch { /* pdf is best-effort */ }
+  }
+
   try {
     const res = await fetch(scriptUrl, {
       method: 'POST',
@@ -385,6 +530,7 @@ async function sendEmailViaGoogleScript(env, data) {
         htmlBody: htmlBody,
         apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
         inlineImages,
+        attachments,
       }),
     });
 
@@ -438,12 +584,16 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
         'X-Api-Key': apiKey,
       },
       body: JSON.stringify({
-        from: { address: senderEmail, display_name: 'TransObra' },
+        from: { address: senderEmail, display_name: 'TransObra - Gestao de Locacao' },
         to: [{ address: destinatario }],
         subject,
         html,
         plain: html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(),
         tags: { sistema: 'transobra' },
+        headers: {
+          'List-Unsubscribe': `<mailto:suporte04@baeletrica.com.br?subject=Descadastrar>`,
+          'X-Entity-Ref-ID': `transobra-${Date.now()}`,
+        },
       }),
     });
     const data = await res.json();
@@ -476,15 +626,27 @@ async function sendEmailWithFallback(env, data) {
   const gasResult = await sendEmailViaGoogleScript(env, data);
   if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
 
+  // Prepare HTML for providers that don't support cid: protocol
+  let htmlForFallback = htmlBody;
+  if (LOGO_BASE64) {
+    htmlForFallback = htmlForFallback.replace(/cid:logo/g, `data:image/jpeg;base64,${LOGO_BASE64}`);
+  }
+  if (signatario?.assinaturaImagem) {
+    const raw = (signatario.assinaturaImagem.includes(',') ? signatario.assinaturaImagem.split(',')[1] : signatario.assinaturaImagem).replace(/\s/g, '').replace(/\n/g, '');
+    if (raw && raw.length > 100) {
+      htmlForFallback = htmlForFallback.replace(/cid:assinatura/g, `data:image/png;base64,${raw}`);
+    }
+  }
+
   // 2nd: Maileroo (custom domain with DKIM)
   if (env.MAILEROO_API_KEY) {
-    const result = await sendEmailViaMaileroo(env, assunto, htmlBody, destinatario);
+    const result = await sendEmailViaMaileroo(env, assunto, htmlForFallback, destinatario);
     if (result.success) return result;
   }
 
   // 3rd: Resend (proper SPF/DKIM/DMARC, no inline images)
   if (env.RESEND_API_KEY) {
-    const result = await sendEmailViaResend(env, assunto, htmlBody, destinatario);
+    const result = await sendEmailViaResend(env, assunto, htmlForFallback, destinatario);
     if (result.success) return { ...result, provider: 'resend' };
   }
 

@@ -1,7 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isConfigured, storage } from '../lib/supabase';
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake } from '../lib/converters';
 import { useRealtime } from './useRealtime';
+
+const LOCAL_KEY = 'assinaturas_local';
+
+function getLocal() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; }
+}
+
+function saveLocal(items) {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
+}
 
 export function useAssinaturas(comprovanteId = null) {
   const queryClient = useQueryClient();
@@ -11,19 +21,19 @@ export function useAssinaturas(comprovanteId = null) {
     queryKey,
     queryFn: async () => {
       if (!isConfigured()) {
-        const stored = JSON.parse(localStorage.getItem('assinaturas_local') || '[]');
+        const stored = getLocal();
         return comprovanteId ? stored.filter((s) => s.comprovanteId === comprovanteId) : stored;
       }
       let q = supabase.from('assinaturas').select('*');
       if (comprovanteId) q = q.eq('comprovante_id', comprovanteId);
       const { data, error } = await q.order('data_assinatura', { ascending: false });
       if (error) {
-        const stored = JSON.parse(localStorage.getItem('assinaturas_local') || '[]');
+        const stored = getLocal();
         return comprovanteId ? stored.filter((s) => s.comprovanteId === comprovanteId) : stored;
       }
       return (data || []).map(toCamel);
     },
-    staleTime: 5000,
+    staleTime: 30000,
   });
 
   useRealtime('assinaturas', queryClient, queryKey);
@@ -43,38 +53,30 @@ export function useCreateAssinatura() {
     mutationFn: async ({ comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem }) => {
       if (isConfigured()) {
         try {
-          let imagemUrl = assinaturaImagem;
-          if (assinaturaImagem && assinaturaImagem.startsWith('data:image')) {
-            const blob = await fetch(assinaturaImagem).then((r) => r.blob());
-            const fileName = `assinaturas/${comprovanteId || 'temp'}_${Date.now()}.png`;
-            const uploadResult = await storage.upload('assinaturas', fileName, blob);
-            if (!uploadResult.error) {
-              imagemUrl = await storage.getUrl('assinaturas', fileName);
-            }
-          }
           const payload = toSnake({
             comprovanteId,
             nomeSignatario,
             cpfSignatario,
-            assinaturaImagem: imagemUrl,
+            assinaturaImagem: assinaturaImagem || null,
             ipAddress: null,
+            dataAssinatura: new Date().toISOString(),
           });
           const { data, error } = await supabase.from('assinaturas').insert(payload).select().single();
           if (error) throw error;
           return toCamel(data);
         } catch {
           const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString() };
-          const stored = JSON.parse(localStorage.getItem('assinaturas_local') || '[]');
+          const stored = getLocal();
           stored.unshift(local);
-          localStorage.setItem('assinaturas_local', JSON.stringify(stored));
+          saveLocal(stored);
           return local;
         }
       }
 
       const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString() };
-      const stored = JSON.parse(localStorage.getItem('assinaturas_local') || '[]');
+      const stored = getLocal();
       stored.unshift(local);
-      localStorage.setItem('assinaturas_local', JSON.stringify(stored));
+      saveLocal(stored);
       return local;
     },
     onSettled: () => {

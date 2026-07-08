@@ -86,7 +86,7 @@ export default function OSModal({ isOpen, onClose, onSave, os = null }) {
                 <input type="text" required value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
                   className="input-base" placeholder="Ex: Manutencao Preventiva" />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="input-base">
@@ -107,7 +107,7 @@ export default function OSModal({ isOpen, onClose, onSave, os = null }) {
                     className="input-base" placeholder="Nome do tecnico" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Abertura</label>
                   <input type="date" value={form.abertura} onChange={(e) => setForm({ ...form, abertura: e.target.value })} className="input-base" />

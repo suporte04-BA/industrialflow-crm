@@ -1,64 +1,123 @@
-import { useState } from 'react';
-import { FileText, Download, Calendar, Building2, Wrench, Eye, TrendingUp, CheckCircle } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { FileText, Download, Calendar, Building2, Wrench, TrendingUp, CheckCircle, Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../lib/AuthContext';
+import { supabase, isConfigured } from '../lib/supabase';
 import { useContratos } from '../hooks/useContratos';
 import { useComprovantes } from '../hooks/useComprovantes';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
-import { generateComprovantePDF } from '../lib/pdfExport';
+import { generateEntregaPDF } from '../lib/pdfExport';
 
 export default function Perfil() {
-  const { user, profile, viewRole, setViewRole } = useAuth();
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState('comprovantes');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const { data: contratos } = useContratos();
   const { data: comprovantes } = useComprovantes();
 
   const userName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Admin';
   const userEmail = profile?.email || user?.email || 'admin@transobra.com';
-  const userRole = profile?.role || 'gestor';
-  const currentView = viewRole || userRole;
+  const userRole = profile?.role || 'funcionario';
   const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  const avatarUrl = profile?.avatarUrl || null;
 
   const myComprovantes = (comprovantes || []).slice(0, 20);
   const myContratos = (contratos || []).slice(0, 10);
 
   const handleExportPDF = async (comprovante) => {
     try {
-      await generateComprovantePDF(comprovante);
+      await generateEntregaPDF(comprovante);
       toast.success('PDF gerado com sucesso!');
     } catch {
       toast.error('Erro ao gerar PDF');
     }
   };
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione uma imagem');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Imagem maximo 2MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      if (!isConfigured()) {
+        toast.info('Configure o Supabase para usar foto de perfil');
+        return;
+      }
+      const fileName = `avatar-${user.id}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const avatarUrl = urlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+      if (updateError) throw updateError;
+
+      toast.success('Foto de perfil atualizada!');
+      window.location.reload();
+    } catch (err) {
+      toast.error('Erro ao enviar foto: ' + (err.message || 'Erro desconhecido'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 lg:pb-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl font-bold text-gray-900">{initials}</span>
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          <div className="relative group">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={userName} className="w-16 h-16 rounded-full object-cover" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl font-bold text-gray-900">{initials}</span>
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+            >
+              {uploading ? (
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              ) : (
+                <Camera className="w-5 h-5 text-white" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
           </div>
            <div>
              <h2 className="text-xl font-bold text-gray-900">{userName}</h2>
              <p className="text-sm text-gray-500">{userEmail}</p>
-             <div className="flex items-center gap-2 mt-1">
-               <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 capitalize">{userRole}</span>
-               {userRole === 'gestor' && (
-                 <button
-                   onClick={() => setViewRole(currentView === 'funcionario' ? null : 'funcionario')}
-                   className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                 >
-                   <Eye className="w-3 h-3" />
-                   {currentView === 'funcionario' ? 'Ver como Gestor' : 'Ver como Funcionario'}
-                 </button>
-               )}
-             </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 capitalize">{userRole}</span>
+              </div>
            </div>
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {[
           { key: 'relatorio', label: 'Relatorio', icon: TrendingUp },
           { key: 'comprovantes', label: 'Comprovantes', icon: FileText },
@@ -120,7 +179,7 @@ export default function Perfil() {
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{c.contrato}</span>
                         <StatusBadge status={c.status} />
-                        {c.assinado && <StatusBadge status="assinado" />}
+                        {c.assinado && c.status !== 'assinado' && <StatusBadge status="assinado" />}
                       </div>
                       <h4 className="font-semibold text-gray-900 truncate">{c.locatario}</h4>
                       <div className="text-sm text-gray-500 mt-1">

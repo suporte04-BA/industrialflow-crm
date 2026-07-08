@@ -1,30 +1,31 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2, Download } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
 import { useContratos, useUpdateContrato } from '../hooks/useContratos';
+import { useAuth } from '../lib/AuthContext';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import { generateEntregaPDF, generateFallbackEmailPDF } from '../lib/pdfExport';
+import { getEmailHeaders } from '../lib/supabase';
 import { formatDateBR } from '../lib/dates';
-import { isConfigured } from '../lib/supabase';
-import { generateComprovantePDF } from '../lib/pdfExport';
-import { isValidCPF, formatCPF, matchCPFWithComprovante } from '../lib/validation';
+import { formatCPF, formatCNPJ, isValidCPF, isValidCNPJ, detectDocumentType } from '../lib/validation';
 
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [selectedComprovante, setSelectedComprovante] = useState('');
   const [nomeSignatario, setNomeSignatario] = useState('');
   const [cpfSignatario, setCpfSignatario] = useState('');
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailRecipient, setEmailRecipient] = useState('gestores@transobra.com.br');
 
+  const { isFuncionario, profile } = useAuth();
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
   const { data: comprovantes, refetch: refetchComprovantes } = useComprovantes();
   const { data: contratos } = useContratos();
@@ -35,13 +36,6 @@ export default function AssinaturaDigital() {
   useEffect(() => {
     refetchComprovantes();
   }, [refetchComprovantes]);
-
-  useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
-      .then((cfg) => { if (cfg.emailRecipient) setEmailRecipient(cfg.emailRecipient); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,13 +52,15 @@ export default function AssinaturaDigital() {
   const getPos = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   };
 
   const startDraw = (e) => {
-    setIsDrawing(true);
+    isDrawingRef.current = true;
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
     ctx.beginPath();
@@ -72,7 +68,7 @@ export default function AssinaturaDigital() {
   };
 
   const draw = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawingRef.current) return;
     e.preventDefault();
     const ctx = canvasRef.current.getContext('2d');
     const pos = getPos(e);
@@ -81,7 +77,7 @@ export default function AssinaturaDigital() {
   };
 
   const endDraw = () => {
-    setIsDrawing(false);
+    isDrawingRef.current = false;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -97,8 +93,14 @@ export default function AssinaturaDigital() {
     setHasSignature(false);
   };
 
+  const handleComprovanteChange = (compId) => {
+    setSelectedComprovante(compId);
+    setNomeSignatario('');
+    setCpfSignatario('');
+    clearCanvas();
+  };
+
   const sendEmailNotification = async (contrato, comprovante, signatario) => {
-    if (!isConfigured()) return;
     setSendingEmail(true);
     try {
       const imagemBase64 = canvasRef.current.toDataURL('image/png');
@@ -106,13 +108,14 @@ export default function AssinaturaDigital() {
         tipo: 'contrato_assinado',
         contrato_id: contrato?.id || null,
         comprovante_id: comprovante?.id || null,
-        destinatario: emailRecipient,
+        destinatario: '',
         contrato: contrato ? {
           id: contrato.id,
           numero: contrato.numero,
           cliente: contrato.cliente,
           cnpj: contrato.cnpj,
-          rg: contrato.rg,
+          rg: contrato.rg || '',
+          telefone: contrato.telefone || '',
           equipamentos: contrato.equipamentos,
           inicio: contrato.inicio,
           fim: contrato.fim,
@@ -126,8 +129,6 @@ export default function AssinaturaDigital() {
           cidade: contrato.cidade,
           estado: contrato.estado,
           cep: contrato.cep,
-          telefone: contrato.telefone,
-          email: contrato.email,
           contato: contrato.contato,
         } : null,
         comprovante: {
@@ -135,10 +136,13 @@ export default function AssinaturaDigital() {
           contrato: comprovante?.contrato,
           locatario: comprovante?.locatario,
           cpf: comprovante?.cpf,
-          rg: comprovante?.rg,
+          rg: comprovante?.rg || '',
+          telefone: comprovante?.telefone || '',
           endereco: comprovante?.endereco,
           cidade: comprovante?.cidade,
           total: comprovante?.total,
+          itens: comprovante?.itens,
+          localEntrega: comprovante?.localEntrega,
         },
         signatario: {
           nome: signatario,
@@ -148,26 +152,65 @@ export default function AssinaturaDigital() {
         },
       };
 
-      await fetch('/api/email/send', {
+      const res = await fetch('/api/email/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getEmailHeaders(),
         body: JSON.stringify(emailData),
       });
-    } catch (err) {
-      console.error('Erro ao enviar email:', err);
+      const result = await res.json();
+      if (result.status === 'enviado') {
+        toast.success('Email enviado ao gestor com sucesso!');
+      } else {
+        try {
+          await generateFallbackEmailPDF(emailData);
+          toast.warning('Email nao enviado. PDF gerado como alternativa.');
+        } catch {
+          toast.warning('Assinatura salva, mas email e PDF fallback falharam.');
+        }
+      }
+    } catch {
+      try {
+        const imagemBase64 = canvasRef.current.toDataURL('image/png');
+        await generateFallbackEmailPDF({
+          tipo: 'contrato_assinado',
+          contrato: contrato ? {
+            id: contrato.id, numero: contrato.numero, cliente: contrato.cliente,
+            cnpj: contrato.cnpj, cidade: contrato.cidade, localEntrega: contrato.localEntrega,
+            equipamentos: contrato.equipamentos, valorTotal: contrato.valorTotal,
+            atendente: contrato.atendente,
+          } : null,
+          comprovante: {
+            locatario: comprovante?.locatario, cpf: comprovante?.cpf,
+            itens: comprovante?.itens, cidade: comprovante?.cidade, total: comprovante?.total,
+          },
+          signatario: { nome: signatario, cpf: cpfSignatario, assinaturaImagem: imagemBase64 },
+        });
+        toast.warning('Email indisponivel. PDF gerado como alternativa.');
+      } catch {
+        toast.warning('Assinatura salva, mas nao foi possivel enviar email nem gerar PDF.');
+      }
     } finally {
       setSendingEmail(false);
     }
   };
 
+  const handleCpfChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    if (raw.length <= 11) {
+      setCpfSignatario(formatCPF(e.target.value));
+    } else {
+      setCpfSignatario(formatCNPJ(e.target.value));
+    }
+  };
+
   const handleSave = async () => {
-    if (!selectedComprovante) { toast.error('Selecione um comprovante'); return; }
-    if (!nomeSignatario.trim()) { toast.error('Preencha o nome do signatario'); return; }
-    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF do signatario'); return; }
-    if (!isValidCPF(cpfSignatario)) { toast.error('CPF invalido. Verifique os digitos.'); return; }
-    const cpfMatch = matchCPFWithComprovante(cpfSignatario, selectedComp);
-    if (!cpfMatch.valid) { toast.error(cpfMatch.message); return; }
-    if (!hasSignature) { toast.error('Faca sua assinatura no quadro ao lado'); return; }
+    if (!selectedComprovante) { toast.error('Selecione um comprovante de entrega'); return; }
+    if (!nomeSignatario.trim()) { toast.error('Preencha o nome de quem recebeu o equipamento'); return; }
+    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF/CNPJ de quem recebeu o equipamento'); return; }
+    const docType = detectDocumentType(cpfSignatario);
+    const isValidDoc = docType === 'cnpj' ? isValidCNPJ(cpfSignatario) : isValidCPF(cpfSignatario);
+    if (!isValidDoc) { toast.error(`${docType === 'cnpj' ? 'CNPJ' : 'CPF'} invalido. Verifique os digitos.`); return; }
+    if (!hasSignature) { toast.error('Faca a assinatura de quem recebeu o equipamento'); return; }
     setSaving(true);
     try {
       const imagem = canvasRef.current.toDataURL('image/png');
@@ -176,13 +219,14 @@ export default function AssinaturaDigital() {
         nomeSignatario,
         cpfSignatario,
         assinaturaImagem: imagem,
+        funcionarioId: isFuncionario ? profile?.id : null,
       });
 
       const comp = (comprovantes || []).find((c) => c.id === selectedComprovante);
       if (comp) {
         await updateComprovante.mutateAsync({
           id: comp.id,
-          updates: { assinado: true, status: 'assinado', nomeSignatario: nomeSignatario, dataAssinatura: new Date().toISOString() },
+          updates: { assinado: true, status: 'assinado', updatedAt: new Date().toISOString() },
         });
 
         if (comp.contratoId) {
@@ -192,20 +236,24 @@ export default function AssinaturaDigital() {
           }
         }
 
-        await sendEmailNotification(
-          comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
-          comp,
-          nomeSignatario
-        );
+        try {
+          await sendEmailNotification(
+            comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
+            comp,
+            nomeSignatario
+          );
+        } catch {
+          toast.error('Falha ao enviar email de notificacao ao gestor.');
+        }
 
         try {
-          await generateComprovantePDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString() });
+          await generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem });
         } catch {
           // PDF generation failure is non-blocking
         }
       }
 
-      toast.success('Assinatura salva com sucesso!');
+      toast.success('Assinatura registrada com sucesso!');
       clearCanvas();
       setNomeSignatario('');
       setCpfSignatario('');
@@ -229,20 +277,27 @@ export default function AssinaturaDigital() {
   if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Assinatura Digital</h2>
-        <p className="text-sm text-gray-500">{assinaturas.length} assinaturas registradas</p>
+    <div className="space-y-6 pb-20 lg:pb-6">
+      <div className="flex items-center gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Assinatura Digital</h2>
+          <p className="text-sm text-gray-500">{(assinaturas || []).length} assinaturas registradas</p>
+        </div>
+        {isFuncionario && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+            <User className="w-3 h-3" /> Visao Funcionario
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Nova Assinatura</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Registrar Assinatura do Recebedor</h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Comprovante de Entrega *</label>
-              <select value={selectedComprovante} onChange={(e) => setSelectedComprovante(e.target.value)} className="input-base" required>
-                <option value="">Selecione...</option>
+              <select value={selectedComprovante} onChange={(e) => handleComprovanteChange(e.target.value)} className="input-base" required>
+                <option value="">Selecione o comprovante...</option>
                 {availableComprovantes.map((c) => (
                   <option key={c.id} value={c.id}>{c.contrato} - {c.locatario}</option>
                 ))}
@@ -262,10 +317,10 @@ export default function AssinaturaDigital() {
                   <div><span className="text-gray-500">Contrato:</span> <span className="font-medium">{selectedContrato.numero || selectedContrato.id}</span></div>
                   <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{selectedContrato.cliente}</span></div>
                   <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{selectedContrato.cnpj || '-'}</span></div>
-                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedContrato.rg || '-'}</span></div>
+                  {selectedContrato.rg && <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedContrato.rg}</span></div>}
                   <div><span className="text-gray-500">Atendente:</span> <span className="font-medium">{selectedContrato.atendente || '-'}</span></div>
+                  {selectedContrato.telefone && <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedContrato.telefone}</span></div>}
                   <div><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(selectedContrato.equipamentos) ? selectedContrato.equipamentos.join(', ') : '-'}</span></div>
-                  <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(selectedContrato.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
                   <div><span className="text-gray-500">Local Entrega:</span> <span className="font-medium">{selectedContrato.localEntrega || '-'}</span></div>
                 </div>
               </div>
@@ -275,13 +330,13 @@ export default function AssinaturaDigital() {
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-semibold text-gray-800">Dados do Comprovante</span>
+                  <span className="text-sm font-semibold text-gray-800">Dados da Entrega</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-xs">
                   <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>
                   <div><span className="text-gray-500">CPF:</span> <span className="font-medium">{selectedComp.cpf || '-'}</span></div>
-                  <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg || '-'}</span></div>
-                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.fone || '-'}</span></div>
+                  {selectedComp.rg && <div><span className="text-gray-500">RG:</span> <span className="font-medium">{selectedComp.rg}</span></div>}
+                  <div><span className="text-gray-500">Telefone:</span> <span className="font-medium">{selectedComp.telefoneEntrega || selectedComp.telefone || '-'}</span></div>
                   <div><span className="text-gray-500">Cidade:</span> <span className="font-medium">{selectedComp.cidade}{selectedComp.estado ? `/${selectedComp.estado}` : ''}</span></div>
                   <div><span className="text-gray-500">Contato:</span> <span className="font-medium">{selectedComp.contato || '-'}</span></div>
                   {selectedComp.endereco && <div className="col-span-2"><span className="text-gray-500">Endereco:</span> <span className="font-medium">{selectedComp.endereco}{selectedComp.numero ? `, ${selectedComp.numero}` : ''}{selectedComp.bairro ? ` - ${selectedComp.bairro}` : ''}</span></div>}
@@ -292,28 +347,32 @@ export default function AssinaturaDigital() {
               </div>
             )}
 
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <p className="text-xs text-yellow-800 font-medium">O signatario e a pessoa que recebeu fisicamente o equipamento. Preencha os dados abaixo com as informacoes do recebedor (pode ser diferente do contato do contrato).</p>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatario *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome de Quem Recebeu *</label>
               <input type="text" required value={nomeSignatario} onChange={(e) => setNomeSignatario(e.target.value)}
-                className="input-base" placeholder="Nome completo" />
+                className="input-base" placeholder="Nome completo de quem recebeu o equipamento" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ de Quem Recebeu *</label>
               <input type="text" required value={cpfSignatario}
-                onChange={(e) => setCpfSignatario(formatCPF(e.target.value))}
-                className="input-base" placeholder="000.000.000-00" maxLength={14} />
+                onChange={handleCpfChange}
+                className="input-base" placeholder="000.000.000-00 ou 00.000.000/0000-00" maxLength={18} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assinatura do Recebedor *</label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden">
                 <canvas ref={canvasRef} width={500} height={200}
                   className="w-full cursor-crosshair touch-none min-h-[150px] sm:min-h-[200px]"
                   onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
                   onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">Assine usando o mouse ou dedo na tela</p>
+              <p className="text-xs text-gray-500 mt-1">Quem recebeu o equipamento deve assinar aqui</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button variant="secondary" onClick={clearCanvas} icon={Eraser}>Limpar</Button>
               <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving || sendingEmail}>
                 {saving ? 'Salvando...' : sendingEmail ? 'Enviando email...' : 'Salvar Assinatura'}
@@ -324,7 +383,7 @@ export default function AssinaturaDigital() {
 
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Assinaturas Registradas</h3>
-          {assinaturas.length === 0 ? (
+          {(assinaturas || []).length === 0 ? (
             <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
@@ -338,7 +397,7 @@ export default function AssinaturaDigital() {
                         <StatusBadge status="assinado" />
                         {comp && (
                           <button
-                            onClick={() => generateComprovantePDF(comp).catch(() => toast.error('Erro ao gerar PDF'))}
+                            onClick={() => generateEntregaPDF({ ...comp, signatureImg: sig.assinaturaImagem, signatarioNome: sig.nomeSignatario }).catch(() => toast.error('Erro ao gerar PDF'))}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Baixar PDF"
                           >

@@ -31,7 +31,7 @@ const SNAKE_TO_CAMEL = {
   locatario: 'locatario',
   cpf: 'cpf',
   rg: 'rg',
-  fone: 'fone',
+  telefone: 'telefone',
   contato: 'contato',
   endereco: 'endereco',
   numero: 'numero',
@@ -63,11 +63,33 @@ const SNAKE_TO_CAMEL = {
   assunto: 'assunto',
   corpo: 'corpo',
   erro_msg: 'erroMsg',
-  telefone: 'telefone',
   email: 'email',
   numero_endereco: 'numeroEndereco',
   data_contrato: 'dataContrato',
   hora_contrato: 'horaContrato',
+  tipo_documento: 'tipoDocumento',
+  condicoes_devolucao: 'condicoesDevolucao',
+  funcionario_id: 'funcionarioId',
+  signatario_nome: 'signatarioNome',
+  signatario_cpf: 'signatarioCpf',
+  signatario_funcao: 'signatarioFuncao',
+  data_locacao: 'dataLocacao',
+  data_devolucao: 'dataDevolucao',
+  valor_unitario: 'valorUnitario',
+  patrimonio: 'patrimonio',
+  quantidade: 'quantidade',
+  descricao: 'descricao',
+  equipamentos: 'equipamentos',
+  tem_email: 'temEmail',
+  metodo_entrega: 'metodoEntrega',
+  referencia: 'referencia',
+  inscricao_estadual: 'inscricaoEstadual',
+  num_comprovante: 'numComprovante',
+  cnpj_locatario: 'cnpjLocatario',
+  rg_signatario: 'rgSignatario',
+  qtd_devolvida: 'qtdDevolvida',
+  qtd_faltante: 'qtdFaltante',
+  condicoes: 'condicoes',
 };
 
 const CAMEL_TO_SNAKE = {};
@@ -81,7 +103,13 @@ export function toCamel(obj) {
   const result = {};
   for (const [key, value] of Object.entries(obj)) {
     const camelKey = SNAKE_TO_CAMEL[key] || key;
-    result[camelKey] = value;
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      result[camelKey] = toCamel(value);
+    } else if (Array.isArray(value)) {
+      result[camelKey] = value.map(item => (item !== null && typeof item === 'object') ? toCamel(item) : item);
+    } else {
+      result[camelKey] = value;
+    }
   }
   return result;
 }
@@ -92,7 +120,13 @@ export function toSnake(obj) {
   const result = {};
   for (const [key, value] of Object.entries(obj)) {
     const snakeKey = CAMEL_TO_SNAKE[key] || key;
-    result[snakeKey] = value;
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      result[snakeKey] = toSnake(value);
+    } else if (Array.isArray(value)) {
+      result[snakeKey] = value.map(item => (item !== null && typeof item === 'object') ? toSnake(item) : item);
+    } else {
+      result[snakeKey] = value;
+    }
   }
   return result;
 }
@@ -100,7 +134,15 @@ export function toSnake(obj) {
 export function computeVencimentoDias(dataFim) {
   if (!dataFim) return null;
   const hoje = new Date();
-  const fim = new Date(dataFim);
+  hoje.setHours(0, 0, 0, 0);
+  let fim;
+  if (typeof dataFim === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+    const [y, m, d] = dataFim.split('-').map(Number);
+    fim = new Date(y, m - 1, d);
+  } else {
+    fim = new Date(dataFim);
+  }
+  if (isNaN(fim.getTime())) return null;
   const diff = Math.ceil((fim - hoje) / (1000 * 60 * 60 * 24));
   return diff;
 }

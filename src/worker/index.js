@@ -367,6 +367,12 @@ async function sendEmailViaGoogleScript(env, data) {
   if (LOGO_BASE64) {
     inlineImages.logo = LOGO_BASE64;
   }
+  if (signatario?.assinaturaImagem) {
+    const raw = (signatario.assinaturaImagem.includes(',') ? signatario.assinaturaImagem.split(',')[1] : signatario.assinaturaImagem).replace(/\s/g, '').replace(/\n/g, '');
+    if (raw && raw.length > 100) {
+      inlineImages.assinatura = raw;
+    }
+  }
 
   try {
     const res = await fetch(scriptUrl, {

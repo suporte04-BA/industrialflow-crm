@@ -2,15 +2,22 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext';
 
 export default function RoleGuard({ children, requiredRole }) {
-  const { profile, viewRole, isLoadingAuth } = useAuth();
-  const activeRole = viewRole || profile?.role;
+  const { profile, isLoadingAuth } = useAuth();
+  const activeRole = profile?.role;
 
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400"></div>
+          <span className="text-sm text-gray-400">Carregando...</span>
+        </div>
       </div>
     );
+  }
+
+  if (!activeRole && !isLoadingAuth) {
+    return <Navigate to="/login" replace />;
   }
 
   const isAuthorized = activeRole === 'admin' || activeRole === requiredRole;

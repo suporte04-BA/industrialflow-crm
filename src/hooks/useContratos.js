@@ -1,15 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isConfigured } from '../lib/supabase';
+import { supabase, isConfigured, getEmailHeaders } from '../lib/supabase';
+import { generateFallbackEmailPDF } from '../lib/pdfExport';
 import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
 import { contratos as mockContratos } from '../data/mockData';
+import { toast } from 'sonner';
 
 const LOCAL_KEY = 'contratos_local';
 const COMP_LOCAL_KEY = 'comprovantes_local';
 
 function getLocal() {
-  return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; }
 }
 
 function saveLocal(items) {
@@ -35,7 +37,7 @@ function deleteLocal(id) {
 }
 
 function getCompLocal() {
-  return JSON.parse(localStorage.getItem(COMP_LOCAL_KEY) || '[]');
+  try { return JSON.parse(localStorage.getItem(COMP_LOCAL_KEY) || '[]'); } catch { return []; }
 }
 
 function saveCompLocal(item) {
@@ -106,19 +108,18 @@ export function useCreateContrato() {
       if (isConfigured()) {
         try {
           const { data } = await supabase.from('contratos').select('id');
-          if (data) {
-            maxNum = Math.max(...data.map(c => parseInt((c.id || '').replace('CT-', '')) || 0), 0);
+          if (data && data.length > 0) {
+            const nums = data.map(c => parseInt((c.id || '').replace('CT-', ''), 10) || 0);
+            maxNum = Math.max(...nums, 0);
           }
         } catch { /* fallback to local */ }
       }
 
       if (maxNum === 0) {
         const localItems = getLocal();
-        maxNum = Math.max(
-          ...localItems.map(c => parseInt(c.id.replace('CT-', '')) || 0),
-          ...mockContratos.map(c => parseInt(c.id.replace('CT-', '')) || 0),
-          0
-        );
+        const localNums = localItems.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
+        const mockNums = mockContratos.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
+        maxNum = Math.max(...localNums, ...mockNums, 0);
       }
 
       const newId = `CT-${String(maxNum + 1).padStart(3, '0')}`;
@@ -127,12 +128,12 @@ export function useCreateContrato() {
         id: newId,
         cliente: newCt.cliente,
         cnpj: newCt.cnpj,
-        rg: newCt.rg || '',
         equipamentos: newCt.equipamentos || [],
         numero: newCt.numero || '',
         dataContrato: newCt.dataContrato || formatDateTime(now),
         horaContrato: newCt.horaContrato || formatTime(now),
         atendente: newCt.atendente || '',
+        referencia: newCt.referencia || '',
         inicio: newCt.inicio,
         fim: newCt.fim,
         valorTotal: newCt.valorTotal || 0,
@@ -145,13 +146,15 @@ export function useCreateContrato() {
         cidade: newCt.cidade || '',
         estado: newCt.estado || '',
         cep: newCt.cep || '',
-        telefone: newCt.telefone || '',
-        email: newCt.email || '',
         contato: newCt.contato || '',
+        rg: newCt.rg || '',
+        telefone: newCt.telefone || '',
         localEntrega: newCt.localEntrega || '',
         telefoneEntrega: newCt.telefoneEntrega || '',
         itens: newCt.itens || [],
         observacao: newCt.observacao || '',
+        tipoDocumento: newCt.tipoDocumento || 'entrega',
+        condicoesDevolucao: newCt.condicoesDevolucao || null,
         createdAt: now.toISOString(),
       };
 
@@ -159,7 +162,6 @@ export function useCreateContrato() {
         const payload = toSnake({
           cliente: newCt.cliente,
           cnpj: newCt.cnpj,
-          rg: newCt.rg || '',
           equipamentos: newCt.equipamentos || [],
           numero: newCt.numero || '',
           dataContrato: newCt.dataContrato || formatDateTime(now),
@@ -177,13 +179,15 @@ export function useCreateContrato() {
           cidade: newCt.cidade || '',
           estado: newCt.estado || '',
           cep: newCt.cep || '',
-          telefone: newCt.telefone || '',
-          email: newCt.email || '',
           contato: newCt.contato || '',
+          rg: newCt.rg || '',
+          telefone: newCt.telefone || '',
           localEntrega: newCt.localEntrega || '',
           telefoneEntrega: newCt.telefoneEntrega || '',
           itens: newCt.itens || [],
           observacao: newCt.observacao || '',
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
         const { data, error } = await supabase.from('contratos').insert(payload).select().single();
         if (error) throw handleSupabaseError(error);
@@ -198,9 +202,9 @@ export function useCreateContrato() {
           hora: ctSaved.horaContrato || formatTime(now),
           locatario: ctSaved.cliente,
           cpf: ctSaved.cnpj,
-          rg: ctSaved.rg || '',
-          fone: ctSaved.telefone,
           contato: ctSaved.contato,
+          rg: ctSaved.rg || '',
+          telefone: ctSaved.telefone || '',
           endereco: ctSaved.endereco,
           numero: ctSaved.numeroEndereco,
           bairro: ctSaved.bairro,
@@ -214,98 +218,200 @@ export function useCreateContrato() {
           observacao: ctSaved.observacao,
           status: 'pendente',
           assinado: false,
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
         try {
-          const { error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload);
-          if (compErr) console.error('Erro ao criar comprovante:', compErr);
+          const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
+          if (compErr) toast.warning('Comprovante: ' + (compErr.message || 'Erro ao criar'));
+          else {
+            const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
+            const contratoEmail = {
+              id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj,
+              rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
+              equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
+              valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
+              atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
+              endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
+              cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
+              contato: ctSaved.contato,
+            };
+            const comprovanteEmail = {
+              id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj,
+              rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
+              endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
+              itens: ctSaved.itens, localEntrega: ctSaved.localEntrega,
+            };
+            const emailBody = newCt.tipoDocumento === 'devolucao'
+              ? {
+                  tipo: emailTipo,
+                  contrato_id: ctSaved.id,
+                  comprovante_id: compData.id,
+                  destinatario: '',
+                  contrato: contratoEmail,
+                  comprovante: comprovanteEmail,
+                  devolucao: {
+                    numero: ctSaved.numero || ctSaved.id,
+                    contratoId: ctSaved.id,
+                    locatario: ctSaved.cliente,
+                    data: ctSaved.dataContrato,
+                    hora: ctSaved.horaContrato,
+                    localObra: ctSaved.localEntrega || ctSaved.endereco,
+                    telefone: ctSaved.telefoneEntrega || ctSaved.telefone,
+                    cidade: ctSaved.cidade,
+                    estado: ctSaved.estado,
+                    itens: ctSaved.itens || [],
+                    condicoes: ctSaved.condicoesDevolucao || {},
+                  },
+                }
+              : {
+                  tipo: emailTipo,
+                  contrato_id: ctSaved.id,
+                  comprovante_id: compData.id,
+                  destinatario: '',
+                  contrato: contratoEmail,
+                  comprovante: comprovanteEmail,
+                };
+            try {
+              const res = await fetch('/api/email/send', {
+                method: 'POST',
+                headers: await getEmailHeaders(),
+                body: JSON.stringify(emailBody),
+              });
+              const result = await res.json();
+              if (result.status !== 'enviado') {
+                try { await generateFallbackEmailPDF(emailBody); } catch { /* fallback non-blocking */ }
+              }
+            } catch {
+              try { await generateFallbackEmailPDF(emailBody); } catch { /* fallback non-blocking */ }
+            }
+          }
         } catch (e) {
           console.error('Falha ao criar comprovante:', e);
         }
 
         try {
-          await fetch('/api/email/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tipo: 'contrato_criado',
-              contrato_id: ctSaved.id,
-              contrato: {
-                id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg,
-                equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
-                valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
-                atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
-                endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
-              },
-              comprovante: {
-                id: compPayload.contrato_id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg,
-                endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
-              },
-            }),
-          });
-        } catch { /* email non-blocking */ }
+          const equipNames = (ctSaved.equipamentos || []).filter(e => e && e.trim());
+          if (equipNames.length > 0) {
+            const { data: existing } = await supabase.from('equipamentos').select('nome');
+            const existingNames = new Set((existing || []).map(e => (e.nome || '').toLowerCase()));
+            const newEquips = equipNames
+              .filter(name => !existingNames.has(name.toLowerCase().trim()))
+              .map(name => ({
+                nome: name.trim(),
+                categoria: 'Geral',
+                status: 'locado',
+                contrato: ctSaved.id,
+                cliente: ctSaved.cliente,
+              }));
+            if (newEquips.length > 0) {
+              const { error: eqErr } = await supabase.from('equipamentos').insert(newEquips);
+              if (eqErr) toast.warning('Equipamentos: ' + (eqErr.message || 'Erro ao criar'));
+            }
+          }
+        } catch (e) {
+          console.error('Falha ao criar equipamentos automaticamente:', e);
+        }
+
+        try {
+          const osTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao' : 'entrega';
+          const osPayload = {
+            cliente: ctSaved.cliente,
+            equipamento: (ctSaved.equipamentos || []).join(', ') || '-',
+            tipo: osTipo,
+            status: 'pendente',
+            prioridade: 'normal',
+            tecnico: ctSaved.atendente || '',
+            abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0],
+            previsao: ctSaved.fim || null,
+            valor: ctSaved.valorTotal || 0,
+            observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica`,
+          };
+          const { error: osErr } = await supabase.from('ordens_servico').insert(toSnake(osPayload));
+          if (osErr) toast.warning('Ordem de Serviço: ' + (osErr.message || 'Erro ao criar'));
+        } catch (e) {
+          console.error('Falha ao criar OS automaticamente:', e);
+        }
 
         return ctSaved;
+      } else {
+        saveToLocal(item);
+
+        const compId = crypto.randomUUID();
+        const comp = {
+          id: compId,
+          contratoId: item.id,
+          contrato: item.id,
+          atendente: item.atendente || '',
+          data: item.dataContrato || formatDateTime(now),
+          hora: item.horaContrato || formatTime(now),
+          locatario: item.cliente,
+          cpf: item.cnpj,
+          rg: item.rg || '',
+          telefone: item.telefone || '',
+          contato: item.contato,
+          endereco: item.endereco,
+          numero: item.numeroEndereco,
+          bairro: item.bairro,
+          cidade: item.cidade,
+          estado: item.estado,
+          cep: item.cep,
+          localEntrega: item.localEntrega,
+          telefoneEntrega: item.telefoneEntrega,
+          referencia: item.referencia || '',
+          itens: item.itens || [],
+          total: item.valorTotal || 0,
+          observacao: item.observacao,
+          status: 'pendente',
+          assinado: false,
+          tipoDocumento: newCt.tipoDocumento || 'entrega',
+          condicoesDevolucao: newCt.condicoesDevolucao || null,
+          createdAt: now.toISOString(),
+        };
+        saveCompLocal(comp);
+
+        const offlineEmailBody = {
+          tipo: 'contrato_criado',
+          contrato_id: item.id,
+          contrato: {
+            id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj,
+            rg: item.rg || '', telefone: item.telefone || '',
+            equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim,
+            valorMensal: item.valorMensal, valorTotal: item.valorTotal,
+            atendente: item.atendente, localEntrega: item.localEntrega,
+            endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
+            cidade: item.cidade, estado: item.estado, cep: item.cep,
+            contato: item.contato,
+          },
+          comprovante: {
+            id: comp.id, locatario: item.cliente, cpf: item.cnpj,
+            rg: item.rg || '', telefone: item.telefone || '',
+            endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
+            itens: item.itens, localEntrega: item.localEntrega,
+          },
+        };
+        try {
+          const res = await fetch('/api/email/send', {
+            method: 'POST',
+            headers: await getEmailHeaders(),
+            body: JSON.stringify(offlineEmailBody),
+          });
+          const result = await res.json();
+          if (result.status !== 'enviado') {
+            try { await generateFallbackEmailPDF(offlineEmailBody); } catch { /* fallback non-blocking */ }
+          }
+        } catch {
+          try { await generateFallbackEmailPDF(offlineEmailBody); } catch { /* fallback non-blocking */ }
+        }
+
+        return item;
       }
-
-      saveToLocal(item);
-
-      const compId = crypto.randomUUID();
-      const comp = {
-        id: compId,
-        contratoId: item.id,
-        contrato: item.id,
-        atendente: item.atendente || '',
-        data: item.dataContrato || formatDateTime(now),
-        hora: item.horaContrato || formatTime(now),
-        locatario: item.cliente,
-        cpf: item.cnpj,
-        rg: item.rg || '',
-        fone: item.telefone,
-        contato: item.contato,
-        endereco: item.endereco,
-        numero: item.numeroEndereco,
-        bairro: item.bairro,
-        cidade: item.cidade,
-        estado: item.estado,
-        cep: item.cep,
-        localEntrega: item.localEntrega,
-        telefoneEntrega: item.telefoneEntrega,
-        itens: item.itens || [],
-        total: item.valorTotal || 0,
-        observacao: item.observacao,
-        status: 'pendente',
-        assinado: false,
-        createdAt: now.toISOString(),
-      };
-      saveCompLocal(comp);
-
-      try {
-        await fetch('/api/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tipo: 'contrato_criado',
-            contrato_id: item.id,
-            contrato: {
-              id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj, rg: item.rg,
-              equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim,
-              valorMensal: item.valorMensal, valorTotal: item.valorTotal,
-              atendente: item.atendente, localEntrega: item.localEntrega,
-              endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
-            },
-            comprovante: {
-              id: comp.id, locatario: item.cliente, cpf: item.cnpj, rg: item.rg,
-              endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
-            },
-          }),
-        });
-      } catch { /* email non-blocking */ }
-
-      return item;
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['equipamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['ordensServico'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
@@ -316,7 +422,8 @@ export function useUpdateContrato() {
   return useMutation({
     mutationFn: async ({ id, updates }) => {
       if (isConfigured()) {
-        const payload = toSnake(updates);
+        const { ...validUpdates } = updates;
+        const payload = toSnake(validUpdates);
         const { data, error } = await supabase.from('contratos').update(payload).eq('id', id).select().single();
         if (error) throw handleSupabaseError(error);
         return toCamel(data);
@@ -324,7 +431,7 @@ export function useUpdateContrato() {
       updateLocal(id, updates);
       return { id, ...updates };
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -342,7 +449,7 @@ export function useDeleteContrato() {
         deleteLocal(id);
       }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contratos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },

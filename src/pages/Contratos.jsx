@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign } from 'lucide-react';
+﻿import { useState, useMemo } from 'react';
+import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { detectDocumentType } from '../lib/validation';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
-import { useComprovantes } from '../hooks/useComprovantes';
+import { useComprovantes, useCreateComprovante } from '../hooks/useComprovantes';
+import { getEmailHeaders } from '../lib/supabase';
 import ContratoModal from '../components/contratos/ContratoModal';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -14,30 +16,71 @@ import { generateContratoPDF } from '../lib/pdfExport';
 
 export default function Contratos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
+  const [searchInput, setSearchInput] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCt, setEditingCt] = useState(null);
   const [renewTarget, setRenewTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { data: ctList, isLoading, isError, error, refetch } = useContratos(filters);
+  const { data: allCtList, isLoading, isError, error, refetch } = useContratos(filters);
   const { data: comprovantes } = useComprovantes();
 
-  const filteredCtList = useMemo(() => {
-    if (!filters.status || filters.status === 'all') return ctList;
-    return ctList.filter((c) => {
-      const ef = c.vencimentoDias != null
-        ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
-        : c.status;
-      return ef === filters.status;
-    });
-  }, [ctList, filters.status]);
+  const getEffectiveStatus = (c) => {
+    if (c.status === 'cancelado') return 'cancelado';
+    if (c.status === 'entregue') return 'entregue';
+    const dias = c.vencimentoDias;
+    if (dias != null && dias <= 0) return 'vencido';
+    if (dias != null && dias <= 30) return 'vencendo';
+    return 'ativo';
+  };
+
+  const ctList = useMemo(() => {
+    if (!allCtList) return [];
+    if (!filters.status || filters.status === 'all') return allCtList;
+    return allCtList.filter((c) => getEffectiveStatus(c) === filters.status);
+  }, [allCtList, filters.status]);
   const createCt = useCreateContrato();
   const updateCt = useUpdateContrato();
   const deleteCt = useDeleteContrato();
+  const createComp = useCreateComprovante();
+
+  const handleSearch = () => setFilters(prev => ({ ...prev, search: searchInput }));
+  const clearSearch = () => { setSearchInput(''); setFilters(prev => ({ ...prev, search: '' })); };
 
   const handleCreate = async (data) => {
-    await createCt.mutateAsync(data);
+    const result = await createCt.mutateAsync(data);
     toast.success('Contrato criado com sucesso!');
+    try {
+      const emailBody = {
+        tipo: 'contrato_criado',
+        contrato_id: result?.id || null,
+        destinatario: '',
+        contrato: {
+          id: result?.id || '',
+          numero: result?.numero || data.numero || '',
+          cliente: result?.cliente || data.cliente || '',
+          cnpj: result?.cnpj || data.cnpj || '',
+          equipamentos: result?.equipamentos || data.equipamentos || [],
+          inicio: result?.inicio || data.inicio || '',
+          fim: result?.fim || data.fim || '',
+          valorMensal: result?.valorMensal || data.valorMensal || 0,
+          valorTotal: result?.valorTotal || data.valorTotal || 0,
+          atendente: result?.atendente || data.atendente || '',
+          localEntrega: result?.localEntrega || data.localEntrega || '',
+          cidade: result?.cidade || data.cidade || '',
+          estado: result?.estado || data.estado || '',
+        },
+      };
+      const emailRes = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: await getEmailHeaders(),
+        body: JSON.stringify(emailBody),
+      });
+      const emailResult = await emailRes.json().catch(() => ({}));
+      if (!emailRes.ok || emailResult.error) {
+        toast.warning('Email de novo contrato falhou: ' + (emailResult.error || 'Erro desconhecido'));
+      }
+    } catch (e) { toast.warning('Email de novo contrato falhou: ' + e.message); }
   };
 
   const handleUpdate = async (data) => {
@@ -48,8 +91,94 @@ export default function Contratos() {
 
   const handleRenew = async (data) => {
     if (!renewTarget) return;
-    await updateCt.mutateAsync({ id: renewTarget.id, updates: { ...data, status: 'ativo' } });
-    toast.success('Contrato renovado!');
+
+    await updateCt.mutateAsync({
+      id: renewTarget.id,
+      updates: {
+        ...data,
+        status: 'ativo',
+        assinado: false,
+      },
+    });
+
+    const itens = (data.itens || renewTarget.itens || []).map(it => ({
+      quantidade: it.quantidade || 1,
+      descricao: it.descricao || '',
+      patrimonio: it.patrimonio || '',
+      dataLocacao: data.inicio || renewTarget.inicio || '',
+      dataDevolucao: data.fim || renewTarget.fim || '',
+      valorUnitario: it.valorUnitario || 0,
+    }));
+
+    await createComp.mutateAsync({
+      contratoId: renewTarget.id,
+      contrato: renewTarget.numero || renewTarget.cliente || String(renewTarget.id),
+      atendente: renewTarget.atendente || '',
+      locatario: renewTarget.cliente || '',
+      cpf: renewTarget.cnpj || '',
+      rg: renewTarget.rg || '',
+      telefone: renewTarget.telefone || '',
+      contato: renewTarget.contato || '',
+      endereco: renewTarget.endereco || '',
+      numero: renewTarget.numeroEndereco || '',
+      bairro: renewTarget.bairro || '',
+      cidade: renewTarget.cidade || '',
+      estado: renewTarget.estado || '',
+      cep: renewTarget.cep || '',
+      localEntrega: renewTarget.localEntrega || '',
+      telefoneEntrega: renewTarget.telefoneEntrega || '',
+      data: data.inicio || new Date().toISOString().split('T')[0],
+      hora: new Date().toTimeString().slice(0, 5),
+      itens,
+      total: data.valorTotal || renewTarget.valorTotal || 0,
+      status: 'pendente',
+      assinado: false,
+      tipoDocumento: 'entrega',
+    });
+
+    toast.success('Contrato renovado! Novo comprovante criado para assinatura.');
+
+    try {
+      const emailBody = {
+        tipo: 'contrato_renovado',
+        contrato_id: renewTarget.id,
+        destinatario: '',
+        contrato: {
+          id: renewTarget.id,
+          numero: renewTarget.numero,
+          cliente: renewTarget.cliente,
+          cnpj: renewTarget.cnpj || '',
+          rg: renewTarget.rg || '',
+          telefone: renewTarget.telefone || '',
+          atendente: renewTarget.atendente || '',
+          equipamentos: renewTarget.equipamentos || [],
+          inicio: data.inicio || renewTarget.inicio || '',
+          fim: data.fim || renewTarget.fim || '',
+          valorMensal: data.valorMensal || renewTarget.valorMensal || 0,
+          valorTotal: data.valorTotal || renewTarget.valorTotal || 0,
+          localEntrega: renewTarget.localEntrega || '',
+          endereco: renewTarget.endereco || '',
+          numero_endereco: renewTarget.numeroEndereco || '',
+          bairro: renewTarget.bairro || '',
+          cidade: renewTarget.cidade || '',
+          estado: renewTarget.estado || '',
+          cep: renewTarget.cep || '',
+        },
+      };
+      const emailRes = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: await getEmailHeaders(),
+        body: JSON.stringify(emailBody),
+      });
+      const emailResult = await emailRes.json().catch(() => ({}));
+      if (!emailRes.ok || emailResult.error) {
+        toast.warning('Email de renovacao falhou: ' + (emailResult.error || 'Erro desconhecido'));
+      }
+    } catch (e) { toast.warning('Email de renovacao falhou: ' + e.message); }
+
+    try {
+      await refetch();
+    } catch { /* non-blocking */ }
   };
 
   const handleDelete = async () => {
@@ -70,32 +199,18 @@ export default function Contratos() {
 
   const stats = {
     total: ctList.length,
-    ativos: ctList.filter((c) => {
-      const ef = c.vencimentoDias != null
-        ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
-        : c.status;
-      return ef === 'ativo';
-    }).length,
-    vencendo: ctList.filter((c) => {
-      const ef = c.vencimentoDias != null
-        ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
-        : c.status;
-      return ef === 'vencendo';
-    }).length,
-    vencidos: ctList.filter((c) => {
-      const ef = c.vencimentoDias != null
-        ? (c.vencimentoDias <= 0 ? 'vencido' : c.vencimentoDias <= 30 ? 'vencendo' : 'ativo')
-        : c.status;
-      return ef === 'vencido';
-    }).length,
-    entregues: comprovantes?.filter(c => c.assinado).length || 0,
+    ativos: ctList.filter((c) => getEffectiveStatus(c) === 'ativo').length,
+    vencendo: ctList.filter((c) => getEffectiveStatus(c) === 'vencendo').length,
+    vencidos: ctList.filter((c) => getEffectiveStatus(c) === 'vencido').length,
+    entregues: ctList.filter((c) => getEffectiveStatus(c) === 'entregue').length,
+    cancelados: ctList.filter((c) => getEffectiveStatus(c) === 'cancelado').length,
   };
 
   if (isLoading) return <div className="p-4 md:p-6"><CardSkeleton count={6} /></div>;
   if (isError) return <div className="p-4 md:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 lg:pb-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">Contratos</h2>
@@ -106,16 +221,16 @@ export default function Contratos() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3 px-1">
         {[
-          { label: 'Ativos', value: stats.ativos, color: 'bg-green-50 text-green-700 border-green-200' },
-          { label: 'Vencendo', value: stats.vencendo, color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-          { label: 'Vencidos', value: stats.vencidos, color: 'bg-red-50 text-red-700 border-red-200' },
-          { label: 'Total', value: stats.total, color: 'bg-gray-50 text-gray-700 border-gray-200' },
+          { label: 'Ativos', value: stats.ativos, color: 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm' },
+          { label: 'Vencendo', value: stats.vencendo, color: 'bg-amber-50 text-amber-700 border-amber-300 shadow-sm' },
+          { label: 'Vencidos', value: stats.vencidos, color: 'bg-red-50 text-red-700 border-red-300 shadow-sm' },
+          { label: 'Total', value: stats.total, color: 'bg-slate-50 text-slate-700 border-slate-300 shadow-sm' },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl p-3 md:p-4 border ${s.color}`}>
             <p className="text-lg md:text-2xl font-bold">{s.value}</p>
-            <p className="text-xs md:text-sm opacity-80">{s.label}</p>
+            <p className="text-xs md:text-sm opacity-80 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
@@ -123,10 +238,19 @@ export default function Contratos() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Buscar por cliente ou ID..." value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="input-base pl-10" />
+          <input type="text" placeholder="Pressione Enter para buscar..." value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+            className="input-base pl-10 pr-9" />
+          {searchInput && (
+            <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        <button onClick={handleSearch} className="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg font-medium text-sm hover:bg-yellow-300 transition-colors flex items-center gap-1.5">
+          <Search className="w-4 h-4" /> Buscar
+        </button>
         <div className="flex flex-wrap gap-1.5">
           {['all', 'ativo', 'vencendo', 'vencido', 'entregue', 'cancelado'].map((s) => (
             <button key={s} onClick={() => setFilters({ ...filters, status: s })}
@@ -139,13 +263,14 @@ export default function Contratos() {
         </div>
       </div>
 
-      {filteredCtList.length === 0 ? (
+      {ctList.length === 0 ? (
         <EmptyState icon={FileText} title="Nenhum contrato encontrado" description="Crie seu primeiro contrato."
           action={<Button icon={Plus} onClick={() => setShowCreateModal(true)}>Novo Contrato</Button>} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          {filteredCtList.map((ct) => {
-            const isEntregue = comprovantes?.some(c => c.contratoId === ct.id && c.assinado);
+          {ctList.map((ct) => {
+            const isEntregue = ct.status === 'entregue' || comprovantes?.some(c => (c.contratoId || c.contrato_id) === ct.id && c.assinado);
+            const showEntregueBadge = isEntregue && ct.status !== 'entregue';
             return (
               <div key={ct.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
@@ -153,14 +278,20 @@ export default function Contratos() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[10px] md:text-xs font-mono text-gray-400">{ct.id}</p>
                       <StatusBadge status={ct.status} />
-                      {isEntregue && (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                        ct.tipoDocumento === 'devolucao' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {ct.tipoDocumento === 'devolucao' ? <RotateCcw className="w-2.5 h-2.5" /> : <ClipboardCheck className="w-2.5 h-2.5" />}
+                        {ct.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega'}
+                      </span>
+                      {showEntregueBadge && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700">
                           <ClipboardCheck className="w-2.5 h-2.5" /> Entregue
                         </span>
                       )}
                     </div>
                     <h3 className="font-bold text-gray-900 text-sm md:text-base mt-1 truncate">{ct.cliente}</h3>
-                    {ct.cnpj && <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">CNPJ: {ct.cnpj}</p>}
+                    {ct.cnpj && <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">{detectDocumentType(ct.cnpj) === 'cpf' ? 'CPF' : 'CNPJ'}: {ct.cnpj}</p>}
                   </div>
                 </div>
 
@@ -195,7 +326,7 @@ export default function Contratos() {
                   )}
                 </div>
 
-                <div className="flex gap-1.5 pt-3 border-t border-gray-100">
+                <div className="flex flex-col sm:flex-row gap-1.5 pt-3 border-t border-gray-100">
                   <button onClick={() => setEditingCt(ct)}
                     className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
                     <Edit3 className="w-3 h-3" /> <span className="hidden sm:inline">Editar</span>
@@ -219,11 +350,11 @@ export default function Contratos() {
         </div>
       )}
 
-      <ContratoModal key="create" isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} />
-      <ContratoModal key={editingCt?.id || 'edit'} isOpen={!!editingCt} onClose={() => setEditingCt(null)} onSave={handleUpdate} contrato={editingCt} />
-      <ContratoModal key={renewTarget?.id || 'renew'} isOpen={!!renewTarget} onClose={() => setRenewTarget(null)} onSave={handleRenew} contrato={renewTarget} isRenew />
+      <ContratoModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} />
+      <ContratoModal isOpen={!!editingCt} onClose={() => setEditingCt(null)} onSave={handleUpdate} contrato={editingCt} />
+      <ContratoModal isOpen={!!renewTarget} onClose={() => setRenewTarget(null)} onSave={handleRenew} contrato={renewTarget} isRenew />
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
-        title="Excluir Contrato" message={`Tem certeza que deseja excluir o contrato ${deleteTarget?.id}? Esta acao nao pode ser desfeita.`}
+        title="Excluir Contrato" message={`Tem certeza que deseja excluir o contrato ${deleteTarget?.numero || deleteTarget?.cliente || deleteTarget?.id}? Esta acao nao pode ser desfeita.`}
         confirmLabel="Excluir" danger />
     </div>
   );

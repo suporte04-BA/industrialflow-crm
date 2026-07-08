@@ -37,7 +37,7 @@ export default function OSDetailModal({ isOpen, onClose, os, onUpdateStatus }) {
                 <X size={18} />
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <InfoRow icon={User} label="Cliente" value={os.cliente} />
                 <InfoRow icon={Wrench} label="Equipamento" value={os.equipamento} />
@@ -73,7 +73,7 @@ export default function OSDetailModal({ isOpen, onClose, os, onUpdateStatus }) {
                 </div>
               )}
             </div>
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 bg-white sticky bottom-0">
               <Button variant="secondary" onClick={onClose} className="flex-1 justify-center">Fechar</Button>
             </div>
           </motion.div>

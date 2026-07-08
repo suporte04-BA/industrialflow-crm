@@ -1,85 +1,162 @@
-import { useState, createContext, useContext, useEffect, useMemo } from 'react';
-import { supabase, isConfigured } from './supabase';
+import { useState, createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import { supabase, isConfigured, loadConfig } from './supabase';
 import { toCamel } from './converters';
 
 const AuthContext = createContext();
 
+async function fetchProfile(userObj, accessToken) {
+  if (!isConfigured() || !userObj?.id) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userObj.id)
+      .single();
+    if (!error && data) return toCamel(data);
+  } catch { /* fallback to Worker */ }
+
+  if (accessToken) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt: accessToken }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        const { user: profileData } = await response.json();
+        return toCamel(profileData);
+      }
+    } catch { /* Worker unavailable */ }
+  }
+  return null;
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [viewRole, setViewRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const profileLoaded = useRef(null);
+  const initRan = useRef(false);
 
-  const fetchProfile = async (userId) => {
-    if (!isConfigured()) return null;
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      if (error) return null;
-      return toCamel(data);
-    } catch {
-      return null;
-    }
-  };
-
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!isConfigured()) {
-      const mockAuth = localStorage.getItem('transobra_mock_auth');
-      const mockRole = localStorage.getItem('transobra_mock_role') || 'gestor';
-      if (mockAuth) {
-        setUser({ id: 'mock', email: 'admin@transobra.com' });
-        setProfile({ id: 'mock', role: mockRole, fullName: 'Admin TransObra', email: 'admin@transobra.com' });
-        setIsAuthenticated(true);
+    if (initRan.current) return;
+    initRan.current = true;
+
+    let mounted = true;
+    let subscription = null;
+
+    const init = async () => {
+      try {
+        await loadConfig();
+      } catch {
+        console.warn('[AuthContext] loadConfig failed, using defaults');
       }
-      setIsLoadingAuth(false);
+
+      try {
+        const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (sessErr) console.warn('[AuthContext] getSession error:', sessErr.message);
+        let currentUser = session?.user ?? null;
+
+        if (!currentUser) {
+          const { data: { user }, error: userErr } = await supabase.auth.getUser();
+          if (userErr) console.warn('[AuthContext] getUser error:', userErr.message);
+          currentUser = user ?? null;
+        }
+
+        setUser(currentUser);
+        setIsAuthenticated(!!currentUser);
+
+        if (currentUser) {
+          const prof = await fetchProfile(currentUser, session?.access_token);
+          if (mounted) setProfile(prof);
+        }
+      } catch (err) {
+        console.warn('[AuthContext] init exception:', err.message);
+      } finally {
+        if (mounted) setIsLoadingAuth(false);
+      }
+
+      try {
+        const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (!mounted) return;
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            setIsAuthenticated(!!currentUser);
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+              fetchProfile(currentUser, session?.access_token).then(prof => {
+                if (mounted) setProfile(prof);
+              });
+            }
+            if (event === 'SIGNED_OUT') {
+              setProfile(null);
+            }
+          }
+        );
+        subscription = sub;
+      } catch (err) {
+        console.warn('[AuthContext] onAuthStateChange failed:', err.message);
+      }
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+      if (subscription) {
+        try { subscription.unsubscribe(); } catch { /* ignore */ }
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user || !isConfigured()) {
+      if (!user) {
+        profileLoaded.current = null;
+        queueMicrotask(() => setProfile(null));
+      }
       return;
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      setIsAuthenticated(!!currentUser);
-      if (currentUser) {
-        const prof = await fetchProfile(currentUser.id);
-        setProfile(prof);
-      }
-      setIsLoadingAuth(false);
-    });
+    if (profileLoaded.current === user.id) return;
+    profileLoaded.current = user.id;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      setIsAuthenticated(!!currentUser);
-      if (currentUser) {
-        const prof = await fetchProfile(currentUser.id);
-        setProfile(prof);
-      } else {
-        setProfile(null);
+    let cancelled = false;
+    const loadProfile = async () => {
+      try {
+        const session = (await supabase.auth.getSession()).data?.session;
+        if (cancelled) return;
+        const prof = await fetchProfile(user, session?.access_token);
+        if (!cancelled) setProfile(prof);
+      } catch (err) {
+        console.warn('[AuthContext] loadProfile failed:', err.message);
+        if (!cancelled) setProfile(null);
       }
-      setIsLoadingAuth(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    };
+    loadProfile();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const logout = async () => {
     if (isConfigured()) {
-      await supabase.auth.signOut();
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
     }
     localStorage.removeItem('transobra_mock_auth');
     localStorage.removeItem('transobra_mock_role');
     setUser(null);
     setProfile(null);
     setIsAuthenticated(false);
+    profileLoaded.current = null;
   };
 
-  const loginAsDemo = (role = 'gestor') => {
+  const loginAsDemo = (role = 'funcionario') => {
     localStorage.setItem('transobra_mock_auth', 'true');
     localStorage.setItem('transobra_mock_role', role);
     setUser({ id: 'mock', email: 'admin@transobra.com' });
@@ -92,28 +169,26 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasRole = (requiredRole) => {
-    const activeRole = viewRole || profile?.role;
+    const activeRole = profile?.role;
     if (!activeRole) return false;
     if (activeRole === 'admin') return true;
     return activeRole === requiredRole;
   };
 
   const isGestor = useMemo(() => {
-    const activeRole = viewRole || profile?.role;
+    const activeRole = profile?.role;
     return activeRole === 'gestor' || activeRole === 'admin';
-  }, [profile, viewRole]);
+  }, [profile]);
 
   const isFuncionario = useMemo(() => {
-    const activeRole = viewRole || profile?.role;
+    const activeRole = profile?.role;
     return activeRole === 'funcionario' || activeRole === 'user';
-  }, [profile, viewRole]);
+  }, [profile]);
 
   return (
     <AuthContext.Provider value={{
       user,
       profile,
-      viewRole,
-      setViewRole,
       isAuthenticated,
       isLoadingAuth,
       logout,

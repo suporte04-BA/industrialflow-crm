@@ -1,4 +1,5 @@
 export function isValidCPF(cpf) {
+  if (!cpf) return false;
   const digits = cpf.replace(/\D/g, '');
   if (digits.length !== 11) return false;
   if (/^(\d)\1{10}$/.test(digits)) return false;
@@ -23,6 +24,7 @@ export function isValidCPF(cpf) {
 }
 
 export function isValidCNPJ(cnpj) {
+  if (!cnpj) return false;
   const digits = cnpj.replace(/\D/g, '');
   if (digits.length !== 14) return false;
   if (/^(\d)\1{13}$/.test(digits)) return false;
@@ -50,6 +52,7 @@ export function isValidCNPJ(cnpj) {
 }
 
 export function formatCPF(value) {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '').slice(0, 11);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
@@ -58,6 +61,7 @@ export function formatCPF(value) {
 }
 
 export function formatCNPJ(value) {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '').slice(0, 14);
   if (digits.length <= 2) return digits;
   if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
@@ -67,28 +71,44 @@ export function formatCNPJ(value) {
 }
 
 export function formatCPFCNPJ(value) {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '');
   if (digits.length <= 11) return formatCPF(value);
   return formatCNPJ(value);
 }
 
 export function detectDocumentType(value) {
+  if (!value) return 'cpf';
   const digits = value.replace(/\D/g, '');
   return digits.length <= 11 ? 'cpf' : 'cnpj';
 }
 
 export function matchCPFWithComprovante(cpfSignatario, comprovante) {
-  if (!comprovante || !comprovante.cpf) return { valid: true, message: '' };
+  if (!cpfSignatario || !comprovante || !comprovante.cpf) return { valid: true, message: '' };
   const cleanSignatario = cpfSignatario.replace(/\D/g, '');
   const cleanComprovante = comprovante.cpf.replace(/\D/g, '');
   if (cleanSignatario === cleanComprovante) return { valid: true, message: '' };
   return {
     valid: false,
-    message: `CPF nao confere com o locatario (${comprovante.cpf})`,
+    message: `Documento nao confere com o cadastro (${comprovante.cpf})`,
   };
 }
 
+export function isValidCEP(cep) {
+  if (!cep) return false;
+  const digits = cep.replace(/\D/g, '');
+  return digits.length === 8;
+}
+
+export function formatCEP(value) {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
 export function nameToEmail(name) {
+  if (!name) return '';
   const normalized = name
     .toLowerCase()
     .normalize('NFD')
@@ -96,5 +116,5 @@ export function nameToEmail(name) {
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, '')
     .trim();
-  return `${normalized}@transobra.local`;
+  return `${normalized}@transobra.app`;
 }

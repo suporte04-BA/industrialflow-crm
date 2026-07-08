@@ -12,22 +12,26 @@ export default function DateInput({ value, onChange, placeholder = 'DD/MM/AAAA',
     return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   }, []);
 
-  const [displayValue, setDisplayValue] = useState(() => formatInput(value || ''));
+  const formatted = formatInput(value || '');
+  const [localValue, setLocalValue] = useState(formatted);
+  const isInternalUpdate = localValue === formatted;
+
+  const displayValue = isInternalUpdate ? localValue : formatted;
 
   const handleChange = (e) => {
     const raw = e.target.value;
-    const formatted = formatInput(raw);
-    setDisplayValue(formatted);
-    onChange?.(formatted);
+    const newFormatted = formatInput(raw);
+    setLocalValue(newFormatted);
+    onChange?.(newFormatted);
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Backspace') {
       const raw = displayValue.replace(/\D/g, '');
       const newRaw = raw.slice(0, -1);
-      const formatted = formatInput(newRaw);
-      setDisplayValue(formatted);
-      onChange?.(formatted);
+      const newFormatted = formatInput(newRaw);
+      setLocalValue(newFormatted);
+      onChange?.(newFormatted);
       e.preventDefault();
     }
   };

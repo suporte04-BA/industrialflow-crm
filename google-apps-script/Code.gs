@@ -20,13 +20,38 @@ function doPost(e) {
 
     const recipients = data.to.split(',').map(r => r.trim()).filter(Boolean);
 
+    const inlineImages = {};
+    if (data.inlineImages && typeof data.inlineImages === 'object') {
+      for (const [key, b64] of Object.entries(data.inlineImages)) {
+        if (b64 && b64.length > 100) {
+          const clean = b64.replace(/\s/g, '').replace(/\n/g, '');
+          const mime = key === 'assinatura' ? 'image/png' : 'image/jpeg';
+          inlineImages[key] = Utilities.newBlob(Utilities.base64Decode(clean), mime, key);
+        }
+      }
+    }
+
+    const attachments = [];
+    if (Array.isArray(data.attachments)) {
+      for (const att of data.attachments) {
+        if (att.content && att.filename) {
+          const clean = att.content.replace(/\s/g, '').replace(/\n/g, '');
+          attachments.push(Utilities.newBlob(Utilities.base64Decode(clean), att.mimeType || 'application/pdf', att.filename));
+        }
+      }
+    }
+
     for (const recipient of recipients) {
-      GmailApp.sendEmail(recipient, data.subject, data.body || '', {
+      const opts = {
         htmlBody: data.htmlBody || null,
         name: SENDER_NAME,
         replyTo: REPLY_TO,
         noReply: true,
-      });
+      };
+      if (Object.keys(inlineImages).length > 0) opts.inlineImages = inlineImages;
+      if (attachments.length > 0) opts.attachments = attachments;
+
+      GmailApp.sendEmail(recipient, data.subject, data.body || '', opts);
 
       if (recipients.length > 1) {
         Utilities.sleep(1000);
@@ -46,6 +71,6 @@ function doPost(e) {
 
 function doGet(e) {
   return ContentService.createTextOutput(
-    JSON.stringify({ status: 'ok', message: 'TransObra Email API v3' })
+    JSON.stringify({ status: 'ok', message: 'TransObra Email API v4' })
   ).setMimeType(ContentService.MimeType.JSON);
 }

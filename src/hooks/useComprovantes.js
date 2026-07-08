@@ -4,6 +4,33 @@ import { toCamel, toSnake } from '../lib/converters';
 import { useRealtime } from './useRealtime';
 import { comprovantes as mockComprovantes } from '../data/mockData';
 
+const LOCAL_KEY = 'comprovantes_local';
+
+function getLocal() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; }
+}
+
+function saveLocal(items) {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
+}
+
+function prependLocal(item) {
+  const stored = getLocal();
+  stored.unshift(item);
+  saveLocal(stored);
+}
+
+function updateLocal(id, updates) {
+  const stored = getLocal();
+  const idx = stored.findIndex((c) => c.id === id);
+  if (idx >= 0) stored[idx] = { ...stored[idx], ...updates };
+  saveLocal(stored);
+}
+
+function deleteLocal(id) {
+  saveLocal(getLocal().filter((c) => c.id !== id));
+}
+
 export function useComprovantes() {
   const queryClient = useQueryClient();
   const queryKey = ['comprovantes'];
@@ -12,20 +39,22 @@ export function useComprovantes() {
     queryKey,
     queryFn: async () => {
       if (!isConfigured()) {
-        return JSON.parse(localStorage.getItem('comprovantes_local') || 'null') || mockComprovantes;
+        const local = getLocal();
+        return local.length > 0 ? local : mockComprovantes;
       }
       const { data, error } = await supabase
         .from('comprovantes_entrega')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) {
-        return JSON.parse(localStorage.getItem('comprovantes_local') || 'null') || mockComprovantes;
+        const local = getLocal();
+        return local.length > 0 ? local : mockComprovantes;
       }
       const items = (data || []).map(toCamel);
-      localStorage.setItem('comprovantes_local', JSON.stringify(items));
+      saveLocal(items);
       return items;
     },
-    staleTime: 5000,
+    staleTime: 30000,
     retry: 1,
   });
 
@@ -40,24 +69,6 @@ export function useComprovantes() {
   };
 }
 
-function saveToLocal(item) {
-  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
-  stored.unshift(item);
-  localStorage.setItem('comprovantes_local', JSON.stringify(stored));
-}
-
-function updateLocal(id, updates) {
-  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
-  const idx = stored.findIndex((c) => c.id === id);
-  if (idx >= 0) stored[idx] = { ...stored[idx], ...updates };
-  localStorage.setItem('comprovantes_local', JSON.stringify(stored));
-}
-
-function deleteLocal(id) {
-  const stored = JSON.parse(localStorage.getItem('comprovantes_local') || '[]');
-  localStorage.setItem('comprovantes_local', JSON.stringify(stored.filter((c) => c.id !== id)));
-}
-
 export function useCreateComprovante() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -69,7 +80,7 @@ export function useCreateComprovante() {
         locatario: newComp.locatario,
         cpf: newComp.cpf,
         rg: newComp.rg,
-        fone: newComp.fone,
+        telefone: newComp.telefone,
         contato: newComp.contato,
         endereco: newComp.endereco,
         numero: newComp.numero,
@@ -86,6 +97,7 @@ export function useCreateComprovante() {
         total: newComp.total || 0,
         status: newComp.status || 'pendente',
         assinado: newComp.assinado || false,
+        tipoDocumento: newComp.tipoDocumento || 'entrega',
       });
 
       if (isConfigured()) {
@@ -99,13 +111,13 @@ export function useCreateComprovante() {
           return toCamel(data);
         } catch {
           const local = { id: crypto.randomUUID(), ...newComp, createdAt: new Date().toISOString() };
-          saveToLocal(local);
+          prependLocal(local);
           return local;
         }
       }
 
       const local = { id: crypto.randomUUID(), ...newComp, createdAt: new Date().toISOString() };
-      saveToLocal(local);
+      prependLocal(local);
       return local;
     },
     onSettled: () => {
@@ -162,6 +174,8 @@ export function useDeleteComprovante() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+      queryClient.invalidateQueries({ queryKey: ['assinaturas'] });
+      queryClient.invalidateQueries({ queryKey: ['contratos'] });
     },
   });
 }

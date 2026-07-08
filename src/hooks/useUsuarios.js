@@ -1,19 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isConfigured } from '../lib/supabase';
+import { supabase, isConfigured, getEmailHeaders } from '../lib/supabase';
 import { toCamel } from '../lib/converters';
 import { nameToEmail } from '../lib/validation';
 
 const LOCAL_KEY = 'usuarios_local';
 
 function getLocal() {
-  return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); } catch { return []; }
 }
 
 function saveLocal(items) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
 }
-
-
 
 export function useUsuarios() {
   const query = useQuery({
@@ -41,7 +39,8 @@ export function useUsuarios() {
       }
       return (data || []).map(toCamel);
     },
-    staleTime: 10000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   return {
@@ -56,15 +55,16 @@ export function useUsuarios() {
 export function useCreateUsuario() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ fullName, password, role }) => {
-      const email = nameToEmail(fullName);
+    mutationFn: async ({ fullName, password, role, email, temEmail }) => {
+      const internalEmail = nameToEmail(fullName);
 
       if (!isConfigured()) {
         const local = {
           id: crypto.randomUUID(),
           fullName,
-          email,
+          email: temEmail === false ? internalEmail : (email || internalEmail),
           role: role || 'funcionario',
+          tem_email: temEmail !== false,
           createdAt: new Date().toISOString(),
         };
         const stored = getLocal();
@@ -73,43 +73,22 @@ export function useCreateUsuario() {
         return local;
       }
 
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: await getEmailHeaders(),
+        body: JSON.stringify({
+          email: email || internalEmail,
           password,
-          options: {
-            data: { full_name: fullName, role: role || 'funcionario' },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (error) throw error;
-
-        if (data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.user.id,
-              full_name: fullName,
-              email,
-              role: role || 'funcionario',
-            });
-          if (profileError) console.error('Profile insert error:', profileError);
-        }
-
-        return { id: data.user?.id, fullName, email, role: role || 'funcionario' };
-      } catch {
-        const local = {
-          id: crypto.randomUUID(),
-          fullName,
-          email,
+          full_name: fullName,
           role: role || 'funcionario',
-          createdAt: new Date().toISOString(),
-        };
-        const stored = getLocal();
-        stored.unshift(local);
-        saveLocal(stored);
-        return local;
-      }
+          tem_email: temEmail !== false,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar usuario');
+
+      return { id: data.user?.id, fullName, email: email || internalEmail, role: role || 'funcionario', tem_email: temEmail !== false };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
@@ -121,17 +100,15 @@ export function useUpdateUsuarioRole() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, role }) => {
-      const users = getLocal();
-      const targetUser = users.find((u) => u.id === id);
-
-      if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
-        const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
-        if (gestorCount <= 1 && role === 'funcionario') {
-          throw new Error('Deve haver pelo menos um gestor no sistema.');
-        }
-      }
-
       if (!isConfigured()) {
+        const users = getLocal();
+        const targetUser = users.find((u) => u.id === id);
+        if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
+          const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1 && role === 'funcionario') {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
         const stored = getLocal();
         const idx = stored.findIndex((u) => u.id === id);
         if (idx >= 0) stored[idx] = { ...stored[idx], role };
@@ -139,11 +116,38 @@ export function useUpdateUsuarioRole() {
         return { id, role };
       }
 
+      const { data: allProfiles } = await supabase.from('profiles').select('id, role');
+      if (allProfiles) {
+        const target = allProfiles.find((u) => u.id === id);
+        if (target && (target.role === 'gestor' || target.role === 'admin')) {
+          const gestorCount = allProfiles.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1 && role === 'funcionario') {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({ role })
         .eq('id', id);
       if (error) throw error;
+
+      try {
+        const headers = await getEmailHeaders();
+        await fetch('/api/users/role-change', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            user_id: id,
+            user_name: allProfiles?.find((u) => u.id === id)?.full_name || '',
+            user_email: allProfiles?.find((u) => u.id === id)?.email || '',
+            new_role: role,
+            old_role: allProfiles?.find((u) => u.id === id)?.role || '',
+          }),
+        });
+      } catch { /* email is best effort */ }
+
       return { id, role };
     },
     onSuccess: () => {
@@ -160,26 +164,44 @@ export function useDeleteUsuario() {
         throw new Error('Voce nao pode remover seu proprio usuario.');
       }
 
-      const users = getLocal();
-      const targetUser = users.find((u) => u.id === id);
-      if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
-        const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
-        if (gestorCount <= 1) {
-          throw new Error('Deve haver pelo menos um gestor no sistema.');
-        }
-      }
-
       if (!isConfigured()) {
+        const users = getLocal();
+        const targetUser = users.find((u) => u.id === id);
+        if (targetUser && (targetUser.role === 'gestor' || targetUser.role === 'admin')) {
+          const gestorCount = users.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1) {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
         const stored = getLocal().filter((u) => u.id !== id);
         saveLocal(stored);
         return;
       }
 
-      const { error } = await supabase
+      const { data: allProfiles } = await supabase.from('profiles').select('id, role');
+      if (allProfiles) {
+        const target = allProfiles.find((u) => u.id === id);
+        if (target && (target.role === 'gestor' || target.role === 'admin')) {
+          const gestorCount = allProfiles.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
+          if (gestorCount <= 1) {
+            throw new Error('Deve haver pelo menos um gestor no sistema.');
+          }
+        }
+      }
+
+      const { error: profileError } = await supabase
         .from('profiles')
         .delete()
         .eq('id', id);
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      try {
+        await fetch('/api/users/delete', {
+          method: 'POST',
+          headers: await getEmailHeaders(),
+          body: JSON.stringify({ user_id: id }),
+        });
+      } catch { /* best effort */ }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });

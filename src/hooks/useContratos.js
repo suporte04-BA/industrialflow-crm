@@ -1,11 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, isConfigured, getEmailHeaders } from '../lib/supabase';
-import { generateFallbackEmailPDF } from '../lib/pdfExport';
+import { supabase, isConfigured } from '../lib/supabase';
 import { toCamel, toSnake, computeVencimentoDias } from '../lib/converters';
 import { handleSupabaseError } from '../lib/errors';
 import { useRealtime } from './useRealtime';
 import { contratos as mockContratos } from '../data/mockData';
-import { toast } from 'sonner';
 
 const LOCAL_KEY = 'contratos_local';
 const COMP_LOCAL_KEY = 'comprovantes_local';
@@ -194,144 +192,46 @@ export function useCreateContrato() {
 
         const ctSaved = toCamel(data);
 
+        // Fire-and-forget: comprovante + email + OS + equipamentos
         const compPayload = toSnake({
-          contratoId: ctSaved.id,
-          contrato: ctSaved.id,
+          contratoId: ctSaved.id, contrato: ctSaved.id,
           atendente: ctSaved.atendente || '',
           data: ctSaved.dataContrato || formatDateTime(now),
           hora: ctSaved.horaContrato || formatTime(now),
-          locatario: ctSaved.cliente,
-          cpf: ctSaved.cnpj,
-          contato: ctSaved.contato,
-          rg: ctSaved.rg || '',
-          telefone: ctSaved.telefone || '',
-          endereco: ctSaved.endereco,
-          numero: ctSaved.numeroEndereco,
-          bairro: ctSaved.bairro,
-          cidade: ctSaved.cidade,
-          estado: ctSaved.estado,
-          cep: ctSaved.cep,
-          localEntrega: ctSaved.localEntrega,
-          telefoneEntrega: ctSaved.telefoneEntrega,
-          itens: ctSaved.itens || [],
-          total: ctSaved.valorTotal || 0,
-          observacao: ctSaved.observacao,
-          status: 'pendente',
-          assinado: false,
+          locatario: ctSaved.cliente, cpf: ctSaved.cnpj, contato: ctSaved.contato,
+          rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
+          endereco: ctSaved.endereco, numero: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
+          cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
+          localEntrega: ctSaved.localEntrega, telefoneEntrega: ctSaved.telefoneEntrega,
+          itens: ctSaved.itens || [], total: ctSaved.valorTotal || 0,
+          observacao: ctSaved.observacao, status: 'pendente', assinado: false,
           tipoDocumento: newCt.tipoDocumento || 'entrega',
           condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
-        try {
-          const { data: compData, error: compErr } = await supabase.from('comprovantes_entrega').insert(compPayload).select().single();
-          if (compErr) toast.warning('Comprovante: ' + (compErr.message || 'Erro ao criar'));
-          else {
-            const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
-            const contratoEmail = {
-              id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj,
-              rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
-              equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim,
-              valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal,
-              atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega,
-              endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
-              cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
-              contato: ctSaved.contato,
-            };
-            const comprovanteEmail = {
-              id: compData.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj,
-              rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
-              endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal,
-              itens: ctSaved.itens, localEntrega: ctSaved.localEntrega,
-            };
-            const emailBody = newCt.tipoDocumento === 'devolucao'
-              ? {
-                  tipo: emailTipo,
-                  contrato_id: ctSaved.id,
-                  comprovante_id: compData.id,
-                  destinatario: '',
-                  contrato: contratoEmail,
-                  comprovante: comprovanteEmail,
-                  devolucao: {
-                    numero: ctSaved.numero || ctSaved.id,
-                    contratoId: ctSaved.id,
-                    locatario: ctSaved.cliente,
-                    data: ctSaved.dataContrato,
-                    hora: ctSaved.horaContrato,
-                    localObra: ctSaved.localEntrega || ctSaved.endereco,
-                    telefone: ctSaved.telefoneEntrega || ctSaved.telefone,
-                    cidade: ctSaved.cidade,
-                    estado: ctSaved.estado,
-                    itens: ctSaved.itens || [],
-                    condicoes: ctSaved.condicoesDevolucao || {},
-                  },
-                }
-              : {
-                  tipo: emailTipo,
-                  contrato_id: ctSaved.id,
-                  comprovante_id: compData.id,
-                  destinatario: '',
-                  contrato: contratoEmail,
-                  comprovante: comprovanteEmail,
-                };
-            try {
-              const res = await fetch('/api/email/send', {
-                method: 'POST',
-                headers: await getEmailHeaders(),
-                body: JSON.stringify(emailBody),
-              });
-              const result = await res.json();
-              if (result.status !== 'enviado') {
-                generateFallbackEmailPDF(emailBody).catch(() => {});
-              }
-            } catch {
-              generateFallbackEmailPDF(emailBody).catch(() => {});
-            }
-          }
-        } catch (e) {
-          console.error('Falha ao criar comprovante:', e);
-        }
 
-        try {
-          const equipNames = (ctSaved.equipamentos || []).filter(e => e && e.trim());
-          if (equipNames.length > 0) {
+        const osTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao' : 'entrega';
+
+        // All background tasks - no await
+        Promise.allSettled([
+          supabase.from('comprovantes_entrega').insert(compPayload).then(({ data: compData }) => {
+            const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
+            const contratoEmail = { id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim, valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal, atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega, endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro, cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep, contato: ctSaved.contato };
+            const comprovanteEmail = { id: compData?.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal, itens: ctSaved.itens, localEntrega: ctSaved.localEntrega };
+            const emailBody = newCt.tipoDocumento === 'devolucao'
+              ? { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: compData?.id, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail, devolucao: { numero: ctSaved.numero || ctSaved.id, contratoId: ctSaved.id, locatario: ctSaved.cliente, data: ctSaved.dataContrato, hora: ctSaved.horaContrato, localObra: ctSaved.localEntrega || ctSaved.endereco, telefone: ctSaved.telefoneEntrega || ctSaved.telefone, cidade: ctSaved.cidade, estado: ctSaved.estado, itens: ctSaved.itens || [], condicoes: ctSaved.condicoesDevolucao || {} } }
+              : { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: compData?.id, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail };
+            fetch('/api/email/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(emailBody) }).catch(() => {});
+          }),
+          supabase.from('ordens_servico').insert(toSnake({ cliente: ctSaved.cliente, equipamento: (ctSaved.equipamentos || []).join(', ') || '-', tipo: osTipo, status: 'pendente', prioridade: 'normal', tecnico: ctSaved.atendente || '', abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0], previsao: ctSaved.fim || null, valor: ctSaved.valorTotal || 0, observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica` })),
+          (async () => {
+            const equipNames = (ctSaved.equipamentos || []).filter(e => e && e.trim());
+            if (equipNames.length === 0) return;
             const { data: existing } = await supabase.from('equipamentos').select('nome');
             const existingNames = new Set((existing || []).map(e => (e.nome || '').toLowerCase()));
-            const newEquips = equipNames
-              .filter(name => !existingNames.has(name.toLowerCase().trim()))
-              .map(name => ({
-                nome: name.trim(),
-                categoria: 'Geral',
-                status: 'locado',
-                contrato: ctSaved.id,
-                cliente: ctSaved.cliente,
-              }));
-            if (newEquips.length > 0) {
-              const { error: eqErr } = await supabase.from('equipamentos').insert(newEquips);
-              if (eqErr) toast.warning('Equipamentos: ' + (eqErr.message || 'Erro ao criar'));
-            }
-          }
-        } catch (e) {
-          console.error('Falha ao criar equipamentos automaticamente:', e);
-        }
-
-        try {
-          const osTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao' : 'entrega';
-          const osPayload = {
-            cliente: ctSaved.cliente,
-            equipamento: (ctSaved.equipamentos || []).join(', ') || '-',
-            tipo: osTipo,
-            status: 'pendente',
-            prioridade: 'normal',
-            tecnico: ctSaved.atendente || '',
-            abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0],
-            previsao: ctSaved.fim || null,
-            valor: ctSaved.valorTotal || 0,
-            observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica`,
-          };
-          const { error: osErr } = await supabase.from('ordens_servico').insert(toSnake(osPayload));
-          if (osErr) toast.warning('Ordem de Serviço: ' + (osErr.message || 'Erro ao criar'));
-        } catch (e) {
-          console.error('Falha ao criar OS automaticamente:', e);
-        }
+            const newEquips = equipNames.filter(name => !existingNames.has(name.toLowerCase().trim())).map(name => ({ nome: name.trim(), categoria: 'Geral', status: 'locado', contrato: ctSaved.id, cliente: ctSaved.cliente }));
+            if (newEquips.length > 0) await supabase.from('equipamentos').insert(newEquips);
+          })(),
+        ]).catch(() => {});
 
         return ctSaved;
       } else {
@@ -370,39 +270,14 @@ export function useCreateContrato() {
         };
         saveCompLocal(comp);
 
-        const offlineEmailBody = {
-          tipo: 'contrato_criado',
-          contrato_id: item.id,
-          contrato: {
-            id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj,
-            rg: item.rg || '', telefone: item.telefone || '',
-            equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim,
-            valorMensal: item.valorMensal, valorTotal: item.valorTotal,
-            atendente: item.atendente, localEntrega: item.localEntrega,
-            endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro,
-            cidade: item.cidade, estado: item.estado, cep: item.cep,
-            contato: item.contato,
-          },
-          comprovante: {
-            id: comp.id, locatario: item.cliente, cpf: item.cnpj,
-            rg: item.rg || '', telefone: item.telefone || '',
-            endereco: item.endereco, cidade: item.cidade, total: item.valorTotal,
-            itens: item.itens, localEntrega: item.localEntrega,
-          },
-        };
-        try {
-          const res = await fetch('/api/email/send', {
-            method: 'POST',
-            headers: await getEmailHeaders(),
-            body: JSON.stringify(offlineEmailBody),
-          });
-          const result = await res.json();
-          if (result.status !== 'enviado') {
-            generateFallbackEmailPDF(offlineEmailBody).catch(() => {});
-          }
-        } catch {
-          generateFallbackEmailPDF(offlineEmailBody).catch(() => {});
-        }
+        fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tipo: 'contrato_criado', contrato_id: item.id,
+            contrato: { id: item.id, numero: item.numero, cliente: item.cliente, cnpj: item.cnpj, rg: item.rg || '', telefone: item.telefone || '', equipamentos: item.equipamentos, inicio: item.inicio, fim: item.fim, valorMensal: item.valorMensal, valorTotal: item.valorTotal, atendente: item.atendente, localEntrega: item.localEntrega, endereco: item.endereco, numero_endereco: item.numeroEndereco, bairro: item.bairro, cidade: item.cidade, estado: item.estado, cep: item.cep, contato: item.contato },
+            comprovante: { id: comp.id, locatario: item.cliente, cpf: item.cnpj, rg: item.rg || '', telefone: item.telefone || '', endereco: item.endereco, cidade: item.cidade, total: item.valorTotal, itens: item.itens, localEntrega: item.localEntrega },
+          }),
+        }).catch(() => {});
 
         return item;
       }

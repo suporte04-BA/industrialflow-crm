@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Users, Plus, Trash2, Shield, UserCheck, Loader2, Search, AlertTriangle, X, Mail, MailX } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useDeleteUsuario } from '../hooks/useUsuarios';
+import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useUpdateUsuario, useDeleteUsuario } from '../hooks/useUsuarios';
 import { useAuth } from '../lib/AuthContext';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -24,6 +24,8 @@ export default function Usuarios() {
   const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState({ fullName: '', password: '', role: 'funcionario', email: '', temEmail: true });
   const [creating, setCreating] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({ fullName: '', email: '' });
 
   const handleSearch = () => setSearchTerm(searchInput);
   const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
@@ -31,6 +33,7 @@ export default function Usuarios() {
   const { data: usuarios, isLoading, isError, error, refetch } = useUsuarios();
   const createUsuario = useCreateUsuario();
   const updateRole = useUpdateUsuarioRole();
+  const updateUsuario = useUpdateUsuario();
   const deleteUsuario = useDeleteUsuario();
 
   const adminGestorCount = usuarios.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
@@ -101,6 +104,24 @@ export default function Usuarios() {
       refetch();
     } catch (err) {
       toast.error(err.message || 'Erro ao remover usuário');
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    if (!editForm.fullName.trim()) { toast.error('Preencha o nome'); return; }
+    try {
+      await updateUsuario.mutateAsync({
+        id: editingUser.id,
+        fullName: editForm.fullName.trim(),
+        email: editForm.email.trim() || undefined,
+      });
+      toast.success('Usuário atualizado!');
+      setEditingUser(null);
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao atualizar usuário');
     }
   };
 
@@ -241,7 +262,7 @@ export default function Usuarios() {
                   const canDemote = isGestorAdmin && adminGestorCount <= 1;
                   const semEmail = u.tem_email === false;
                   return (
-                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '' }); }}>
                       <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
@@ -279,12 +300,12 @@ export default function Usuarios() {
                         <div className="flex flex-wrap items-center gap-1">
                           {u.role === 'funcionario' && (
                             <>
-                              <button onClick={() => handleChangeRole(u.id, 'gestor')} disabled={isCurrentUser || semEmail}
+                              <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'gestor'); }} disabled={isCurrentUser || semEmail}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors disabled:opacity-50"
                                 title={semEmail ? 'Usuários sem e-mail não podem ser promovidos' : ''}>
                                 Gestor
                               </button>
-                              <button onClick={() => handleChangeRole(u.id, 'admin')} disabled={isCurrentUser || semEmail}
+                              <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'admin'); }} disabled={isCurrentUser || semEmail}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-50"
                                 title={semEmail ? 'Usuários sem e-mail não podem ser promovidos' : ''}>
                                 Admin
@@ -293,12 +314,12 @@ export default function Usuarios() {
                           )}
                           {u.role === 'gestor' && (
                             <>
-                              <button onClick={() => handleChangeRole(u.id, 'funcionario')} disabled={isCurrentUser || canDemote}
+                              <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'funcionario'); }} disabled={isCurrentUser || canDemote}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
                                 title={canDemote ? 'Deve haver pelo menos um gestor' : ''}>
                                 Func.
                               </button>
-                              <button onClick={() => handleChangeRole(u.id, 'admin')} disabled={isCurrentUser}
+                              <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'admin'); }} disabled={isCurrentUser}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-50">
                                 Admin
                               </button>
@@ -306,12 +327,12 @@ export default function Usuarios() {
                           )}
                           {u.role === 'admin' && (
                             <>
-                              <button onClick={() => handleChangeRole(u.id, 'gestor')} disabled={isCurrentUser || canDemote}
+                              <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'gestor'); }} disabled={isCurrentUser || canDemote}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors disabled:opacity-50"
                                 title={canDemote ? 'Deve haver pelo menos um admin' : ''}>
                                 Gestor
                               </button>
-                              <button onClick={() => handleChangeRole(u.id, 'funcionario')} disabled={isCurrentUser || canDemote}
+                              <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'funcionario'); }} disabled={isCurrentUser || canDemote}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
                                 title={canDemote ? 'Deve haver pelo menos um admin' : ''}>
                                 Func.
@@ -319,7 +340,7 @@ export default function Usuarios() {
                             </>
                           )}
                           {!isCurrentUser && (
-                            <button onClick={() => handleDelete(u.id)}
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }}
                               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                               title="Remover usuário">
                               <Trash2 className="w-4 h-4" />
@@ -332,6 +353,39 @@ export default function Usuarios() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">Editar Usuário</h3>
+              <button onClick={() => setEditingUser(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nome Completo</label>
+                <input type="text" required value={editForm.fullName}
+                  onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                  className="input-base" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">E-mail</label>
+                <input type="email" value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="input-base" placeholder="email@exemplo.com" />
+                {editingUser.tem_email === false && (
+                  <p className="text-[10px] text-orange-500 mt-0.5">Usuário sem e-mail (login por nome)</p>
+                )}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
+                <button type="submit" className="flex-1 py-2 text-sm font-medium bg-yellow-400 text-gray-900 rounded-lg hover:bg-yellow-300 transition-colors">Salvar</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

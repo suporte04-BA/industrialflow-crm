@@ -156,6 +156,32 @@ export function useUpdateUsuarioRole() {
   });
 }
 
+export function useUpdateUsuario() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, fullName, email }) => {
+      if (!isConfigured()) {
+        const users = getLocal();
+        const idx = users.findIndex((u) => u.id === id);
+        if (idx >= 0) {
+          users[idx] = { ...users[idx], fullName, email };
+          saveLocal(users);
+        }
+        return { id, fullName, email };
+      }
+      const payload = {};
+      if (fullName !== undefined) payload.full_name = fullName;
+      if (email !== undefined) payload.email = email;
+      const { error } = await supabase.from('profiles').update(payload).eq('id', id);
+      if (error) throw error;
+      return { id, fullName, email };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+    },
+  });
+}
+
 export function useDeleteUsuario() {
   const queryClient = useQueryClient();
   return useMutation({

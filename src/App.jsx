@@ -11,7 +11,6 @@ import RoleGuard from './components/auth/RoleGuard';
 
 
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
-const RegisterPage = lazy(() => import('./components/auth/RegisterPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const OrdensServico = lazy(() => import('./pages/OrdensServico'));
 const Equipamentos = lazy(() => import('./pages/Equipamentos'));
@@ -61,7 +60,6 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/cadastro" element={<RegisterPage />} />
               <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
                 <Route path="/" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><Dashboard /></Suspense></RoleGuard>} />
                 <Route path="/ordens" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><OrdensServico /></Suspense></RoleGuard>} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { signIn, signInByName, isConfigured, loadConfig } from '../../lib/supabase';
 import { useAuth } from '../../lib/AuthContext';
 import { toast } from 'sonner';
@@ -92,11 +92,6 @@ export default function LoginPage() {
           <p className="mt-4 text-xs text-gray-400 text-center">
             Digite seu nome e senha para acessar o sistema.
           </p>
-          <div className="mt-3 text-center">
-            <Link to="/cadastro" className="text-sm text-yellow-600 hover:text-yellow-700 font-medium">
-              Criar uma conta
-            </Link>
-          </div>
         </div>
       </div>
     </div>

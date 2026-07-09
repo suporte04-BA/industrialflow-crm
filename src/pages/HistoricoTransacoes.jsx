@@ -1,5 +1,5 @@
 import { useState, useMemo, Fragment } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText, PenLine, Package, ClipboardList, Building2, Search, X, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -124,9 +124,11 @@ function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF }) {
 
 export default function HistoricoTransacoes() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urlSearchInit = searchParams.get('search') || '';
   const [filtro, setFiltro] = useState('all');
-  const [searchInput, setSearchInput] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState(urlSearchInit);
+  const [searchTerm, setSearchTerm] = useState(urlSearchInit);
   const [expandedId, setExpandedId] = useState(null);
   const [modalItem, setModalItem] = useState(null);
 

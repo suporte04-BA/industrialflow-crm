@@ -51,7 +51,7 @@ function SignatarioInfo({ assinatura, expanded }) {
   );
 }
 
-function EntregaCard({ c, contratoData: _contratoData, assinatura, onDelete, onGeneratePDF, onOpenModal }) {
+function EntregaCard({ c, assinatura, onDelete, onGeneratePDF, onOpenModal }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onOpenModal}>
       <div className="flex items-start justify-between gap-3">
@@ -167,7 +167,7 @@ function ComprovanteModal({ c, contratoData, assinatura, onClose, onDelete, onGe
   );
 }
 
-function DevolucaoCard({ c, contratoData: _contratoData, assinatura, onDelete, onGeneratePDF, onOpenModal }) {
+function DevolucaoCard({ c, assinatura, onDelete, onGeneratePDF, onOpenModal }) {
   const condicoes = c.condicoesDevolucao || c.condicoes || {};
   return (
     <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onOpenModal}>

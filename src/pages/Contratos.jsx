@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo } from 'react';
-import { Plus, Search, Edit3, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X } from 'lucide-react';
+import { Plus, Search, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { detectDocumentType } from '../lib/validation';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';

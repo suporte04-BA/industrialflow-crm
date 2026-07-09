@@ -1149,6 +1149,19 @@ export default {
         const segments = path.split('/');
         const action = segments[segments.length - 1];
 
+        if (action === 'list' && method === 'GET') {
+          try {
+            const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
+            const result = await supabaseAuthAdminRequest(env, 'GET', '/admin/users', null, serviceAuth);
+            if (result.status && result.status >= 400) {
+              return json({ error: result.data }, result.status, corsHeaders);
+            }
+            return json({ users: result.data?.users || [] }, 200, corsHeaders);
+          } catch (e) {
+            return json({ error: e.message }, 500, corsHeaders);
+          }
+        }
+
         if (action === 'create' && method === 'POST') {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);

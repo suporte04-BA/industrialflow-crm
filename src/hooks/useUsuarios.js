@@ -183,7 +183,6 @@ export function useUpdateUsuario() {
 }
 
 export function useUpdateUsuarioPassword() {
-  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ userId, password }) => {
       const res = await fetch('/api/users/update-password', {

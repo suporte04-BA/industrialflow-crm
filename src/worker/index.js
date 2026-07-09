@@ -712,6 +712,22 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
   if (!apiKey) return { success: false, error: 'MAILEROO_API_KEY not configured' };
 
   const senderEmail = env.MAILEROO_FROM || 'notificacoes@transobra.app';
+  const plainText = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/td>/gi, ' | ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
   try {
     const res = await fetch('https://smtp.maileroo.com/api/v2/emails', {
       method: 'POST',
@@ -720,15 +736,18 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
         'X-Api-Key': apiKey,
       },
       body: JSON.stringify({
-        from: { address: senderEmail, display_name: 'TransObra - Gestao de Locacao' },
+        from: { address: senderEmail, display_name: 'TransObra' },
         to: [{ address: destinatario }],
         subject,
         html,
-        plain: html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(),
-        tags: { sistema: 'transobra' },
+        plain: plainText,
+        tags: { sistema: 'transobra', tipo: 'notificacao' },
         headers: {
           'List-Unsubscribe': `<mailto:suporte04@baeletrica.com.br?subject=Descadastrar>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           'X-Entity-Ref-ID': `transobra-${Date.now()}`,
+          'X-Mailer': 'TransObra System',
+          'Precedence': 'bulk',
         },
       }),
     });
@@ -771,8 +790,9 @@ async function sendEmailWithFallback(env, data) {
   if (LOGO_BASE64) {
     htmlForFallback = htmlForFallback.replace(/cid:logo/g, `data:image/jpeg;base64,${LOGO_BASE64}`);
   }
-  if (signatario?.assinaturaImagem) {
-    const raw = (signatario.assinaturaImagem.includes(',') ? signatario.assinaturaImagem.split(',')[1] : signatario.assinaturaImagem).replace(/\s/g, '').replace(/\n/g, '');
+  const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
+  if (sigImg) {
+    const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
     if (raw && raw.length > 100) {
       htmlForFallback = htmlForFallback.replace(/cid:assinatura/g, `data:image/png;base64,${raw}`);
     }
@@ -1200,35 +1220,12 @@ export default {
         if (action === 'role-change' && method === 'POST') {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-          const { user_id, user_name, user_email, new_role } = parsed.data;
+          const { user_id, new_role } = parsed.data;
           try {
-            await supabaseRequest(env, 'PATCH', `/profiles?id=eq.${user_id}`, { role: new_role }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+            await supabaseRequest(env, 'PATCH', `/profiles?id=eq.${user_id}`, { role: new_role }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
           } catch { /* best effort */ }
 
-          // Resolve recipients from Supabase profiles (gestores/admins) + the affected user
-          let recipients = [user_email].filter(Boolean);
-          try {
-            const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
-            const profilesResult = await supabaseRequest(env, 'GET', '/profiles?role=in.(admin,gestor)&select=email', null, serviceAuth);
-            if (profilesResult.data && Array.isArray(profilesResult.data)) {
-              const adminEmails = profilesResult.data.map((p) => p.email).filter(Boolean);
-              recipients = [...new Set([...recipients, ...adminEmails])];
-            }
-          } catch { /* use default */ }
-
-          let sentCount = 0;
-          for (const recipient of recipients) {
-            try {
-              const emailResult = await sendEmailWithFallback(env, {
-                tipo: 'role_change',
-                destinatario: recipient,
-                usuario: { nome: user_name, email: user_email, novaFuncao: new_role },
-              });
-              if (emailResult.success) sentCount++;
-            } catch { /* best effort */ }
-          }
-
-          return json({ success: sentCount > 0, status: sentCount > 0 ? 'enviado' : 'erro', sentTo: sentCount }, 200, corsHeaders);
+          return json({ success: true, status: 'atualizado' }, 200, corsHeaders);
         }
 
         if (action === 'delete' && method === 'POST') {
@@ -1261,6 +1258,40 @@ export default {
             return json({ error: e.message }, 500, corsHeaders);
           }
         }
+      }
+
+      if (path === '/api/email/test' && method === 'POST') {
+        const parsed = await parseBody(request);
+        if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+        const { destinatario, provider } = parsed.data;
+        if (!destinatario) return json({ error: 'destinatario required' }, 400, corsHeaders);
+
+        const testHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;"><div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;padding:30px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"><div style="text-align:center;margin-bottom:20px;">${LOGO_BASE64 ? `<img src="data:image/jpeg;base64,${LOGO_BASE64}" style="height:40px;" alt="TransObra" />` : '<h2 style="color:#eab308;">TransObra</h2>'}</div><h1 style="font-size:18px;color:#1c1c1c;text-align:center;">Email de Teste</h1><p style="color:#666;font-size:14px;text-align:center;">Este e-mail foi enviado para verificar a entrega em todos os provedores.</p><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:15px;margin:20px 0;"><p style="color:#166534;font-size:13px;margin:0;">✓ Se voce recebeu este email, o provedor esta funcionando corretamente.</p></div><p style="color:#999;font-size:11px;text-align:center;margin-top:20px;">TransObra - Gestao de Locacao</p></div></body></html>`;
+
+        const results = {};
+
+        if (!provider || provider === 'google') {
+          try {
+            const r = await sendEmailViaGoogleScript(env, { tipo: 'contrato_criado', destinatario, contrato: { numero: 'TESTE', cliente: 'Teste' } });
+            results.google = r;
+          } catch (e) { results.google = { success: false, error: e.message }; }
+        }
+
+        if (!provider || provider === 'maileroo') {
+          try {
+            const r = await sendEmailViaMaileroo(env, 'Teste TransObra', testHtml, destinatario);
+            results.maileroo = r;
+          } catch (e) { results.maileroo = { success: false, error: e.message }; }
+        }
+
+        if (!provider || provider === 'resend') {
+          try {
+            const r = await sendEmailViaResend(env, 'Teste TransObra', testHtml, destinatario);
+            results.resend = r;
+          } catch (e) { results.resend = { success: false, error: e.message }; }
+        }
+
+        return json({ results }, 200, corsHeaders);
       }
 
       return json({ error: 'API route not found' }, 404, corsHeaders);

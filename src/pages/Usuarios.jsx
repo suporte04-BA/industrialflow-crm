@@ -25,7 +25,7 @@ export default function Usuarios() {
   const [form, setForm] = useState({ fullName: '', password: '', role: 'funcionario', email: '', temEmail: true });
   const [creating, setCreating] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [editForm, setEditForm] = useState({ fullName: '', email: '', password: '' });
+  const [editForm, setEditForm] = useState({ fullName: '', email: '', password: '', role: 'funcionario', temEmail: true });
 
   const handleSearch = () => setSearchTerm(searchInput);
   const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
@@ -118,14 +118,17 @@ export default function Usuarios() {
         fullName: editForm.fullName.trim(),
         email: editForm.email.trim() || undefined,
       });
+      if (editForm.role !== editingUser.role) {
+        await updateRole.mutateAsync({ id: editingUser.id, role: editForm.role });
+      }
       if (editForm.password && userRole === 'admin') {
         await updatePassword.mutateAsync({ userId: editingUser.id, password: editForm.password });
       }
-      toast.success('Usuário atualizado!');
+      toast.success('Usuario atualizado!');
       setEditingUser(null);
       refetch();
     } catch (err) {
-      toast.error(err.message || 'Erro ao atualizar usuário');
+      toast.error(err.message || 'Erro ao atualizar usuario');
     }
   };
 
@@ -266,7 +269,7 @@ export default function Usuarios() {
                   const canDemote = isGestorAdmin && adminGestorCount <= 1;
                   const semEmail = u.tem_email === false;
                   return (
-                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '', password: '' }); }}>
+                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '', password: '', role: u.role || 'funcionario', temEmail: u.temEmail !== false }); }}>
                       <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
@@ -381,10 +384,30 @@ export default function Usuarios() {
                 <input type="email" value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="input-base" placeholder="email@exemplo.com" />
-                {editingUser.tem_email === false && (
-                  <p className="text-[10px] text-orange-500 mt-0.5">Usuário sem e-mail (login por nome)</p>
-                )}
               </div>
+              {userRole === 'admin' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Funcao</label>
+                  <select value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="input-base">
+                    <option value="funcionario">Funcionario</option>
+                    <option value="gestor">Gestor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              )}
+              {userRole === 'admin' && (
+                <div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={editForm.temEmail}
+                      onChange={(e) => setEditForm({ ...editForm, temEmail: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400" />
+                    <span className="text-sm font-medium text-gray-700">Recebe e-mail</span>
+                  </label>
+                  <p className="text-[10px] text-gray-400 mt-0.5 ml-6">{editForm.temEmail ? 'Notificacoes por e-mail ativas' : 'Apenas login por nome'}</p>
+                </div>
+              )}
               {userRole === 'admin' && (
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Nova Senha (deixe vazio para manter)</label>

@@ -138,15 +138,9 @@ export function useUpdateUsuarioRole() {
         await fetch('/api/users/role-change', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            user_id: id,
-            user_name: allProfiles?.find((u) => u.id === id)?.full_name || '',
-            user_email: allProfiles?.find((u) => u.id === id)?.email || '',
-            new_role: role,
-            old_role: allProfiles?.find((u) => u.id === id)?.role || '',
-          }),
+          body: JSON.stringify({ user_id: id, new_role: role }),
         });
-      } catch { /* email is best effort */ }
+      } catch { /* best effort */ }
 
       return { id, role };
     },

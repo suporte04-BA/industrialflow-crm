@@ -107,43 +107,37 @@ export default function Contratos() {
 
     toast.success('Contrato renovado! Novo comprovante criado para assinatura.');
 
-    try {
-      const emailBody = {
-        tipo: 'contrato_renovado',
-        contrato_id: renewTarget.id,
-        destinatario: '',
-        contrato: {
-          id: renewTarget.id,
-          numero: renewTarget.numero,
-          cliente: renewTarget.cliente,
-          cnpj: renewTarget.cnpj || '',
-          rg: renewTarget.rg || '',
-          telefone: renewTarget.telefone || '',
-          atendente: renewTarget.atendente || '',
-          equipamentos: renewTarget.equipamentos || [],
-          inicio: data.inicio || renewTarget.inicio || '',
-          fim: data.fim || renewTarget.fim || '',
-          valorMensal: data.valorMensal || renewTarget.valorMensal || 0,
-          valorTotal: data.valorTotal || renewTarget.valorTotal || 0,
-          localEntrega: renewTarget.localEntrega || '',
-          endereco: renewTarget.endereco || '',
-          numero_endereco: renewTarget.numeroEndereco || '',
-          bairro: renewTarget.bairro || '',
-          cidade: renewTarget.cidade || '',
-          estado: renewTarget.estado || '',
-          cep: renewTarget.cep || '',
-        },
-      };
-      const emailRes = await fetch('/api/email/send', {
-        method: 'POST',
-        headers: await getEmailHeaders(),
-        body: JSON.stringify(emailBody),
-      });
-      const emailResult = await emailRes.json().catch(() => ({}));
-      if (!emailRes.ok || emailResult.error) {
-        toast.warning('Email de renovacao falhou: ' + (emailResult.error || 'Erro desconhecido'));
-      }
-    } catch (e) { toast.warning('Email de renovacao falhou: ' + e.message); }
+    const emailBody = {
+      tipo: 'contrato_renovado',
+      contrato_id: renewTarget.id,
+      destinatario: '',
+      contrato: {
+        id: renewTarget.id,
+        numero: renewTarget.numero,
+        cliente: renewTarget.cliente,
+        cnpj: renewTarget.cnpj || '',
+        rg: renewTarget.rg || '',
+        telefone: renewTarget.telefone || '',
+        atendente: renewTarget.atendente || '',
+        equipamentos: renewTarget.equipamentos || [],
+        inicio: data.inicio || renewTarget.inicio || '',
+        fim: data.fim || renewTarget.fim || '',
+        valorMensal: data.valorMensal || renewTarget.valorMensal || 0,
+        valorTotal: data.valorTotal || renewTarget.valorTotal || 0,
+        localEntrega: renewTarget.localEntrega || '',
+        endereco: renewTarget.endereco || '',
+        numero_endereco: renewTarget.numeroEndereco || '',
+        bairro: renewTarget.bairro || '',
+        cidade: renewTarget.cidade || '',
+        estado: renewTarget.estado || '',
+        cep: renewTarget.cep || '',
+      },
+    };
+    fetch('/api/email/send', {
+      method: 'POST',
+      headers: await getEmailHeaders(),
+      body: JSON.stringify(emailBody),
+    }).catch(() => {});
 
     try {
       await refetch();

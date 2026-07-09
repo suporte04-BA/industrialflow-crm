@@ -280,10 +280,10 @@ export function useCreateContrato() {
               });
               const result = await res.json();
               if (result.status !== 'enviado') {
-                try { await generateFallbackEmailPDF(emailBody); } catch { /* fallback non-blocking */ }
+                generateFallbackEmailPDF(emailBody).catch(() => {});
               }
             } catch {
-              try { await generateFallbackEmailPDF(emailBody); } catch { /* fallback non-blocking */ }
+              generateFallbackEmailPDF(emailBody).catch(() => {});
             }
           }
         } catch (e) {
@@ -398,10 +398,10 @@ export function useCreateContrato() {
           });
           const result = await res.json();
           if (result.status !== 'enviado') {
-            try { await generateFallbackEmailPDF(offlineEmailBody); } catch { /* fallback non-blocking */ }
+            generateFallbackEmailPDF(offlineEmailBody).catch(() => {});
           }
         } catch {
-          try { await generateFallbackEmailPDF(offlineEmailBody); } catch { /* fallback non-blocking */ }
+          generateFallbackEmailPDF(offlineEmailBody).catch(() => {});
         }
 
         return item;

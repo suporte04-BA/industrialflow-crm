@@ -1229,6 +1229,25 @@ export default {
             return json({ error: e.message }, 500, corsHeaders);
           }
         }
+
+        if (action === 'update-password' && method === 'POST') {
+          const parsed = await parseBody(request);
+          if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+          try {
+            const { user_id, password } = parsed.data;
+            if (!user_id || !password) return json({ error: 'user_id and password required' }, 400, corsHeaders);
+            const result = await supabaseAuthAdminRequest(env, 'PUT', `/admin/users/${user_id}`, {
+              password,
+            }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
+            if (result.status && result.status >= 400) {
+              const errMsg = result.data?.msg || result.data?.error || result.data?.message || JSON.stringify(result.data);
+              return json({ error: errMsg }, result.status, corsHeaders);
+            }
+            return json({ success: true }, 200, corsHeaders);
+          } catch (e) {
+            return json({ error: e.message }, 500, corsHeaders);
+          }
+        }
       }
 
       return json({ error: 'API route not found' }, 404, corsHeaders);

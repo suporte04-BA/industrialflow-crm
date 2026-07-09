@@ -1,4 +1,5 @@
 import { useState, useMemo, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileText, PenLine, Package, ClipboardList, Building2, Search, X, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -122,6 +123,7 @@ function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF }) {
 }
 
 export default function HistoricoTransacoes() {
+  const navigate = useNavigate();
   const [filtro, setFiltro] = useState('all');
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -384,7 +386,7 @@ export default function HistoricoTransacoes() {
                         <td className="px-3 sm:px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{t.data && t.data !== '-' ? formatDateBR(t.data) : '-'}</td>
                         <td className="px-3 sm:px-4 py-3 text-right font-medium text-xs sm:text-sm">{t.valor ? `R$ ${Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}</td>
                         <td className="px-3 sm:px-4 py-3">
-                          <button onClick={(e) => { e.stopPropagation(); setModalItem(t); }}
+                          <button onClick={(e) => { e.stopPropagation(); if (t.tipo === 'os') { navigate(`/ordens?expand=${t.id}`); } else { setModalItem(t); } }}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalhes">
                             <FileText className="w-4 h-4" />
                           </button>
@@ -403,7 +405,7 @@ export default function HistoricoTransacoes() {
                                 ))}
                               </div>
                               <div className="mt-2 flex gap-2">
-                                <button onClick={(e) => { e.stopPropagation(); setModalItem(t); }}
+                                <button onClick={(e) => { e.stopPropagation(); if (t.tipo === 'os') { navigate(`/ordens?expand=${t.id}`); } else { setModalItem(t); } }}
                                   className="text-xs text-yellow-600 hover:text-yellow-700 font-medium flex items-center gap-1">
                                   <FileText className="w-3 h-3" /> Ver detalhes
                                 </button>

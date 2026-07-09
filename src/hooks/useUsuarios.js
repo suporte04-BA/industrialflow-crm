@@ -182,6 +182,22 @@ export function useUpdateUsuario() {
   });
 }
 
+export function useUpdateUsuarioPassword() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, password }) => {
+      const res = await fetch('/api/users/update-password', {
+        method: 'POST',
+        headers: await getEmailHeaders(),
+        body: JSON.stringify({ user_id: userId, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao alterar senha');
+      return data;
+    },
+  });
+}
+
 export function useDeleteUsuario() {
   const queryClient = useQueryClient();
   return useMutation({

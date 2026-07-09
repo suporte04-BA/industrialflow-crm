@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Users, Plus, Trash2, Shield, UserCheck, Loader2, Search, AlertTriangle, X, Mail, MailX } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useUpdateUsuario, useDeleteUsuario } from '../hooks/useUsuarios';
+import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useUpdateUsuario, useUpdateUsuarioPassword, useDeleteUsuario } from '../hooks/useUsuarios';
 import { useAuth } from '../lib/AuthContext';
 import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
@@ -25,7 +25,7 @@ export default function Usuarios() {
   const [form, setForm] = useState({ fullName: '', password: '', role: 'funcionario', email: '', temEmail: true });
   const [creating, setCreating] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [editForm, setEditForm] = useState({ fullName: '', email: '' });
+  const [editForm, setEditForm] = useState({ fullName: '', email: '', password: '' });
 
   const handleSearch = () => setSearchTerm(searchInput);
   const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
@@ -34,6 +34,7 @@ export default function Usuarios() {
   const createUsuario = useCreateUsuario();
   const updateRole = useUpdateUsuarioRole();
   const updateUsuario = useUpdateUsuario();
+  const updatePassword = useUpdateUsuarioPassword();
   const deleteUsuario = useDeleteUsuario();
 
   const adminGestorCount = usuarios.filter((u) => u.role === 'gestor' || u.role === 'admin').length;
@@ -117,6 +118,9 @@ export default function Usuarios() {
         fullName: editForm.fullName.trim(),
         email: editForm.email.trim() || undefined,
       });
+      if (editForm.password && userRole === 'admin') {
+        await updatePassword.mutateAsync({ userId: editingUser.id, password: editForm.password });
+      }
       toast.success('Usuário atualizado!');
       setEditingUser(null);
       refetch();
@@ -262,7 +266,7 @@ export default function Usuarios() {
                   const canDemote = isGestorAdmin && adminGestorCount <= 1;
                   const semEmail = u.tem_email === false;
                   return (
-                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '' }); }}>
+                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '', password: '' }); }}>
                       <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
@@ -381,6 +385,14 @@ export default function Usuarios() {
                   <p className="text-[10px] text-orange-500 mt-0.5">Usuário sem e-mail (login por nome)</p>
                 )}
               </div>
+              {userRole === 'admin' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nova Senha (deixe vazio para manter)</label>
+                  <input type="password" value={editForm.password}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className="input-base" placeholder="Min. 6 caracteres" minLength={6} />
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
                 <button type="submit" className="flex-1 py-2 text-sm font-medium bg-yellow-400 text-gray-900 rounded-lg hover:bg-yellow-300 transition-colors">Salvar</button>

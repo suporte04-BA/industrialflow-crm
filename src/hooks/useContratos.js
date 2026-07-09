@@ -104,19 +104,24 @@ export function useCreateContrato() {
       let maxNum = 0;
 
       if (isConfigured()) {
-        try {
-          const { data } = await supabase.from('contratos').select('id');
-          if (data && data.length > 0) {
-            const nums = data.map(c => parseInt((c.id || '').replace('CT-', ''), 10) || 0);
-            maxNum = Math.max(...nums, 0);
-          }
-        } catch { /* fallback to local */ }
+        const cached = queryClient.getQueryData(['contratos']);
+        if (cached && cached.length > 0) {
+          const nums = cached.map(c => parseInt((c.id || '').replace('CT-', ''), 10) || 0);
+          maxNum = Math.max(...nums, 0);
+        } else {
+          try {
+            const { data } = await supabase.from('contratos').select('id').order('id', { ascending: false }).limit(1);
+            if (data && data.length > 0) {
+              maxNum = parseInt((data[0].id || '').replace('CT-', ''), 10) || 0;
+            }
+          } catch { /* fallback to local */ }
+        }
       }
 
       if (maxNum === 0) {
         const localItems = getLocal();
-        const localNums = localItems.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
-        const mockNums = mockContratos.map(c => parseInt((c.id || '').replace('CT-', '')) || 0);
+        const localNums = localItems.map(c => parseInt((c.id || '').replace('CT-', ''), 0));
+        const mockNums = mockContratos.map(c => parseInt((c.id || '').replace('CT-', ''), 0));
         maxNum = Math.max(...localNums, ...mockNums, 0);
       }
 
@@ -157,6 +162,9 @@ export function useCreateContrato() {
       };
 
       if (isConfigured()) {
+        // Optimistic update: add to UI instantly
+        queryClient.setQueryData(['contratos'], (old = []) => [item, ...old]);
+
         const payload = toSnake({
           cliente: newCt.cliente,
           cnpj: newCt.cnpj,
@@ -187,8 +195,14 @@ export function useCreateContrato() {
           tipoDocumento: newCt.tipoDocumento || 'entrega',
           condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
-        const { error } = await supabase.from('contratos').insert(payload);
-        if (error) throw handleSupabaseError(error);
+
+        // Background: sync with Supabase (no blocking)
+        supabase.from('contratos').insert(payload).then(({ error }) => {
+          if (error) {
+            console.error('[contrato sync]', error);
+            queryClient.setQueryData(['contratos'], (old = []) => old.filter(c => c.id !== item.id));
+          }
+        }).catch(() => {});
 
         const ctSaved = item;
 

@@ -36,7 +36,7 @@ const equipColumns = [
 ];
 
 const contractColumns = [
-  { key: 'numero', header: 'Numero', cellClass: 'font-semibold' },
+  { key: 'numero', header: 'Número', cellClass: 'font-semibold' },
   { key: 'cliente', header: 'Cliente' },
   { key: 'valorMensal', header: 'Valor Mensal', isMoney: true },
 ];

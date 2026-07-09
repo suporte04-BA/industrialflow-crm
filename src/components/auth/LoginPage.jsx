@@ -25,7 +25,7 @@ export default function LoginPage() {
 
     await loadConfig();
     if (!isConfigured()) {
-      toast.error('Supabase n\u00e3o configurado. Verifique as vari\u00e1veis de ambiente.');
+      toast.error('Supabase não configurado. Verifique as variáveis de ambiente.');
       return;
     }
 
@@ -49,9 +49,9 @@ export default function LoginPage() {
       } else if (err.message?.includes('Invalid login') || err.message?.includes('invalid_credentials')) {
         toast.error('E-mail ou senha incorretos. Verifique seus dados.');
       } else if (err.message?.includes('Email not confirmed')) {
-        toast.error('E-mail n\u00e3o confirmado. Verifique sua caixa de entrada.');
+        toast.error('E-mail não confirmado. Verifique sua caixa de entrada.');
       } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-        toast.error('Erro de conex\u00e3o. Verifique sua internet e tente novamente.');
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
       } else {
         toast.error(err.message || 'Erro ao fazer login');
       }

@@ -15,13 +15,13 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!form.fullName.trim()) { toast.error('Preencha o nome completo'); return; }
     if (!form.email.trim()) { toast.error('Preencha o e-mail'); return; }
-    if (!form.email.includes('@')) { toast.error('E-mail inv\u00e1lido'); return; }
-    if (!form.password || form.password.length < 6) { toast.error('Senha deve ter no m\u00ednimo 6 caracteres'); return; }
-    if (form.password !== form.confirmPassword) { toast.error('As senhas n\u00e3o conferem'); return; }
+    if (!form.email.includes('@')) { toast.error('E-mail inválido'); return; }
+    if (!form.password || form.password.length < 6) { toast.error('Senha deve ter no mínimo 6 caracteres'); return; }
+    if (form.password !== form.confirmPassword) { toast.error('As senhas não conferem'); return; }
 
     await loadConfig();
     if (!isConfigured()) {
-      toast.error('Supabase n\u00e3o configurado. Verifique as vari\u00e1veis de ambiente.');
+      toast.error('Supabase não configurado. Verifique as variáveis de ambiente.');
       return;
     }
 
@@ -42,7 +42,7 @@ export default function RegisterPage() {
       if (!res.ok) {
         const msg = data?.error || 'Erro ao criar conta';
         if (msg.includes('already') || msg.includes('exists') || msg.includes('ja esta cadastrado')) {
-          toast.error('Este e-mail j\u00e1 est\u00e1 cadastrado. Fa\u00e7a login.');
+          toast.error('Este e-mail já está cadastrado. Faça login.');
         } else if (msg.includes('rate limit')) {
           toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
         } else {
@@ -53,18 +53,18 @@ export default function RegisterPage() {
 
       const signInResult = await signIn(form.email, form.password);
       if (signInResult.error) {
-        toast.success('Conta criada com sucesso! Fa\u00e7a login.');
+        toast.success('Conta criada com sucesso! Faça login.');
         navigate('/login');
         return;
       }
 
-        toast.success('Conta criada com sucesso! Login autom\u00e1tico realizado.');
+        toast.success('Conta criada com sucesso! Login automático realizado.');
       const userRole = profile?.role || 'funcionario';
       const isGestor = userRole === 'admin' || userRole === 'gestor';
       navigate(isGestor ? '/' : '/comprovantes', { replace: true });
     } catch (err) {
       if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-        toast.error('Erro de conex\u00e3o. Verifique sua internet e tente novamente.');
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
       } else {
         toast.error(err.message || 'Erro ao criar conta');
       }
@@ -119,7 +119,7 @@ export default function RegisterPage() {
           </form>
           <div className="mt-4 flex items-center justify-between">
               <Link to="/login" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-              <ArrowLeft className="w-3 h-3" /> J\u00e1 tenho conta
+              <ArrowLeft className="w-3 h-3" /> Já tenho conta
             </Link>
           </div>
         </div>

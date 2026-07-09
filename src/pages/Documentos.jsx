@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Trash2, Search, RotateCcw, ClipboardCheck, Download, X, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { detectDocumentType } from '../lib/validation';
 import { useComprovantes, useDeleteComprovante } from '../hooks/useComprovantes';
 import { useContratos } from '../hooks/useContratos';
 import { useDevolucoes } from '../hooks/useDevolucoes';
@@ -16,18 +15,18 @@ import { formatDateBR } from '../lib/dates';
 
 const TABS = [
   { key: 'entrega', label: 'Entrega', icon: ClipboardCheck },
-  { key: 'devolucao', label: 'Devolucao', icon: RotateCcw },
+  { key: 'devolucao', label: 'Devolução', icon: RotateCcw },
 ];
 
-function SignatarioInfo({ assinatura }) {
+function SignatarioInfo({ assinatura, expanded }) {
   if (!assinatura) return null;
   return (
-    <div className="mt-3 pt-3 border-t bg-green-50 rounded-lg p-3 space-y-2">
+    <div className={`${expanded ? 'mt-4 pt-4 border-t-2 border-green-200 bg-green-50 rounded-xl p-4 space-y-3' : 'mt-3 pt-3 border-t bg-green-50 rounded-lg p-3 space-y-2'}`}>
       <div className="flex items-center gap-2">
-        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-        <span className="text-xs font-semibold text-green-800">Assinado Digitalmente</span>
+        <CheckCircle className={`${expanded ? 'w-5 h-5' : 'w-4 h-4'} text-green-600 flex-shrink-0`} />
+        <span className={`${expanded ? 'text-sm' : 'text-xs'} font-semibold text-green-800`}>Assinado Digitalmente</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className={`grid ${expanded ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'} gap-2 text-xs`}>
         <div>
           <span className="text-gray-500">Recebedor:</span>
           <span className="font-medium block truncate">{assinatura.nomeSignatario}</span>
@@ -36,7 +35,7 @@ function SignatarioInfo({ assinatura }) {
           <span className="text-gray-500">CPF/CNPJ:</span>
           <span className="font-medium block" translate="no">{assinatura.cpfSignatario || '-'}</span>
         </div>
-        <div className="col-span-2">
+        <div className={expanded ? '' : 'col-span-2'}>
           <span className="text-gray-500">Data:</span>
           <span className="font-medium">{assinatura.dataAssinatura ? formatDateBR(assinatura.dataAssinatura) : '-'}</span>
         </div>
@@ -45,16 +44,16 @@ function SignatarioInfo({ assinatura }) {
         <div className="mt-2">
           <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider font-semibold">Assinatura:</p>
           <img src={assinatura.assinaturaImagem} alt="Assinatura do recebedor"
-            className="border-2 border-green-300 rounded-lg bg-white h-20 sm:h-24 object-contain p-1" />
+            className={`border-2 border-green-300 rounded-lg bg-white object-contain p-1 ${expanded ? 'h-28 sm:h-36' : 'h-20 sm:h-24'}`} />
         </div>
       )}
     </div>
   );
 }
 
-function EntregaCard({ c, contratoData, assinatura, isExpanded, onDelete, onGeneratePDF, onToggleExpand }) {
+function EntregaCard({ c, contratoData: _contratoData, assinatura, onDelete, onGeneratePDF, onOpenModal }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onToggleExpand}>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onOpenModal}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -87,62 +86,91 @@ function EntregaCard({ c, contratoData, assinatura, isExpanded, onDelete, onGene
           </div>
         </div>
       </div>
-
       {assinatura && <SignatarioInfo assinatura={assinatura} />}
-
-      {isExpanded && contratoData && (
-        <div className="mt-3 pt-3 border-t bg-gray-50 rounded-lg p-3 space-y-2">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase">Detalhes do Contrato</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-            <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
-            <div><span className="text-gray-500">{detectDocumentType(contratoData.cnpj) === 'cpf' ? 'CPF' : 'CNPJ'}:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
-            <div><span className="text-gray-500">Status:</span> <StatusBadge status={contratoData.status} /></div>
-            <div><span className="text-gray-500">Inicio:</span> <span className="font-medium">{contratoData.inicio || '-'}</span></div>
-            <div><span className="text-gray-500">Fim:</span> <span className="font-medium">{contratoData.fim || '-'}</span></div>
-            <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(contratoData.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
-            <div className="sm:col-span-3"><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(contratoData.equipamentos) ? contratoData.equipamentos.join(', ') : '-'}</span></div>
-            {contratoData.numero && <div><span className="text-gray-500">Numero:</span> <span className="font-medium">{contratoData.numero}</span></div>}
-            {contratoData.referencia && <div><span className="text-gray-500">Referencia:</span> <span className="font-medium">{contratoData.referencia}</span></div>}
-          </div>
-          {c.itens && c.itens.length > 0 && (
-            <div className="mt-2 overflow-x-auto">
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Itens</p>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b text-gray-500">
-                    <th className="text-left py-1 pr-2">Qtde</th>
-                    <th className="text-left py-1 pr-2">Descricao</th>
-                    <th className="text-left py-1 pr-2 hidden sm:table-cell">Patrim.</th>
-                    <th className="text-left py-1 pr-2 hidden md:table-cell">D.Loc</th>
-                    <th className="text-left py-1 pr-2 hidden md:table-cell">D.Dev</th>
-                    <th className="text-right py-1">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {c.itens.map((it, i) => (
-                    <tr key={i} className="border-b last:border-0">
-                      <td className="py-1 pr-2">{it.quantidade || 1}</td>
-                      <td className="py-1 pr-2">{it.descricao || '-'}</td>
-                      <td className="py-1 pr-2 hidden sm:table-cell">{it.patrimonio || '-'}</td>
-                      <td className="py-1 pr-2 hidden md:table-cell">{it.dataLocacao || '-'}</td>
-                      <td className="py-1 pr-2 hidden md:table-cell">{it.dataDevolucao || '-'}</td>
-                      <td className="py-1 text-right">R$ {Number(it.valorUnitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-function DevolucaoCard({ c, contratoData, assinatura, isExpanded, onDelete, onGeneratePDF, onToggleExpand }) {
+function ComprovanteModal({ c, contratoData, assinatura, onClose, onDelete, onGeneratePDF }) {
+  if (!c) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Comprovante de Entrega</h2>
+            <p className="text-xs text-gray-500">Contrato {c.contrato}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-mono bg-blue-50 text-blue-700 px-3 py-1 rounded-lg" translate="no">{c.contrato}</span>
+            <StatusBadge status={c.status} />
+            {c.assinado && <StatusBadge status="assinado" />}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <div><span className="text-gray-500 block text-xs">Locatário</span><span className="font-medium">{c.locatario || '-'}</span></div>
+            <div><span className="text-gray-500 block text-xs">CPF/CNPJ</span><span className="font-medium" translate="no">{c.cpf || '-'}</span></div>
+            <div><span className="text-gray-500 block text-xs">Telefone</span><span className="font-medium">{c.telefoneEntrega || c.telefone || '-'}</span></div>
+            <div className="col-span-2 sm:col-span-3"><span className="text-gray-500 block text-xs">Endereço</span><span className="font-medium">{c.endereco || '-'}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}{c.cidade ? ` — ${c.cidade}/${c.estado}` : ''}</span></div>
+            <div><span className="text-gray-500 block text-xs">Total</span><span className="font-bold text-green-600 text-base">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+          </div>
+          {c.itens && c.itens.length > 0 && (
+            <div className="overflow-x-auto">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Itens</h4>
+              <table className="w-full text-xs border rounded-lg overflow-hidden">
+                <thead><tr className="bg-gray-50 border-b text-gray-500">
+                  <th className="text-left py-2 px-3">Qtde</th>
+                  <th className="text-left py-2 px-3">Descrição</th>
+                  <th className="text-left py-2 px-3 hidden sm:table-cell">Patrimônio</th>
+                  <th className="text-right py-2 px-3">Valor</th>
+                </tr></thead>
+                <tbody>{c.itens.map((it, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="py-2 px-3">{it.quantidade || 1}</td>
+                    <td className="py-2 px-3">{it.descricao || '-'}</td>
+                    <td className="py-2 px-3 hidden sm:table-cell">{it.patrimonio || '-'}</td>
+                    <td className="py-2 px-3 text-right">R$ {Number(it.valorUnitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {assinatura && <SignatarioInfo assinatura={assinatura} expanded />}
+          {contratoData && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase">Dados do Contrato</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
+                <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
+                <div><span className="text-gray-500">Status:</span> <StatusBadge status={contratoData.status} /></div>
+                <div><span className="text-gray-500">Início:</span> <span className="font-medium">{contratoData.inicio || '-'}</span></div>
+                <div><span className="text-gray-500">Fim:</span> <span className="font-medium">{contratoData.fim || '-'}</span></div>
+                <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(contratoData.valorMensal || 0).toLocaleString('pt-BR')}/mês</span></div>
+                <div className="sm:col-span-3"><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(contratoData.equipamentos) ? contratoData.equipamentos.join(', ') : '-'}</span></div>
+              </div>
+            </div>
+          )}
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => onGeneratePDF(c)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
+              <Download className="w-4 h-4" /> Baixar PDF
+            </button>
+            <button onClick={() => { onDelete(c); onClose(); }} className="px-4 py-2.5 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-50 transition-colors">
+              Excluir
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DevolucaoCard({ c, contratoData: _contratoData, assinatura, onDelete, onGeneratePDF, onOpenModal }) {
   const condicoes = c.condicoesDevolucao || c.condicoes || {};
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onToggleExpand}>
+    <div className="bg-white rounded-xl shadow-sm border border-orange-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={onOpenModal}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -157,7 +185,7 @@ function DevolucaoCard({ c, contratoData, assinatura, isExpanded, onDelete, onGe
             {c.nomeSignatario && <p className="text-xs text-orange-600 font-medium">Assinado por: {c.nomeSignatario}</p>}
           </div>
           {c.itens && c.itens.length > 0 && (
-            <p className="text-xs text-gray-400 mt-1">{c.itens.length} item(ns) para devolucao</p>
+            <p className="text-xs text-gray-400 mt-1">{c.itens.length} item(ns) para devolução</p>
           )}
           {(condicoes.danificado || condicoes.extraviado || condicoes.testarEmpresa) && (
             <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -180,42 +208,76 @@ function DevolucaoCard({ c, contratoData, assinatura, isExpanded, onDelete, onGe
           </div>
         </div>
       </div>
-
       {assinatura && <SignatarioInfo assinatura={assinatura} />}
+    </div>
+  );
+}
 
-      {isExpanded && (
-        <div className="mt-3 pt-3 border-t bg-orange-50 rounded-lg p-3 space-y-2">
-          {contratoData && (
-            <>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase">Detalhes do Contrato</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
-                <div><span className="text-gray-500">{detectDocumentType(contratoData.cnpj) === 'cpf' ? 'CPF' : 'CNPJ'}:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
-                <div><span className="text-gray-500">Referencia:</span> <span className="font-medium">{contratoData.referencia || '-'}</span></div>
-              </div>
-            </>
+function DevolucaoModal({ c, contratoData, assinatura, onClose, onDelete, onGeneratePDF }) {
+  if (!c) return null;
+  const condicoes = c.condicoesDevolucao || c.condicoes || {};
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Devolução de Equipamento</h2>
+            <p className="text-xs text-gray-500">Contrato {c.contrato}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-mono bg-orange-50 text-orange-700 px-3 py-1 rounded-lg" translate="no">{c.contrato}</span>
+            <StatusBadge status={c.status} />
+            {c.assinado && <StatusBadge status="assinado" />}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <div><span className="text-gray-500 block text-xs">Locatário</span><span className="font-medium">{c.locatario || '-'}</span></div>
+            <div><span className="text-gray-500 block text-xs">CPF/CNPJ</span><span className="font-medium" translate="no">{c.cpf || '-'}</span></div>
+            <div className="col-span-2 sm:col-span-3"><span className="text-gray-500 block text-xs">Endereço</span><span className="font-medium">{c.endereco || '-'}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}{c.cidade ? ` — ${c.cidade}/${c.estado}` : ''}</span></div>
+          </div>
+          {(condicoes.danificado || condicoes.extraviado || condicoes.testarEmpresa) && (
+            <div className="flex flex-wrap gap-2">
+              {condicoes.danificado && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-lg">Danificado/Sujo</span>}
+              {condicoes.extraviado && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-lg">Extraviado</span>}
+              {condicoes.testarEmpresa && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">Testar na empresa</span>}
+            </div>
           )}
           {c.itens && c.itens.length > 0 && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Itens para Devolucao</p>
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Itens para Devolução</h4>
               {c.itens.map((it, i) => (
-                <div key={i} className="text-xs flex items-center gap-2 py-0.5">
-                  <span className="w-3 h-3 border border-gray-400 rounded flex-shrink-0" />
-                  <span>{it.quantidade || 1}x {it.descricao} ({it.patrimonio || '-'})</span>
+                <div key={i} className="text-sm flex items-center gap-2 py-1 border-b last:border-0">
+                  <span>{it.quantidade || 1}x</span>
+                  <span className="font-medium">{it.descricao}</span>
+                  <span className="text-gray-400">({it.patrimonio || '-'})</span>
                 </div>
               ))}
             </div>
           )}
-          {c.condicoesDevolucao && (
-            <div className="text-xs">
-              <span className="font-semibold text-gray-500">Condicoes: </span>
-              {c.condicoesDevolucao.danificado && <span className="text-orange-600">Danificado/Sujo </span>}
-              {c.condicoesDevolucao.extraviado && <span className="text-red-600">Extraviado </span>}
-              {c.condicoesDevolucao.testarEmpresa && <span className="text-blue-600">Testar na empresa </span>}
+          {assinatura && <SignatarioInfo assinatura={assinatura} expanded />}
+          {contratoData && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase">Dados do Contrato</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
+                <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
+                <div><span className="text-gray-500">Referência:</span> <span className="font-medium">{contratoData.referencia || '-'}</span></div>
+              </div>
             </div>
           )}
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => onGeneratePDF(c)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
+              <Download className="w-4 h-4" /> Baixar PDF
+            </button>
+            <button onClick={() => { onDelete(c); onClose(); }} className="px-4 py-2.5 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-50 transition-colors">
+              Excluir
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -225,7 +287,7 @@ export default function Documentos() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [modalItem, setModalItem] = useState(null);
 
   const { data: comprovantes, isLoading, isError, error, refetch } = useComprovantes();
   const { data: contratos } = useContratos();
@@ -357,18 +419,16 @@ export default function Documentos() {
       {filteredComprovantes.length === 0 ? (
         <EmptyState
           icon={activeTab === 'entrega' ? ClipboardCheck : RotateCcw}
-          title={activeTab === 'entrega' ? 'Nenhum comprovante de entrega' : 'Nenhum comprovante de devolucao'}
+          title={activeTab === 'entrega' ? 'Nenhum comprovante de entrega' : 'Nenhum comprovante de devolução'}
           description={activeTab === 'entrega'
-            ? 'Comprovantes de entrega serao criados automaticamente ao criar contratos.'
-            : 'Comprovantes de devolucao serao criados ao importar PDFs de devolucao via novo contrato.'}
+            ? 'Comprovantes de entrega serão criados automaticamente ao criar contratos.'
+            : 'Comprovantes de devolução serão criados ao importar PDFs de devolução via novo contrato.'}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3">
           {filteredComprovantes.map((c) => {
             const contratoData = c.contratoId ? getContrato(c.contratoId) : null;
             const assinatura = getAssinatura(c.id);
-            const isExpanded = expandedId === c.id;
-            const onToggleExpand = () => setExpandedId(isExpanded ? null : c.id);
 
             if (activeTab === 'entrega') {
               return (
@@ -377,8 +437,7 @@ export default function Documentos() {
                   c={c}
                   contratoData={contratoData}
                   assinatura={assinatura}
-                  isExpanded={isExpanded}
-                  onToggleExpand={onToggleExpand}
+                  onOpenModal={() => setModalItem({ type: 'entrega', c, contratoData, assinatura })}
                   onDelete={setDeleteTarget}
                   onGeneratePDF={handleGeneratePDF}
                 />
@@ -390,8 +449,7 @@ export default function Documentos() {
                 c={c}
                 contratoData={contratoData}
                 assinatura={assinatura}
-                isExpanded={isExpanded}
-                onToggleExpand={onToggleExpand}
+                onOpenModal={() => setModalItem({ type: 'devolucao', c, contratoData, assinatura })}
                 onDelete={setDeleteTarget}
                 onGeneratePDF={handleGeneratePDF}
               />
@@ -409,6 +467,27 @@ export default function Documentos() {
         confirmLabel="Excluir"
         danger
       />
+
+      {modalItem && modalItem.type === 'entrega' && (
+        <ComprovanteModal
+          c={modalItem.c}
+          contratoData={modalItem.contratoData}
+          assinatura={modalItem.assinatura}
+          onClose={() => setModalItem(null)}
+          onDelete={setDeleteTarget}
+          onGeneratePDF={handleGeneratePDF}
+        />
+      )}
+      {modalItem && modalItem.type === 'devolucao' && (
+        <DevolucaoModal
+          c={modalItem.c}
+          contratoData={modalItem.contratoData}
+          assinatura={modalItem.assinatura}
+          onClose={() => setModalItem(null)}
+          onDelete={setDeleteTarget}
+          onGeneratePDF={handleGeneratePDF}
+        />
+      )}
     </div>
   );
 }

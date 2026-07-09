@@ -8,7 +8,7 @@ import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 
-const roleLabels = { admin: 'Admin', gestor: 'Gestor', funcionario: 'Funcion\u00e1rio' };
+const roleLabels = { admin: 'Admin', gestor: 'Gestor', funcionario: 'Funcionário' };
 const roleColors = {
   admin: 'bg-purple-100 text-purple-700',
   gestor: 'bg-yellow-100 text-yellow-700',
@@ -38,8 +38,8 @@ export default function Usuarios() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.fullName.trim()) { toast.error('Preencha o nome'); return; }
-    if (!form.password.trim() || form.password.length < 6) { toast.error('Senha m\u00ednima: 6 caracteres'); return; }
-    if (form.temEmail && form.email && !form.email.includes('@')) { toast.error('E-mail inv\u00e1lido'); return; }
+    if (!form.password.trim() || form.password.length < 6) { toast.error('Senha mínima: 6 caracteres'); return; }
+    if (form.temEmail && form.email && !form.email.includes('@')) { toast.error('E-mail inválido'); return; }
     setCreating(true);
     try {
       await createUsuario.mutateAsync({
@@ -49,12 +49,12 @@ export default function Usuarios() {
         email: form.temEmail ? (form.email || undefined) : undefined,
         temEmail: form.temEmail,
       });
-      toast.success(`Usu\u00e1rio ${form.fullName} criado com sucesso!`);
+      toast.success(`Usuário ${form.fullName} criado com sucesso!`);
       setForm({ fullName: '', password: '', role: 'funcionario', email: '', temEmail: true });
       setShowCreate(false);
       refetch();
     } catch (err) {
-      toast.error(err.message || 'Erro ao criar usu\u00e1rio');
+      toast.error(err.message || 'Erro ao criar usuário');
     } finally {
       setCreating(false);
     }
@@ -62,7 +62,7 @@ export default function Usuarios() {
 
   const handleChangeRole = async (userId, newRole) => {
     if (userId === user?.id) {
-      toast.error('Voc\u00ea n\u00e3o pode mudar sua pr\u00f3pria fun\u00e7\u00e3o');
+      toast.error('Você não pode mudar sua própria função');
       return;
     }
     const target = usuarios.find((u) => u.id === userId);
@@ -77,16 +77,16 @@ export default function Usuarios() {
     }
     try {
       await updateRole.mutateAsync({ id: userId, role: newRole, currentUserId: user?.id });
-      toast.success(`Fun\u00e7\u00e3o alterada para ${roleLabels[newRole]}`);
+      toast.success(`Função alterada para ${roleLabels[newRole]}`);
       refetch();
     } catch (err) {
-      toast.error(err.message || 'Erro ao alterar fun\u00e7\u00e3o');
+      toast.error(err.message || 'Erro ao alterar função');
     }
   };
 
   const handleDelete = async (userId) => {
     if (userId === user?.id) {
-      toast.error('Voc\u00ea n\u00e3o pode remover seu pr\u00f3prio usu\u00e1rio');
+      toast.error('Você não pode remover seu próprio usuário');
       return;
     }
     const target = usuarios.find((u) => u.id === userId);
@@ -94,13 +94,13 @@ export default function Usuarios() {
       toast.error('Deve haver pelo menos um admin no sistema.');
       return;
     }
-    if (!window.confirm(`Remover o usu\u00e1rio ${target?.fullName || 'este usu\u00e1rio'}?`)) return;
+    if (!window.confirm(`Remover o usuário ${target?.fullName || 'este usuário'}?`)) return;
     try {
       await deleteUsuario.mutateAsync({ id: userId, currentUserId: user?.id });
-      toast.success('Usu\u00e1rio removido');
+      toast.success('Usuário removido');
       refetch();
     } catch (err) {
-      toast.error(err.message || 'Erro ao remover usu\u00e1rio');
+      toast.error(err.message || 'Erro ao remover usuário');
     }
   };
 
@@ -110,7 +110,7 @@ export default function Usuarios() {
   if (!isAdminOrGestor) {
     return (
       <div className="p-4 md:p-6">
-        <EmptyState icon={Shield} title="Acesso restrito" description="Apenas administradores e gestores podem gerenciar usu\u00e1rios." />
+        <EmptyState icon={Shield} title="Acesso restrito" description="Apenas administradores e gestores podem gerenciar usuários." />
       </div>
     );
   }
@@ -125,8 +125,8 @@ export default function Usuarios() {
     <div className="space-y-4 md:space-y-6 px-3 sm:px-0 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Gest\u00e3o de Usu\u00e1rios</h2>
-          <p className="text-xs sm:text-sm text-gray-500">{usuarios.length} usu\u00e1rios cadastrados | {adminGestorCount} gestor(es)</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Gestão de Usuários</h2>
+          <p className="text-xs sm:text-sm text-gray-500">{usuarios.length} usuários cadastrados | {adminGestorCount} gestor(es)</p>
         </div>
         <Button icon={Plus} onClick={() => setShowCreate(!showCreate)} className="w-full sm:w-auto">
           {showCreate ? 'Fechar' : 'Novo Usuario'}
@@ -136,13 +136,13 @@ export default function Usuarios() {
       {adminGestorCount <= 1 && (
         <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
           <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
-          <p className="text-xs sm:text-sm text-yellow-700">Apenas {adminGestorCount} administrador(es)/gestor(es) no sistema. N\u00e3o \u00e9 poss\u00edvel remover o \u00faltimo.</p>
+          <p className="text-xs sm:text-sm text-yellow-700">Apenas {adminGestorCount} administrador(es)/gestor(es) no sistema. Não é possível remover o último.</p>
         </div>
       )}
 
       {showCreate && (
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Novo Usu\u00e1rio</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Novo Usuário</h3>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -153,7 +153,7 @@ export default function Usuarios() {
               </label>
               <span className="text-xs text-gray-400">|</span>
               <span className="text-xs text-gray-500">
-                {form.temEmail ? 'Notifica\u00e7\u00f5es por e-mail ativas' : 'Apenas login por nome (funcion\u00e1rio)'}
+                {form.temEmail ? 'Notificações por e-mail ativas' : 'Apenas login por nome (funcionário)'}
               </span>
             </div>
 
@@ -162,7 +162,7 @@ export default function Usuarios() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nome Completo *</label>
                 <input type="text" required value={form.fullName}
                   onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                  className="input-base" placeholder="Nome do usu\u00e1rio" />
+                  className="input-base" placeholder="Nome do usuário" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Senha * (min. 6 caracteres)</label>
@@ -180,21 +180,21 @@ export default function Usuarios() {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Fun\u00e7\u00e3o *</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Função *</label>
                 <select value={form.temEmail ? form.role : 'funcionario'} onChange={(e) => setForm({ ...form, role: e.target.value })}
                   disabled={!form.temEmail}
                   className="input-base disabled:opacity-50 disabled:bg-gray-100">
-                  <option value="funcionario">Funcion\u00e1rio</option>
+                  <option value="funcionario">Funcionário</option>
                   <option value="gestor">Gestor</option>
                   <option value="admin">Admin</option>
                 </select>
-                {!form.temEmail && <p className="text-[10px] text-orange-500 mt-0.5">Usu\u00e1rios sem e-mail s\u00f3 podem ser funcion\u00e1rios</p>}
+                {!form.temEmail && <p className="text-[10px] text-orange-500 mt-0.5">Usuários sem e-mail só podem ser funcionários</p>}
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
               <Button type="submit" icon={creating ? Loader2 : Plus} disabled={creating} className="w-full sm:w-auto">
-                {creating ? 'Criando...' : 'Criar Usu\u00e1rio'}
+                {creating ? 'Criando...' : 'Criar Usuário'}
               </Button>
               <Button variant="secondary" type="button" onClick={() => { setShowCreate(false); setForm({ fullName: '', password: '', role: 'funcionario', email: '', temEmail: true }); }} className="w-full sm:w-auto">Cancelar</Button>
             </div>
@@ -221,7 +221,7 @@ export default function Usuarios() {
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Users} title="Nenhum usu\u00e1rio" description="Crie o primeiro usu\u00e1rio clicando no bot\u00e3o acima." />
+        <EmptyState icon={Users} title="Nenhum usuário" description="Crie o primeiro usuário clicando no botão acima." />
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -230,8 +230,8 @@ export default function Usuarios() {
                 <tr className="border-b bg-gray-50 text-left text-gray-500">
                   <th className="px-3 sm:px-4 py-3 font-medium">Nome</th>
                   <th className="px-3 sm:px-4 py-3 font-medium hidden sm:table-cell">Email</th>
-                  <th className="px-3 sm:px-4 py-3 font-medium">Fun\u00e7\u00e3o</th>
-                  <th className="px-3 sm:px-4 py-3 font-medium">A\u00e7\u00f5es</th>
+                  <th className="px-3 sm:px-4 py-3 font-medium">Função</th>
+                  <th className="px-3 sm:px-4 py-3 font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,7 +251,7 @@ export default function Usuarios() {
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 truncate">{u.fullName}</p>
-                            {isCurrentUser && <p className="text-xs text-yellow-600">(Voc\u00ea)</p>}
+                            {isCurrentUser && <p className="text-xs text-yellow-600">(Você)</p>}
                             <p className="text-[10px] text-gray-400 sm:hidden truncate">{u.email}</p>
                           </div>
                         </div>
@@ -281,12 +281,12 @@ export default function Usuarios() {
                             <>
                               <button onClick={() => handleChangeRole(u.id, 'gestor')} disabled={isCurrentUser || semEmail}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors disabled:opacity-50"
-                                title={semEmail ? 'Usu\u00e1rios sem e-mail n\u00e3o podem ser promovidos' : ''}>
+                                title={semEmail ? 'Usuários sem e-mail não podem ser promovidos' : ''}>
                                 Gestor
                               </button>
                               <button onClick={() => handleChangeRole(u.id, 'admin')} disabled={isCurrentUser || semEmail}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-50"
-                                title={semEmail ? 'Usu\u00e1rios sem e-mail n\u00e3o podem ser promovidos' : ''}>
+                                title={semEmail ? 'Usuários sem e-mail não podem ser promovidos' : ''}>
                                 Admin
                               </button>
                             </>
@@ -321,7 +321,7 @@ export default function Usuarios() {
                           {!isCurrentUser && (
                             <button onClick={() => handleDelete(u.id)}
                               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Remover usu\u00e1rio">
+                              title="Remover usuário">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}

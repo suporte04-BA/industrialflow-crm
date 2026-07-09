@@ -47,6 +47,22 @@
   @apply w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40 bg-white transition-all;
 }
 
+.input-base.pl-9 {
+  @apply !pl-9;
+}
+
+.input-base.pr-9 {
+  @apply !pr-9;
+}
+
+.input-base.pl-10 {
+  @apply !pl-10;
+}
+
+.input-base.pr-10 {
+  @apply !pr-10;
+}
+
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f5f5f5; }
 ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }

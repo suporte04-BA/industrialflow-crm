@@ -187,10 +187,10 @@ export function useCreateContrato() {
           tipoDocumento: newCt.tipoDocumento || 'entrega',
           condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
-        const { data, error } = await supabase.from('contratos').insert(payload).select().single();
+        const { error } = await supabase.from('contratos').insert(payload);
         if (error) throw handleSupabaseError(error);
 
-        const ctSaved = toCamel(data);
+        const ctSaved = item;
 
         // Fire-and-forget: comprovante + email + OS + equipamentos
         const compPayload = toSnake({
@@ -213,13 +213,13 @@ export function useCreateContrato() {
 
         // All background tasks - no await
         Promise.allSettled([
-          supabase.from('comprovantes_entrega').insert(compPayload).then(({ data: compData }) => {
+          supabase.from('comprovantes_entrega').insert(compPayload).then(() => {
             const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
             const contratoEmail = { id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim, valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal, atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega, endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro, cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep, contato: ctSaved.contato };
-            const comprovanteEmail = { id: compData?.id, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal, itens: ctSaved.itens, localEntrega: ctSaved.localEntrega };
+            const comprovanteEmail = { id: null, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal, itens: ctSaved.itens, localEntrega: ctSaved.localEntrega };
             const emailBody = newCt.tipoDocumento === 'devolucao'
-              ? { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: compData?.id, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail, devolucao: { numero: ctSaved.numero || ctSaved.id, contratoId: ctSaved.id, locatario: ctSaved.cliente, data: ctSaved.dataContrato, hora: ctSaved.horaContrato, localObra: ctSaved.localEntrega || ctSaved.endereco, telefone: ctSaved.telefoneEntrega || ctSaved.telefone, cidade: ctSaved.cidade, estado: ctSaved.estado, itens: ctSaved.itens || [], condicoes: ctSaved.condicoesDevolucao || {} } }
-              : { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: compData?.id, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail };
+              ? { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: null, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail, devolucao: { numero: ctSaved.numero || ctSaved.id, contratoId: ctSaved.id, locatario: ctSaved.cliente, data: ctSaved.dataContrato, hora: ctSaved.horaContrato, localObra: ctSaved.localEntrega || ctSaved.endereco, telefone: ctSaved.telefoneEntrega || ctSaved.telefone, cidade: ctSaved.cidade, estado: ctSaved.estado, itens: ctSaved.itens || [], condicoes: ctSaved.condicoesDevolucao || {} } }
+              : { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: null, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail };
             fetch('/api/email/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(emailBody) }).catch(() => {});
           }),
           supabase.from('ordens_servico').insert(toSnake({ cliente: ctSaved.cliente, equipamento: (ctSaved.equipamentos || []).join(', ') || '-', tipo: osTipo, status: 'pendente', prioridade: 'normal', tecnico: ctSaved.atendente || '', abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0], previsao: ctSaved.fim || null, valor: ctSaved.valorTotal || 0, observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica` })),

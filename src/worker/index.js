@@ -127,9 +127,9 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
   }
   function drawFooter(p, num) {
     p.drawRectangle({ x: ML, y: 38, width: CW, height: 1, color: rgb(0.82, 0.82, 0.82) });
-    p.drawText('TRANSOBRA CRM - Sistema de Gestao de Locacao', { x: ML + 4, y: 42, size: 7, font: helvetica, color: rgb(0.55, 0.55, 0.55) });
-    p.drawText(`Pagina ${num}`, { x: PAGE_W - MR - 40, y: 42, size: 7, font: helvetica, color: rgb(0.55, 0.55, 0.55) });
-    p.drawText('AV TARUMA, 1605 - MANAUS/AM - (92) 99386-7171', { x: ML + 4, y: 32, size: 6.5, font: helvetica, color: rgb(0.65, 0.65, 0.65) });
+    p.drawText('TRANSOBRA CRM \u2014 Sistema de Gest\u00e3o de Loca\u00e7\u00e3o', { x: ML + 4, y: 42, size: 7, font: helvetica, color: rgb(0.55, 0.55, 0.55) });
+    p.drawText(`P\u00e1gina ${num}`, { x: PAGE_W - MR - 40, y: 42, size: 7, font: helvetica, color: rgb(0.55, 0.55, 0.55) });
+    p.drawText('Av. Taruma, 1605 \u2014 Manaus/AM \u2014 (92) 99386-7171', { x: ML + 4, y: 32, size: 6.5, font: helvetica, color: rgb(0.65, 0.65, 0.65) });
   }
   function wrapText(text, font, fontSize, maxWidth) {
     const words = String(text || '-').split(/\s+/);
@@ -153,11 +153,11 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
       y -= logoH + 12;
     }
   } catch {
-    page.drawText('TRANSOBRA - LOCACAO DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: rgb(0, 0, 0) });
+    page.drawText('TRANSOBRA \u2014 LOCA\u00c7\u00c3O DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: rgb(0, 0, 0) });
     y -= 16;
   }
 
-  page.drawText('AV TARUMA, 1605 - MANAUS/AM - (92) 99386-7171', { x: ML, y, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText('Av. Taruma, 1605 \u2014 Manaus/AM \u2014 (92) 99386-7171', { x: ML, y, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4) });
   y -= 6;
   page.drawRectangle({ x: ML, y: y - 1, width: CW, height: 3, color: rgb(0.92, 0.70, 0.06) });
   y -= 22;
@@ -224,20 +224,20 @@ function buildAssunto(tipo, contrato, comprovante) {
   const numero = contrato?.numero || contrato?.id || comprovante?.contrato || '';
   const cliente = contrato?.cliente || '';
   switch (tipo) {
-    case 'contrato_criado': return `Novo Contrato ${numero} - ${cliente}`;
-    case 'contrato_assinado': return `Contrato ${numero} assinado - ${cliente}`;
-    case 'contrato_renovado': return `Contrato ${numero} renovado - ${cliente}`;
-    case 'devolucao_registrada': return `Devolucao registrada - Contrato ${numero}`;
-    case 'role_change': return `Alteracao de funcao - ${contrato?.nome || cliente}`;
-    default: return `TransObra - Notificacao ${numero}`;
+    case 'contrato_criado': return `Novo Contrato ${numero} \u2014 ${cliente}`;
+    case 'contrato_assinado': return `Contrato ${numero} assinado \u2014 ${cliente}`;
+    case 'contrato_renovado': return `Contrato ${numero} renovado \u2014 ${cliente}`;
+    case 'devolucao_registrada': return `Devolu\u00e7\u00e3o registrada \u2014 Contrato ${numero}`;
+    case 'role_change': return `Altera\u00e7\u00e3o de fun\u00e7\u00e3o \u2014 ${contrato?.nome || cliente}`;
+    default: return `TransObra \u2014 Notifica\u00e7\u00e3o ${numero}`;
   }
 }
 
 function emailWrapper(content) {
   const footer = `<tr><td style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:20px 30px;text-align:center;">
-<p style="font-size:11px;color:#6B7280;margin:0 0 6px 0;">TransObra - Locacao de Equipamentos</p>
-<p style="font-size:10px;color:#9CA3AF;margin:0 0 4px 0;">Endereco: Manaus, AM - Brasil | Tel: (92) 3300-0000</p>
-<p style="font-size:10px;color:#9CA3AF;margin:0;">Este e um email transacional enviado pelo sistema TransObra CRM.</p>
+<p style="font-size:11px;color:#6B7280;margin:0 0 6px 0;">TransObra - Locação de Equipamentos</p>
+<p style="font-size:10px;color:#9CA3AF;margin:0 0 4px 0;">Endereço: Av. Taruma, 1605 - Manaus/AM - Brasil | Tel.: (92) 99386-7171</p>
+<p style="font-size:10px;color:#9CA3AF;margin:0;">Este é um email transacional enviado pelo sistema TransObra CRM.</p>
 </td></tr>`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:#111827;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#111827;"><tr><td align="center" style="padding:32px 16px;">
@@ -279,7 +279,7 @@ function buildContratoCriadoHtml(contrato) {
   const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
   const r = [
-    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('N\u00famero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
     row('CPF/CNPJ', fmt(c.cnpj || c.cpf_cnpj)),
     c.rg ? row('RG', fmt(c.rg)) : '',
@@ -289,14 +289,14 @@ function buildContratoCriadoHtml(contrato) {
 
   const equipSection = [
     row('Equipamentos', esc(equips)),
-    c.inicio ? row('Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
-    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.inicio ? row('Per\u00edodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/m\u00eas`) : '',
     c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
   ].filter(Boolean).join('');
 
   const addrSection = [
-    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endere\u00e7o', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
     c.cidade ? row('Cidade', `${fmt(c.cidade)}${c.estado ? `/${esc(c.estado)}` : ''}`) : '',
     c.cep ? row('CEP', fmt(c.cep)) : '',
     c.contato ? row('Contato', fmt(c.contato)) : '',
@@ -304,7 +304,7 @@ function buildContratoCriadoHtml(contrato) {
   ].filter(Boolean).join('');
 
   let html = `
-${brandHeader('Novo Contrato', 'SISTEMA DE GESTAO DE LOCACAO', 'ENTREGA', '#111827', '#EAB308')}
+${brandHeader('Novo Contrato', 'SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O', 'ENTREGA', '#111827', '#EAB308')}
 <tr><td style="padding:28px 30px 12px;">
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Novo Contrato Cadastrado</div>
 <div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Um novo contrato foi registrado no sistema. Confira os detalhes abaixo.</div>
@@ -312,13 +312,13 @@ ${sectionBlock('Dados do Contrato', '#111827', '#EAB308', r)}
 ${sectionBlock('Equipamentos e Valores', '#111827', '#EAB308', equipSection)}`;
 
   if (addrSection) {
-    html += `${sectionBlock('Endereco e Contato', '#111827', '#EAB308', addrSection)}`;
+    html += `${sectionBlock('Endere\u00e7o e Contato', '#111827', '#EAB308', addrSection)}`;
   }
 
   html += `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O</div>
 </td></tr></table>
 </td></tr>`;
 
@@ -332,27 +332,27 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
   const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
   const rContrato = [
-    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('N\u00famero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
     c.rg ? row('RG', fmt(c.rg)) : '',
     c.atendente ? row('Atendente', fmt(c.atendente)) : '',
     row('Equipamentos', esc(equips)),
-    c.inicio ? row('Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
-    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.inicio ? row('Per\u00edodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/m\u00eas`) : '',
     c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
-    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endere\u00e7o', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
     c.cidade ? row('Cidade/UF', `${fmt(c.cidade)}/${fmt(c.estado)}`) : '',
     c.cep ? row('CEP', fmt(c.cep)) : '',
     c.telefone ? row('Telefone', fmt(c.telefone)) : '',
   ].filter(Boolean).join('');
 
   const rEntrega = [
-    row('Locatario', fmt(comp.locatario), { bold: true }),
+    row('Locat\u00e1rio', fmt(comp.locatario), { bold: true }),
     comp.cpf ? row('CPF', fmt(comp.cpf)) : '',
     comp.rg ? row('RG', fmt(comp.rg)) : '',
-    comp.endereco ? row('Endereco', fmt(comp.endereco)) : '',
+    comp.endereco ? row('Endere\u00e7o', fmt(comp.endereco)) : '',
     comp.cidade ? row('Cidade', fmt(comp.cidade)) : '',
     row('Total', `R$ ${fmtMoney(comp.total)}`, { bold: true, color: '#16a34a' }),
   ].filter(Boolean).join('');
@@ -372,13 +372,13 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
 ${brandHeader('Comprovante de Entrega', 'COMPROVANTE DE ENTREGA ASSINADO DIGITALMENTE', 'ENTREGA', '#EAB308', '#111827')}
 <tr><td style="padding:28px 30px 12px;">
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Comprovante de Entrega Assinado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. Valido como prova de recebimento.</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. V\u00e1lido como prova de recebimento.</div>
 ${c.id ? sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato) : ''}
 ${comp.id ? sectionBlock('Dados da Entrega', '#1e40af', '#2563eb', rEntrega) : ''}
 ${assinaturaHtml}
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O</div>
 </td></tr></table>
 </td></tr>`);
 }
@@ -388,24 +388,24 @@ function buildContratoRenovadoHtml(contrato) {
   const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
   const r = [
-    row('Numero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('N\u00famero', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
     row('Equipamentos', esc(equips)),
-    c.inicio ? row('Novo Periodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
-    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.inicio ? row('Novo Per\u00edodo', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/m\u00eas`) : '',
     c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
   ].filter(Boolean).join('');
 
   return emailWrapper(`
-${brandHeader('Contrato Renovado', 'SISTEMA DE GESTAO DE LOCACAO', 'RENOVACAO', '#111827', '#3b82f6')}
+${brandHeader('Contrato Renovado', 'SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O', 'RENOVA\u00c7\u00c3O', '#111827', '#3b82f6')}
 <tr><td style="padding:28px 30px 12px;">
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Contrato Renovado</div>
 <div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O contrato foi renovado com sucesso.</div>
-${sectionBlock('Dados da Renovacao', '#111827', '#3b82f6', r)}
+${sectionBlock('Dados da Renova\u00e7\u00e3o', '#111827', '#3b82f6', r)}
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O</div>
 </td></tr></table>
 </td></tr>`);
 }
@@ -418,7 +418,7 @@ function buildDevolucaoHtml(contrato, comprovante) {
   const itens = Array.isArray(comp.itens) ? comp.itens : [];
 
   const r = [
-    row('Numero', `<span style="font-size:16px;font-weight:900;color:#f97316;">${fmt(c.numero || comp.contrato)}</span>`),
+    row('N\u00famero', `<span style="font-size:16px;font-weight:900;color:#f97316;">${fmt(c.numero || comp.contrato)}</span>`),
     row('Cliente', fmt(c.cliente || comp.locatario), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
     c.telefone ? row('Telefone', fmt(c.telefone)) : '',
@@ -426,43 +426,43 @@ function buildDevolucaoHtml(contrato, comprovante) {
 
   const equipRows = equips ? [
     row('Equipamentos', esc(equips)),
-    c.inicio ? row('Periodo Original', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
-    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mes`) : '',
+    c.inicio ? row('Per\u00edodo Original', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
+    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/m\u00eas`) : '',
     c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
   ].filter(Boolean).join('') : '';
 
   const devRows = [
-    dev.data ? row('Data Devolucao', fmt(dev.data)) : '',
+    dev.data ? row('Data da Devolu\u00e7\u00e3o', fmt(dev.data)) : '',
     dev.hora ? row('Hora', fmt(dev.hora)) : '',
-    dev.localObra ? row('Local Obra', fmt(dev.localObra)) : '',
+    dev.localObra ? row('Local da Obra', fmt(dev.localObra)) : '',
     dev.signatarioNome ? row('Recebido por', fmt(dev.signatarioNome)) : '',
-    c.localEntrega ? row('Local Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereco', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endere\u00e7o', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
   ].filter(Boolean).join('');
 
-  const condRows = dev.condicoes ? row('Condicoes', fmt(dev.condicoes)) : '';
+  const condRows = dev.condicoes ? row('Observa\u00e7\u00f5es', fmt(dev.condicoes)) : '';
 
   let html = `
-${brandHeader('Devolucao Registrada', 'SISTEMA DE GESTAO DE LOCACAO', 'DEVOLUCAO', '#111827', '#f97316')}
+${brandHeader('Devolu\u00e7\u00e3o Registrada', 'SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O', 'DEVOLU\u00c7\u00c3O', '#111827', '#f97316')}
 <tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Devolucao de Equipamento</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Uma devolucao de equipamento foi registrada no sistema. Confira os detalhes abaixo.</div>
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Devolu\u00e7\u00e3o de Equipamento</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Uma devolu\u00e7\u00e3o de equipamento foi registrada no sistema. Confira os detalhes abaixo.</div>
 ${sectionBlock('Dados do Contrato', '#111827', '#f97316', r)}`;
 
   if (equipRows) {
-    html += `${sectionBlock('Dados da Locacao', '#111827', '#f97316', equipRows)}`;
+    html += `${sectionBlock('Dados da Loca\u00e7\u00e3o', '#111827', '#f97316', equipRows)}`;
   }
   if (devRows) {
-    html += `${sectionBlock('Dados da Devolucao', '#111827', '#f97316', devRows)}`;
+    html += `${sectionBlock('Dados da Devolu\u00e7\u00e3o', '#111827', '#f97316', devRows)}`;
   }
   if (condRows) {
-    html += `${sectionBlock('Observacoes', '#111827', '#f97316', condRows)}`;
+    html += `${sectionBlock('Observa\u00e7\u00f5es', '#111827', '#f97316', condRows)}`;
   }
 
   html += `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O</div>
 </td></tr></table>
 </td></tr>`;
 
@@ -475,20 +475,20 @@ function buildRoleChangeHtml(usuario) {
   const novaFuncao = esc(usuario?.novaFuncao || '-');
 
   const r = [
-    row('Usuario', nome, { bold: true }),
+    row('Usu\u00e1rio', nome, { bold: true }),
     row('E-mail', email),
-    row('Nova Funcao', novaFuncao),
+    row('Nova Fun\u00e7\u00e3o', novaFuncao),
   ].filter(Boolean).join('');
 
   return emailWrapper(`
-${brandHeader('Alteracao de Funcao', 'SISTEMA DE GESTAO DE LOCACAO', 'ADMIN', '#111827', '#8b5cf6')}
+${brandHeader('Altera\u00e7\u00e3o de Fun\u00e7\u00e3o', 'SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O', 'ADMIN', '#111827', '#8b5cf6')}
 <tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Alteracao de Funcao</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">A funcao de um usuario foi alterada no sistema.</div>
-${sectionBlock('Dados da Alteracao', '#111827', '#8b5cf6', r)}
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Altera\u00e7\u00e3o de Fun\u00e7\u00e3o</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">A fun\u00e7\u00e3o de um usu\u00e1rio foi alterada no sistema.</div>
+${sectionBlock('Dados da Altera\u00e7\u00e3o', '#111827', '#8b5cf6', r)}
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTAO DE LOCACAO</div>
+<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GEST\u00c3O DE LOCA\u00c7\u00c3O</div>
 </td></tr></table>
 </td></tr>`);
 }
@@ -496,23 +496,23 @@ ${sectionBlock('Dados da Alteracao', '#111827', '#8b5cf6', r)}
 function buildPlainText(tipo, contrato, comprovante, signatario, usuario) {
   const num = contrato?.numero || contrato?.id || comprovante?.contrato || '-';
   const cliente = contrato?.cliente || comprovante?.locatario || '-';
-  const footer = '\n\n====================================\nTransObra - Gestao de Locacao de Equipamentos\nRua Exemplo, 123 - Centro - Salvador/BA - CEP 40000-000\nTelefone: (71) 99999-0000\nE-mail: contato@transobra.com.br\nCNPJ: 00.000.000/0001-00\n====================================\n\nEste e um e-mail automatico do sistema TransObra.\nSe nao deseja mais receber, entre em contato conosco.';
+  const footer = '\n\n====================================\nTransObra \u2014 Gest\u00e3o de Loca\u00e7\u00e3o de Equipamentos\nAv. Taruma, 1605 \u2014 Manaus/AM \u2014 CEP 69060-000\nTelefone: (92) 99386-7171\nE-mail: contato@transobra.com.br\nCNPJ: 00.000.000/0001-00\n====================================\n\nEste \u00e9 um e-mail autom\u00e1tico do sistema TransObra.\nSe n\u00e3o deseja mais receber, entre em contato conosco.';
   switch (tipo) {
     case 'contrato_criado':
-      return `NOVO CONTRATO CADASTRADO - TransObra\n\nUm novo contrato foi cadastrado no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : '-'}\nPeriodo: ${contrato?.inicio || '-'} a ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mes\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `NOVO CONTRATO CADASTRADO \u2014 TransObra\n\nUm novo contrato foi cadastrado no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : '-'}\nPer\u00edodo: ${contrato?.inicio || '-'} a ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/m\u00eas\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'contrato_assinado':
-      return `CONTRATO ASSINADO - TransObra\n\nO contrato foi assinado digitalmente com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nAssinado por: ${signatario?.nome || '-'}\nData da Assinatura: ${signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `CONTRATO ASSINADO \u2014 TransObra\n\nO contrato foi assinado digitalmente com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nAssinado por: ${signatario?.nome || '-'}\nData da Assinatura: ${signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'contrato_renovado':
-      return `CONTRATO RENOVADO - TransObra\n\nO contrato foi renovado com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nNova Validade: ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mes\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `CONTRATO RENOVADO \u2014 TransObra\n\nO contrato foi renovado com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nNova Validade: ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/m\u00eas\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'devolucao_registrada': {
       const dev = comprovante?._devolucao || {};
       const equips = Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : (Array.isArray(comprovante?.itens) ? comprovante.itens.map(i => i.nome || i.descricao || i).join(', ') : '-');
-      return `DEVOLUCAO REGISTRADA - TransObra\n\nUma devolucao de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${equips}\nData Devolucao: ${dev.data || '-'}\nHora: ${dev.hora || '-'}\nLocal Obra: ${dev.localObra || '-'}\nRecebido por: ${dev.signatarioNome || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `DEVOLU\u00c7\u00c3O REGISTRADA \u2014 TransObra\n\nUma devolu\u00e7\u00e3o de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${equips}\nData da Devolu\u00e7\u00e3o: ${dev.data || '-'}\nHora: ${dev.hora || '-'}\nLocal da Obra: ${dev.localObra || '-'}\nRecebido por: ${dev.signatarioNome || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     }
     case 'role_change':
-      return `ALTERACAO DE FUNCAO - TransObra\n\nA funcao de um usuario foi alterada no sistema.\n\nUsuario: ${usuario?.nome || '-'}\nE-mail: ${usuario?.email || '-'}\nNova Funcao: ${usuario?.novaFuncao || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `ALTERA\u00c7\u00c3O DE FUN\u00c7\u00c3O \u2014 TransObra\n\nA fun\u00e7\u00e3o de um usu\u00e1rio foi alterada no sistema.\n\nUsu\u00e1rio: ${usuario?.nome || '-'}\nE-mail: ${usuario?.email || '-'}\nNova Fun\u00e7\u00e3o: ${usuario?.novaFuncao || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     default:
-      return `NOTIFICACAO - TransObra\n\nContrato: ${num}\nCliente: ${cliente}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `NOTIFICA\u00c7\u00c3O \u2014 TransObra\n\nContrato: ${num}\nCliente: ${cliente}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
   }
 }
 
@@ -559,7 +559,7 @@ async function sendEmailViaGoogleScript(env, data) {
       const pdfSections = [];
       if (contrato) {
         pdfSections.push({ title: 'Dados do Contrato', items: [
-          { label: 'Numero', value: contrato.numero },
+          { label: 'N\u00famero', value: contrato.numero },
           { label: 'Cliente', value: contrato.cliente },
           contrato.cnpj ? { label: 'CPF/CNPJ', value: contrato.cnpj || contrato.cpf_cnpj } : null,
           contrato.rg ? { label: 'RG', value: contrato.rg } : null,
@@ -568,30 +568,30 @@ async function sendEmailViaGoogleScript(env, data) {
         ].filter(Boolean) });
         const equipItems = [
           { label: 'Equipamentos', value: Array.isArray(contrato.equipamentos) ? contrato.equipamentos.join(', ') : '' },
-          contrato.inicio ? { label: 'Periodo', value: `${contrato.inicio} a ${contrato.fim}` } : null,
-          contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}/mes` } : null,
+          contrato.inicio ? { label: 'Per\u00edodo', value: `${contrato.inicio} a ${contrato.fim}` } : null,
+          contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}/m\u00eas` } : null,
           contrato.valorTotal ? { label: 'Valor Total', value: `R$ ${Number(contrato.valorTotal).toFixed(2)}` } : null,
         ].filter(Boolean);
         if (equipItems.length > 0) {
           pdfSections.push({ title: 'Equipamentos e Valores', items: equipItems });
         }
         const addrItems = [
-          contrato.localEntrega ? { label: 'Local Entrega', value: contrato.localEntrega } : null,
-          contrato.endereco ? { label: 'Endereco', value: `${contrato.endereco}${contrato.numero_endereco ? `, ${contrato.numero_endereco}` : ''}${contrato.bairro ? ` - ${contrato.bairro}` : ''}` } : null,
+          contrato.localEntrega ? { label: 'Local de Entrega', value: contrato.localEntrega } : null,
+          contrato.endereco ? { label: 'Endere\u00e7o', value: `${contrato.endereco}${contrato.numero_endereco ? `, ${contrato.numero_endereco}` : ''}${contrato.bairro ? ` - ${contrato.bairro}` : ''}` } : null,
           contrato.cidade ? { label: 'Cidade', value: `${contrato.cidade}${contrato.estado ? `/${contrato.estado}` : ''}` } : null,
           contrato.cep ? { label: 'CEP', value: contrato.cep } : null,
           contrato.contato ? { label: 'Contato', value: contrato.contato } : null,
         ].filter(Boolean);
         if (addrItems.length > 0) {
-          pdfSections.push({ title: 'Endereco e Contato', items: addrItems });
+          pdfSections.push({ title: 'Endere\u00e7o e Contato', items: addrItems });
         }
       }
       if (tipo === 'contrato_assinado') {
         if (comprovante) {
           pdfSections.push({ title: 'Dados da Entrega', items: [
-            { label: 'Locatario', value: comprovante.locatario },
+            { label: 'Locat\u00e1rio', value: comprovante.locatario },
             { label: 'CPF', value: comprovante.cpf },
-            comprovante.endereco ? { label: 'Endereco', value: comprovante.endereco } : null,
+            comprovante.endereco ? { label: 'Endere\u00e7o', value: comprovante.endereco } : null,
             { label: 'Total', value: comprovante.total ? `R$ ${Number(comprovante.total).toFixed(2)}` : '' },
           ].filter(Boolean) });
         }
@@ -606,14 +606,14 @@ async function sendEmailViaGoogleScript(env, data) {
       if (tipo === 'devolucao_registrada') {
         const devData = comprovante?._devolucao || data.devolucao || {};
         const devItems = [
-          devData.data ? { label: 'Data Devolucao', value: devData.data } : null,
+          devData.data ? { label: 'Data da Devolu\u00e7\u00e3o', value: devData.data } : null,
           devData.hora ? { label: 'Hora', value: devData.hora } : null,
-          devData.localObra ? { label: 'Local Obra', value: devData.localObra } : null,
+          devData.localObra ? { label: 'Local da Obra', value: devData.localObra } : null,
           devData.signatarioNome ? { label: 'Recebido por', value: devData.signatarioNome } : null,
-          devData.condicoes ? { label: 'Condicoes', value: devData.condicoes } : null,
+          devData.condicoes ? { label: 'Observa\u00e7\u00f5es', value: devData.condicoes } : null,
         ].filter(Boolean);
         if (devItems.length > 0) {
-          pdfSections.push({ title: 'Dados da Devolucao', items: devItems });
+          pdfSections.push({ title: 'Dados da Devolu\u00e7\u00e3o', items: devItems });
         }
         if (signatario) {
           pdfSections.push({ title: 'Assinatura Digital', items: [
@@ -624,7 +624,7 @@ async function sendEmailViaGoogleScript(env, data) {
       }
       const pdfTitle = tipo === 'contrato_assinado' ? 'Comprovante de Entrega Assinado' :
                         tipo === 'contrato_renovado' ? 'Contrato Renovado' :
-                        tipo === 'devolucao_registrada' ? 'Devolucao de Equipamento' : 'Novo Contrato';
+                        tipo === 'devolucao_registrada' ? 'Devolu\u00e7\u00e3o de Equipamento' : 'Novo Contrato';
       const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || (comprovante?._devolucao?.assinaturaImagem));
       const pdfName = tipo === 'contrato_assinado' ? `comprovante-entrega-${contrato?.numero || 'doc'}.pdf` :
                       tipo === 'contrato_renovado' ? `contrato-renovado-${contrato?.numero || 'doc'}.pdf` :

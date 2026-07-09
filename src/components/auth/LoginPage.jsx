@@ -25,7 +25,7 @@ export default function LoginPage() {
 
     await loadConfig();
     if (!isConfigured()) {
-      toast.error('Supabase nao configurado. Verifique as variaveis de ambiente.');
+      toast.error('Supabase n\u00e3o configurado. Verifique as vari\u00e1veis de ambiente.');
       return;
     }
 
@@ -47,11 +47,11 @@ export default function LoginPage() {
       if (err.message?.includes('rate limit') || err.message?.includes('too many')) {
         toast.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
       } else if (err.message?.includes('Invalid login') || err.message?.includes('invalid_credentials')) {
-        toast.error('Email ou senha incorretos. Verifique seus dados.');
+        toast.error('E-mail ou senha incorretos. Verifique seus dados.');
       } else if (err.message?.includes('Email not confirmed')) {
-        toast.error('Email nao confirmado. Verifique sua caixa de entrada.');
+        toast.error('E-mail n\u00e3o confirmado. Verifique sua caixa de entrada.');
       } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-        toast.error('Erro de conexao. Verifique sua internet e tente novamente.');
+        toast.error('Erro de conex\u00e3o. Verifique sua internet e tente novamente.');
       } else {
         toast.error(err.message || 'Erro ao fazer login');
       }
@@ -74,7 +74,7 @@ export default function LoginPage() {
               <input type="text" required value={form.name} autoFocus
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="mt-1 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
-                placeholder="Digite seu nome ou email" />
+                placeholder="Digite seu nome ou e-mail" />
             </div>
             <div>
               <label className="text-xs text-gray-500 font-medium">Senha</label>

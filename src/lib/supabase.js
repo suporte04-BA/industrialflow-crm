@@ -103,22 +103,22 @@ export const signUpByName = async (name, password) => {
     });
     return { data, error };
   } catch {
-    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conex\u00e3o e tente novamente.' } };
   }
 };
 
 export const signIn = async (email, password) => {
-  if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
+  if (!isConfigured()) return { data: null, error: { message: 'Supabase n\u00e3o configurado' } };
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     return { data, error };
   } catch {
-    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conex\u00e3o e tente novamente.' } };
   }
 };
 
 export const signInByName = async (name, password) => {
-  if (!isConfigured()) return { data: null, error: { message: 'Supabase nao configurado' } };
+  if (!isConfigured()) return { data: null, error: { message: 'Supabase n\u00e3o configurado' } };
 
   try {
     const { data: profiles, error: profileErr } = await supabase
@@ -128,17 +128,17 @@ export const signInByName = async (name, password) => {
       .limit(1);
 
     if (profileErr) {
-      return { data: null, error: { message: 'Erro ao buscar usuario. Tente usar o email para entrar.' } };
+      return { data: null, error: { message: 'Erro ao buscar usu\u00e1rio. Tente usar o e-mail para entrar.' } };
     }
 
     if (!profiles || profiles.length === 0) {
-      return { data: null, error: { message: 'Usuario nao encontrado. Use o email para entrar.' } };
+      return { data: null, error: { message: 'Usu\u00e1rio n\u00e3o encontrado. Use o e-mail para entrar.' } };
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email: profiles[0].email, password });
     return { data, error };
   } catch {
-    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conexao e tente novamente.' } };
+    return { data: null, error: { message: 'Falha ao conectar. Verifique sua conex\u00e3o e tente novamente.' } };
   }
 };
 
@@ -148,7 +148,7 @@ export const signOut = async () => {
 };
 
 export const getCurrentUser = async () => {
-  if (!isConfigured()) return { user: null, error: { message: 'Supabase nao configurado' } };
+  if (!isConfigured()) return { user: null, error: { message: 'Supabase n\u00e3o configurado' } };
 
   try {
     const { data: { session } } = await supabase.auth.getSession();

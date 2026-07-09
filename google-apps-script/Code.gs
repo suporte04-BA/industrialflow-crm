@@ -1,5 +1,5 @@
 const API_KEY = 'transobra-email-key-2026';
-const SENDER_NAME = 'TransObra - Gestao de Locacao';
+const SENDER_NAME = 'TransObra - Gest\u00e3o de Loca\u00e7\u00e3o';
 const REPLY_TO = 'transobras.no.replay@gmail.com';
 
 function doPost(e) {

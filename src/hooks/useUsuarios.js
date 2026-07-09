@@ -161,7 +161,7 @@ export function useDeleteUsuario() {
   return useMutation({
     mutationFn: async ({ id, currentUserId }) => {
       if (id === currentUserId) {
-        throw new Error('Voce nao pode remover seu proprio usuario.');
+        throw new Error('Voc\u00ea n\u00e3o pode remover seu pr\u00f3prio usu\u00e1rio.');
       }
 
       if (!isConfigured()) {

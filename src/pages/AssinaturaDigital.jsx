@@ -100,15 +100,17 @@ export default function AssinaturaDigital() {
     clearCanvas();
   };
 
-  const sendEmailNotification = async (contrato, comprovante, signatario) => {
+  const sendEmailNotification = async (contrato, comprovante, signatario, imagemBase64, funcionarioNome) => {
     setSendingEmail(true);
     try {
-      const imagemBase64 = canvasRef.current.toDataURL('image/png');
+      const img = imagemBase64 || canvasRef.current.toDataURL('image/png');
       const emailData = {
         tipo: 'contrato_assinado',
         contrato_id: contrato?.id || null,
         comprovante_id: comprovante?.id || null,
         destinatario: '',
+        tipoDocumento: comprovante?.tipoDocumento || 'entrega',
+        funcionario: { nome: funcionarioNome || '' },
         contrato: contrato ? {
           id: contrato.id,
           numero: contrato.numero,
@@ -148,7 +150,7 @@ export default function AssinaturaDigital() {
           nome: signatario,
           cpf: cpfSignatario,
           data: new Date().toISOString(),
-          assinaturaImagem: imagemBase64,
+          assinaturaImagem: img,
         },
       };
 
@@ -236,29 +238,25 @@ export default function AssinaturaDigital() {
           }
         }
 
-        try {
-          await sendEmailNotification(
-            comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null,
-            comp,
-            nomeSignatario
-          );
-        } catch {
-          toast.error('Falha ao enviar email de notificacao ao gestor.');
-        }
+        toast.success('Assinatura registrada com sucesso!');
+        clearCanvas();
+        setNomeSignatario('');
+        setCpfSignatario('');
+        setSelectedComprovante('');
+        refetchComprovantes();
 
-        try {
-          await generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem });
-        } catch {
-          // PDF generation failure is non-blocking
-        }
+        const contrato = comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null;
+        const funcionarioNome = profile?.fullName || profile?.full_name || '';
+        sendEmailNotification(contrato, comp, nomeSignatario, imagem, funcionarioNome).catch(() => {});
+        generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem }).catch(() => {});
+      } else {
+        toast.success('Assinatura registrada com sucesso!');
+        clearCanvas();
+        setNomeSignatario('');
+        setCpfSignatario('');
+        setSelectedComprovante('');
+        refetchComprovantes();
       }
-
-      toast.success('Assinatura registrada com sucesso!');
-      clearCanvas();
-      setNomeSignatario('');
-      setCpfSignatario('');
-      setSelectedComprovante('');
-      refetchComprovantes();
     } catch {
       toast.error('Erro ao salvar assinatura');
     } finally {
@@ -298,9 +296,12 @@ export default function AssinaturaDigital() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Comprovante de Entrega *</label>
               <select value={selectedComprovante} onChange={(e) => handleComprovanteChange(e.target.value)} className="input-base" required>
                 <option value="">Selecione o comprovante...</option>
-                {availableComprovantes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.contrato} - {c.locatario}</option>
-                ))}
+                {availableComprovantes.map((c) => {
+                  const tipoLabel = c.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega';
+                  return (
+                    <option key={c.id} value={c.id}>{tipoLabel} — {c.contrato} — {c.locatario}</option>
+                  );
+                })}
               </select>
               {availableComprovantes.length === 0 && (
                 <p className="text-xs text-gray-500 mt-1">Nenhum comprovante pendente de assinatura</p>
@@ -330,7 +331,9 @@ export default function AssinaturaDigital() {
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-semibold text-gray-800">Dados da Entrega</span>
+                  <span className="text-sm font-semibold text-gray-800">
+                    {selectedComp.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega'} — Dados do Comprovante
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-xs">
                   <div><span className="text-gray-500">Locatario:</span> <span className="font-medium">{selectedComp.locatario}</span></div>

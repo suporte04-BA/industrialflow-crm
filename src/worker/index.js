@@ -350,6 +350,8 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
   const c = contrato || {};
   const comp = comprovante || {};
   const s = signatario || {};
+  const func = comprovante?._funcionario || {};
+  const tipoLabel = comprovante?.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega';
   const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
 
   const rContrato = [
@@ -389,13 +391,18 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
     ].filter(Boolean).join(''));
   }
 
+  const funcionarioHtml = func.nome ? sectionBlock('Responsável pela Entrega', '#1e40af', '#2563eb', [
+    row('Nome', fmt(func.nome), { bold: true }),
+  ]) : '';
+
   return emailWrapper(`
-${brandHeader('Comprovante de Entrega', 'COMPROVANTE DE ENTREGA ASSINADO DIGITALMENTE', 'ENTREGA', '#EAB308', '#111827')}
+${brandHeader(tipoLabel === 'Devolução' ? 'Comprovante de Devolução' : 'Comprovante de Entrega', `${tipoLabel.toUpperCase()} ASSINADO DIGITALMENTE`, tipoLabel.toUpperCase(), '#EAB308', '#111827')}
 <tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Comprovante de Entrega Assinado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. Válido como prova de recebimento.</div>
+<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Comprovante de ${tipoLabel} Assinado</div>
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. Válido como prova de ${tipoLabel === 'Devolução' ? 'devolução' : 'recebimento'}.</div>
 ${c.id ? sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato) : ''}
-${comp.id ? sectionBlock('Dados da Entrega', '#1e40af', '#2563eb', rEntrega) : ''}
+${comp.id ? sectionBlock(`Dados da ${tipoLabel}`, '#1e40af', '#2563eb', rEntrega) : ''}
+${funcionarioHtml}
 ${assinaturaHtml}
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
@@ -1070,7 +1077,7 @@ export default {
       if (path === '/api/email/send' && method === 'POST') {
         const parsed = await parseBody(request);
         if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-        const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario } = parsed.data;
+        const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario, funcionario, tipoDocumento } = parsed.data;
         const emailTipo = tipo || 'contrato_assinado';
 
         // Resolve recipients from Supabase profiles (gestores/admins)
@@ -1100,7 +1107,7 @@ export default {
               tipo: emailTipo,
               destinatario: recipient,
               contrato,
-              comprovante,
+              comprovante: { ...comprovante, tipoDocumento, _funcionario: funcionario },
               signatario,
             });
             if (result.success) {

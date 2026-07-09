@@ -273,8 +273,8 @@ export default function AssinaturaDigital() {
   const selectedComp = (comprovantes || []).find((c) => c.id === selectedComprovante);
   const selectedContrato = selectedComp?.contratoId ? (contratos || []).find((c) => c.id === selectedComp.contratoId) : null;
 
-  if (isLoading) return <div className="p-6"><TableSkeleton rows={5} cols={4} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+  if (isLoading) return <div className="p-4 md:p-6"><TableSkeleton rows={5} cols={4} /></div>;
+  if (isError) return <div className="p-4 md:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   return (
     <div className="space-y-6 pb-20 lg:pb-6">
@@ -291,7 +291,7 @@ export default function AssinaturaDigital() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Registrar Assinatura do Recebedor</h3>
           <div className="space-y-4">
             <div>
@@ -381,7 +381,7 @@ export default function AssinaturaDigital() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Assinaturas Registradas</h3>
           {(assinaturas || []).length === 0 ? (
             <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />

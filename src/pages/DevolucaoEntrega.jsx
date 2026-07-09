@@ -383,7 +383,7 @@ export default function DevolucaoEntrega() {
 
               {form.comprovanteId && (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 font-medium">Locatário</label>
                       <input value={form.locatario} readOnly className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50" />
@@ -399,7 +399,7 @@ export default function DevolucaoEntrega() {
                     <input value={form.localObra} onChange={(e) => setForm({ ...form, localObra: e.target.value })} className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 font-medium">Nome Signatário *</label>
                       <input value={form.signatarioNome} onChange={(e) => setForm({ ...form, signatarioNome: e.target.value })} className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/40" />
@@ -455,9 +455,9 @@ export default function DevolucaoEntrega() {
                     <button type="button" onClick={clearCanvas} className="mt-1 text-xs text-gray-500 hover:text-gray-700">Limpar assinatura</button>
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-4 border-t">
-                    <button onClick={() => { setShowForm(false); setForm(EMPTY_FORM); clearCanvas(); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                    <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 bg-yellow-400 text-[#1C1C1C] font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 disabled:opacity-50">
+                  <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t">
+                    <button onClick={() => { setShowForm(false); setForm(EMPTY_FORM); clearCanvas(); }} className="w-full sm:w-auto px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                    <button onClick={handleSave} disabled={saving} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-yellow-400 text-[#1C1C1C] font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 disabled:opacity-50">
                       {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                       {saving ? 'Salvando...' : 'Registrar Devolução'}
                     </button>

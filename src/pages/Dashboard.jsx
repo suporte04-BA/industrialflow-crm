@@ -48,8 +48,8 @@ export default function Dashboard() {
   const { data, isLoading, isError, error, refetch } = useDashboard();
   const [modalCard, setModalCard] = useState(null);
 
-  if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={4} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+  if (isLoading) return <div className="p-4 md:p-6"><TableSkeleton rows={8} cols={4} /></div>;
+  if (isError) return <div className="p-4 md:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   const { metricas = {}, recentOS = [], alertasContratos = [], detailData = {} } = data || {};
   if (!data) return null;
@@ -85,7 +85,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Receita Mensal</h3>
           <Suspense fallback={<div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Carregando grafico...</div>}>
             {metricas.receitaMes && metricas.meses ? (
@@ -95,7 +95,7 @@ export default function Dashboard() {
             )}
           </Suspense>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Alertas</h3>
           {(alertasContratos || []).length === 0 ? (
             <p className="text-sm text-gray-500">Nenhum alerta no momento.</p>
@@ -119,13 +119,13 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Contratos e OS por Mes</h3>
           <Suspense fallback={<div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Carregando grafico...</div>}>
             {data?.chartData ? <ContratosOSChart data={data.chartData} /> : <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Dados indisponiveis</div>}
           </Suspense>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Comprovantes</h3>
           <Suspense fallback={<div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Carregando grafico...</div>}>
             {data?.receiptsData ? <ReceiptsChart data={data.receiptsData} /> : <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">Dados indisponiveis</div>}
@@ -133,7 +133,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">OS Recentes</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

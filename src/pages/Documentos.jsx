@@ -97,14 +97,14 @@ function ComprovanteModal({ c, contratoData, assinatura, onClose, onDelete, onGe
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+        <div className="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl z-10">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Comprovante de Entrega</h2>
             <p className="text-xs text-gray-500">Contrato {c.contrato}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-mono bg-blue-50 text-blue-700 px-3 py-1 rounded-lg" translate="no">{c.contrato}</span>
             <StatusBadge status={c.status} />
@@ -220,14 +220,14 @@ function DevolucaoModal({ c, contratoData, assinatura, onClose, onDelete, onGene
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+        <div className="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl z-10">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Devolução de Equipamento</h2>
             <p className="text-xs text-gray-500">Contrato {c.contrato}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-mono bg-orange-50 text-orange-700 px-3 py-1 rounded-lg" translate="no">{c.contrato}</span>
             <StatusBadge status={c.status} />

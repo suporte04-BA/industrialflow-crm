@@ -78,7 +78,7 @@ export default function Perfil() {
 
   return (
     <div className="space-y-6 pb-20 lg:pb-6">
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
           <div className="relative group">
             {avatarUrl ? (
@@ -91,7 +91,7 @@ export default function Perfil() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              className="absolute inset-0 rounded-full bg-black/40 opacity-70 hover:opacity-100 sm:opacity-0 sm:hover:opacity-100 flex items-center justify-center transition-opacity"
             >
               {uploading ? (
                 <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -135,7 +135,7 @@ export default function Perfil() {
 
       {activeTab === 'relatorio' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-blue-500">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><FileText className="w-5 h-5" /></div>
               <h4 className="font-semibold text-gray-700">Entregas Realizadas</h4>
@@ -143,7 +143,7 @@ export default function Perfil() {
             <p className="text-3xl font-bold text-gray-900">{(comprovantes || []).length}</p>
             <p className="text-xs text-gray-500 mt-1">Total de comprovantes registrados</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-green-500">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-green-50 rounded-lg text-green-600"><CheckCircle className="w-5 h-5" /></div>
               <h4 className="font-semibold text-gray-700">Assinaturas Digitais</h4>
@@ -151,7 +151,7 @@ export default function Perfil() {
             <p className="text-3xl font-bold text-gray-900">{(comprovantes || []).filter(c => c.assinado).length}</p>
             <p className="text-xs text-gray-500 mt-1">Documentos assinados digitalmente</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border-l-4 border-yellow-500">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600"><Building2 className="w-5 h-5" /></div>
               <h4 className="font-semibold text-gray-700">Contratos Vinculados</h4>

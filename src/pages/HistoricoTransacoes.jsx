@@ -73,7 +73,7 @@ function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF }) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
             <div>
               <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Dados Gerais</h4>
               <div className="bg-gray-50 rounded-lg p-3">

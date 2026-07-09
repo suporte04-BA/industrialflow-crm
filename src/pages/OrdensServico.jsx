@@ -74,8 +74,8 @@ export default function OrdensServico() {
     }
   };
 
-  if (isLoading) return <div className="p-6"><TableSkeleton rows={8} cols={6} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+  if (isLoading) return <div className="p-4 md:p-6"><TableSkeleton rows={8} cols={6} /></div>;
+  if (isError) return <div className="p-4 md:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   const statusCounts = {
     all: osList.length,

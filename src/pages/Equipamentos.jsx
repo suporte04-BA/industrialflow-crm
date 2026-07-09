@@ -46,8 +46,8 @@ export default function Equipamentos() {
     setDeleteTarget(null);
   };
 
-  if (isLoading) return <div className="p-6"><CardSkeleton count={6} /></div>;
-  if (isError) return <div className="p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
+  if (isLoading) return <div className="p-4 md:p-6"><CardSkeleton count={6} /></div>;
+  if (isError) return <div className="p-4 md:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
   const stats = {
     total: eqList.length,
@@ -192,7 +192,7 @@ export default function Equipamentos() {
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingEq(null)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b">
                 <div className="flex-1 min-w-0">
                   <h2 className="text-lg font-bold text-gray-900 truncate">{viewingEq.nome}</h2>
                   <p className="text-sm text-gray-500">{viewingEq.id}</p>
@@ -205,7 +205,7 @@ export default function Equipamentos() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase">Categoria</p>

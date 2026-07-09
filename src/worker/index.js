@@ -106,6 +106,27 @@ async function supabaseRequest(env, method, path, body = null, authHeader = null
   return { status: res.status, data };
 }
 
+async function supabaseAuthAdminRequest(env, method, path, body = null, authHeader = null) {
+  const url = `${env.SUPABASE_URL}/auth/v1${path}`;
+  const headers = {
+    'apikey': env.SUPABASE_ANON_KEY,
+    'Content-Type': 'application/json',
+  };
+  if (authHeader) headers['Authorization'] = authHeader;
+
+  const opts = { method, headers };
+  if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+    opts.body = JSON.stringify(body);
+  }
+
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = text; }
+
+  return { status: res.status, data };
+}
+
 async function generatePdfBase64(title, sections, signatureImgB64) {
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -1133,11 +1154,31 @@ export default {
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
           try {
             const { email, password, full_name, role } = parsed.data;
-            const result = await supabaseRequest(env, 'POST', '/auth/v1/admin/users', {
+            const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
+
+            const result = await supabaseAuthAdminRequest(env, 'POST', '/admin/users', {
               email, password, email_confirm: true,
               user_metadata: { full_name, role },
-            }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
-            return json(result.data, result.status, corsHeaders);
+            }, serviceAuth);
+
+            if (result.status && result.status >= 400) {
+              const errMsg = result.data?.msg || result.data?.error || result.data?.message || JSON.stringify(result.data);
+              return json({ error: errMsg }, result.status, corsHeaders);
+            }
+
+            const userId = result.data?.id || result.data?.user?.id;
+            if (userId) {
+              try {
+                await supabaseRequest(env, 'POST', '/profiles', {
+                  id: userId,
+                  full_name,
+                  email,
+                  role: role || 'funcionario',
+                }, serviceAuth);
+              } catch { /* profile trigger may handle this */ }
+            }
+
+            return json({ user: result.data, id: userId }, 200, corsHeaders);
           } catch (e) {
             return json({ error: e.message }, 500, corsHeaders);
           }
@@ -1182,7 +1223,7 @@ export default {
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
           try {
             const { user_id } = parsed.data;
-            const result = await supabaseRequest(env, 'DELETE', `/auth/v1/admin/users/${user_id}`, null, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+            const result = await supabaseAuthAdminRequest(env, 'DELETE', `/admin/users/${user_id}`, null, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
             return json(result.data, result.status, corsHeaders);
           } catch (e) {
             return json({ error: e.message }, 500, corsHeaders);

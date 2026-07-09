@@ -210,13 +210,14 @@ export default function Usuarios() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Função *</label>
                 <select value={form.temEmail ? form.role : 'funcionario'} onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  disabled={!form.temEmail}
+                  disabled={!form.temEmail || userRole !== 'admin'}
                   className="input-base disabled:opacity-50 disabled:bg-gray-100">
                   <option value="funcionario">Funcionário</option>
-                  <option value="gestor">Gestor</option>
-                  <option value="admin">Admin</option>
+                  {userRole === 'admin' && <option value="gestor">Gestor</option>}
+                  {userRole === 'admin' && <option value="admin">Admin</option>}
                 </select>
                 {!form.temEmail && <p className="text-[10px] text-orange-500 mt-0.5">Usuários sem e-mail só podem ser funcionários</p>}
+                {userRole !== 'admin' && <p className="text-[10px] text-gray-400 mt-0.5">Apenas admin pode alterar função</p>}
               </div>
             </div>
 
@@ -305,21 +306,21 @@ export default function Usuarios() {
                       </td>
                       <td className="px-3 sm:px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1">
-                          {u.role === 'funcionario' && (
+                          {userRole === 'admin' && u.role === 'funcionario' && (
                             <>
                               <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'gestor'); }} disabled={isCurrentUser || semEmail}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors disabled:opacity-50"
-                                title={semEmail ? 'Usuários sem e-mail não podem ser promovidos' : ''}>
+                                title={semEmail ? 'Usuarios sem e-mail nao podem ser promovidos' : ''}>
                                 Gestor
                               </button>
                               <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'admin'); }} disabled={isCurrentUser || semEmail}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-50"
-                                title={semEmail ? 'Usuários sem e-mail não podem ser promovidos' : ''}>
+                                title={semEmail ? 'Usuarios sem e-mail nao podem ser promovidos' : ''}>
                                 Admin
                               </button>
                             </>
                           )}
-                          {u.role === 'gestor' && (
+                          {userRole === 'admin' && u.role === 'gestor' && (
                             <>
                               <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'funcionario'); }} disabled={isCurrentUser || canDemote}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
@@ -332,7 +333,7 @@ export default function Usuarios() {
                               </button>
                             </>
                           )}
-                          {u.role === 'admin' && (
+                          {userRole === 'admin' && u.role === 'admin' && (
                             <>
                               <button onClick={(e) => { e.stopPropagation(); handleChangeRole(u.id, 'gestor'); }} disabled={isCurrentUser || canDemote}
                                 className="px-2 py-1 text-[10px] sm:text-xs font-medium rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors disabled:opacity-50"
@@ -346,7 +347,7 @@ export default function Usuarios() {
                               </button>
                             </>
                           )}
-                          {!isCurrentUser && (
+                          {userRole === 'admin' && !isCurrentUser && (
                             <button onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }}
                               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                               title="Remover usuário">

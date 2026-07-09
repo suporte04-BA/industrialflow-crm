@@ -358,7 +358,7 @@ export default function Usuarios() {
       )}
 
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b">

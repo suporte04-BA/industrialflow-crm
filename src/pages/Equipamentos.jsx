@@ -189,7 +189,7 @@ export default function Equipamentos() {
       <AnimatePresence>
         {viewingEq && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingEq(null)}>
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setViewingEq(null)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-6 border-b">

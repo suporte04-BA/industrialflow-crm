@@ -167,7 +167,7 @@ export default function Dashboard() {
       <AnimatePresence>
         {modalCard && meta && (
           <motion.div key="dashboard-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModalCard(null)}>
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setModalCard(null)}>
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-5 border-b shrink-0">

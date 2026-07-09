@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, Wrench, Clock, Eye, X, Calendar, DollarSign, User, FileText } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Wrench, Clock, X, Calendar, DollarSign, User, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEquipamentos, useCreateEquipamento, useUpdateEquipamento, useDeleteEquipamento } from '../hooks/useEquipamentos';
@@ -116,7 +116,7 @@ export default function Equipamentos() {
           {eqList.map((eq) => {
             const diasRestantes = daysUntil(eq.locacaoFim);
             return (
-              <div key={eq.id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div key={eq.id} className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewingEq(eq)}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-mono text-gray-400">{eq.id}</p>
@@ -171,15 +171,11 @@ export default function Equipamentos() {
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t">
-                  <button onClick={() => setViewingEq(eq)}
-                    className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                    <Eye className="w-3.5 h-3.5" /> Detalhes
-                  </button>
-                  <button onClick={() => setEditingEq(eq)}
+                  <button onClick={(e) => { e.stopPropagation(); setEditingEq(eq); }}
                     className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
                     <Edit3 className="w-3.5 h-3.5" /> Editar
                   </button>
-                  <button onClick={() => setDeleteTarget(eq)}
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(eq); }}
                     className="flex items-center justify-center gap-1 py-2 px-3 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

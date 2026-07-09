@@ -300,26 +300,23 @@ export default function DevolucaoEntrega() {
           {filteredDevolucoes.map((d) => {
             const isExpanded = expandedId === d.id;
             return (
-              <div key={d.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+              <div key={d.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : d.id)}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{d.numero}</span>
                       <StatusBadge status={d.status} />
-                      <button onClick={() => setExpandedId(isExpanded ? null : d.id)} className="text-xs text-blue-600 hover:text-blue-700">
-                        {isExpanded ? 'Ocultar' : 'Detalhes'}
-                      </button>
                     </div>
                     <h3 className="font-semibold text-gray-900 truncate">{d.locatario}</h3>
                     <div className="text-sm text-gray-500 mt-1 space-y-0.5">
                       {d.localObra && <p className="truncate">{d.localObra}</p>}
-                      {d.signatarioNome && <p>Signatario: {d.signatarioNome}</p>}
+                      {d.signatarioNome && <p>Signatário: {d.signatarioNome}</p>}
                       {d.data && <p>{d.data} {d.hora}</p>}
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="flex gap-1 mt-2">
-                      <button onClick={() => { setDeleteTarget(d); }} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>

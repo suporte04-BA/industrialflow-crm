@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, Eye, Edit3, Trash2, Filter, X } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrdensServico, useCreateOS, useUpdateOS, useDeleteOS } from '../hooks/useOrdensServico';
 import OSDetailModal from '../components/os/OSDetailModal';
@@ -126,7 +126,7 @@ export default function OrdensServico() {
         <>
           <div className="grid grid-cols-1 gap-3 md:hidden">
             {osList.map((os) => (
-              <div key={os.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+              <div key={os.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedOS(os)}>
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-yellow-600" translate="no">{os.id}</span>
@@ -141,15 +141,11 @@ export default function OrdensServico() {
                   <span className="text-xs text-gray-400">{os.tecnico || '-'}</span>
                 </div>
                 <div className="flex gap-1 mt-3 pt-3 border-t border-gray-100">
-                  <button onClick={() => setSelectedOS(os)}
-                    className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                    <Eye className="w-3 h-3" /> Detalhes
-                  </button>
-                  <button onClick={() => setEditingOS(os)}
+                  <button onClick={(e) => { e.stopPropagation(); setEditingOS(os); }}
                     className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
                     <Edit3 className="w-3 h-3" /> Editar
                   </button>
-                  <button onClick={() => setDeleteTarget(os)}
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }}
                     className="flex items-center justify-center gap-1 py-2 px-3 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -176,7 +172,7 @@ export default function OrdensServico() {
                 </thead>
                 <tbody>
                   {osList.map((os) => (
-                    <tr key={os.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                    <tr key={os.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedOS(os)}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-yellow-600" translate="no">{os.id}</td>
                       <td className="px-4 py-3 font-medium">{os.cliente}</td>
                       <td className="px-4 py-3">{os.equipamento}</td>
@@ -187,13 +183,10 @@ export default function OrdensServico() {
                       <td className="px-4 py-3 font-medium">R$ {Number(os.valor || 0).toLocaleString('pt-BR')}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button onClick={() => setSelectedOS(os)} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600" title="Ver detalhes">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setEditingOS(os)} className="p-2 hover:bg-yellow-50 rounded-lg text-yellow-600" title="Editar">
+                          <button onClick={(e) => { e.stopPropagation(); setEditingOS(os); }} className="p-2 hover:bg-yellow-50 rounded-lg text-yellow-600" title="Editar">
                             <Edit3 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setDeleteTarget(os)} className="p-2 hover:bg-red-50 rounded-lg text-red-600" title="Excluir">
+                          <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }} className="p-2 hover:bg-red-50 rounded-lg text-red-600" title="Excluir">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>

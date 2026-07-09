@@ -153,22 +153,23 @@ export function useUpdateUsuarioRole() {
 export function useUpdateUsuario() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, fullName, email }) => {
+    mutationFn: async ({ id, fullName, email, temEmail }) => {
       if (!isConfigured()) {
         const users = getLocal();
         const idx = users.findIndex((u) => u.id === id);
         if (idx >= 0) {
-          users[idx] = { ...users[idx], fullName, email };
+          users[idx] = { ...users[idx], fullName, email, tem_email: temEmail };
           saveLocal(users);
         }
-        return { id, fullName, email };
+        return { id, fullName, email, temEmail };
       }
       const payload = {};
       if (fullName !== undefined) payload.full_name = fullName;
       if (email !== undefined) payload.email = email;
+      if (temEmail !== undefined) payload.tem_email = temEmail;
       const { error } = await supabase.from('profiles').update(payload).eq('id', id);
       if (error) throw error;
-      return { id, fullName, email };
+      return { id, fullName, email, temEmail };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });

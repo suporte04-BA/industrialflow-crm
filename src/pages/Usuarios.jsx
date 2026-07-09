@@ -112,11 +112,27 @@ export default function Usuarios() {
     e.preventDefault();
     if (!editingUser) return;
     if (!editForm.fullName.trim()) { toast.error('Preencha o nome'); return; }
+    if (editForm.password && editForm.password.length < 6) { toast.error('Senha minima: 6 caracteres'); return; }
+
+    if (editForm.role !== editingUser.role) {
+      const target = usuarios.find((u) => u.id === editingUser.id);
+      const adminCount = usuarios.filter((u) => u.role === 'admin').length;
+      if (target && target.role === 'admin' && editForm.role !== 'admin' && adminCount <= 1) {
+        toast.error('Deve haver pelo menos um admin no sistema.');
+        return;
+      }
+      if (target && target.role === 'gestor' && editForm.role === 'funcionario' && adminGestorCount <= 1) {
+        toast.error('Deve haver pelo menos um gestor no sistema.');
+        return;
+      }
+    }
+
     try {
       await updateUsuario.mutateAsync({
         id: editingUser.id,
         fullName: editForm.fullName.trim(),
         email: editForm.email.trim() || undefined,
+        temEmail: editForm.temEmail,
       });
       if (editForm.role !== editingUser.role) {
         await updateRole.mutateAsync({ id: editingUser.id, role: editForm.role });
@@ -268,7 +284,7 @@ export default function Usuarios() {
                   const isCurrentUser = u.id === user?.id;
                   const isGestorAdmin = u.role === 'gestor' || u.role === 'admin';
                   const canDemote = isGestorAdmin && adminGestorCount <= 1;
-                  const semEmail = u.tem_email === false;
+                  const semEmail = u.temEmail === false;
                   return (
                     <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '', password: '', role: u.role || 'funcionario', temEmail: u.temEmail !== false }); }}>
                       <td className="px-3 sm:px-4 py-3">

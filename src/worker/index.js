@@ -1202,13 +1202,18 @@ export default {
             const userId = result.data?.id || result.data?.user?.id;
             if (userId) {
               try {
-                await supabaseRequest(env, 'POST', '/profiles', {
+                const profileResult = await supabaseRequest(env, 'POST', '/profiles', {
                   id: userId,
                   full_name,
                   email,
                   role: role || 'funcionario',
                 }, serviceAuth);
-              } catch { /* profile trigger may handle this */ }
+                if (profileResult.status >= 400) {
+                  console.warn('[users/create] Profile creation failed:', profileResult.data);
+                }
+              } catch (e) {
+                console.warn('[users/create] Profile creation error:', e.message);
+              }
             }
 
             return json({ user: result.data, id: userId }, 200, corsHeaders);
@@ -1220,21 +1225,36 @@ export default {
         if (action === 'role-change' && method === 'POST') {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
-          const { user_id, new_role } = parsed.data;
+          const { user_id, new_role } = parsed.data || {};
+          if (!user_id || !new_role) return json({ error: 'user_id and new_role required' }, 400, corsHeaders);
+          if (!['admin', 'gestor', 'funcionario'].includes(new_role)) {
+            return json({ error: 'Invalid role' }, 400, corsHeaders);
+          }
+          if (!isValidId(user_id)) return json({ error: 'Invalid user_id' }, 400, corsHeaders);
           try {
-            await supabaseRequest(env, 'PATCH', `/profiles?id=eq.${user_id}`, { role: new_role }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
-          } catch { /* best effort */ }
-
-          return json({ success: true, status: 'atualizado' }, 200, corsHeaders);
+            const result = await supabaseRequest(env, 'PATCH', `/profiles?id=eq.${user_id}`, { role: new_role }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
+            if (result.status >= 400) {
+              return json({ error: result.data }, result.status, corsHeaders);
+            }
+            return json({ success: true, status: 'atualizado' }, 200, corsHeaders);
+          } catch (e) {
+            return json({ error: e.message }, 500, corsHeaders);
+          }
         }
 
         if (action === 'delete' && method === 'POST') {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+          const { user_id } = parsed.data || {};
+          if (!user_id) return json({ error: 'user_id required' }, 400, corsHeaders);
+          if (!isValidId(user_id)) return json({ error: 'Invalid user_id' }, 400, corsHeaders);
           try {
-            const { user_id } = parsed.data;
             const result = await supabaseAuthAdminRequest(env, 'DELETE', `/admin/users/${user_id}`, null, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
-            return json(result.data, result.status, corsHeaders);
+            if (result.status && result.status >= 400) {
+              const errMsg = result.data?.msg || result.data?.error || result.data?.message || 'Delete failed';
+              return json({ error: errMsg }, result.status, corsHeaders);
+            }
+            return json({ success: true }, 200, corsHeaders);
           } catch (e) {
             return json({ error: e.message }, 500, corsHeaders);
           }
@@ -1243,14 +1263,16 @@ export default {
         if (action === 'update-password' && method === 'POST') {
           const parsed = await parseBody(request);
           if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+          const { user_id, password } = parsed.data || {};
+          if (!user_id || !password) return json({ error: 'user_id and password required' }, 400, corsHeaders);
+          if (!isValidId(user_id)) return json({ error: 'Invalid user_id' }, 400, corsHeaders);
+          if (password.length < 6) return json({ error: 'Password must be at least 6 characters' }, 400, corsHeaders);
           try {
-            const { user_id, password } = parsed.data;
-            if (!user_id || !password) return json({ error: 'user_id and password required' }, 400, corsHeaders);
             const result = await supabaseAuthAdminRequest(env, 'PUT', `/admin/users/${user_id}`, {
               password,
             }, `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`);
             if (result.status && result.status >= 400) {
-              const errMsg = result.data?.msg || result.data?.error || result.data?.message || JSON.stringify(result.data);
+              const errMsg = result.data?.msg || result.data?.error || result.data?.message || 'Password update failed';
               return json({ error: errMsg }, result.status, corsHeaders);
             }
             return json({ success: true }, 200, corsHeaders);

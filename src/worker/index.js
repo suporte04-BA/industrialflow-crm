@@ -574,16 +574,10 @@ async function sendEmailViaGoogleScript(env, data) {
     inlineImages.logo = LOGO_BASE64;
   }
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
-  let includeSignatureInline = true;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100) {
-      if (raw.length > 80000) {
-        includeSignatureInline = false;
-        console.log(`[EMAIL] Signature image too large (${Math.round(raw.length/1024)}KB), skipping inline. PDF has signature.`);
-      } else {
-        inlineImages.assinatura = raw;
-      }
+    if (raw && raw.length > 100 && raw.length < 2000000) {
+      inlineImages.assinatura = raw;
     }
   }
 
@@ -668,11 +662,6 @@ async function sendEmailViaGoogleScript(env, data) {
     } catch (e) { console.error('[EMAIL] PDF attachment failed:', e.message); }
   }
 
-  let finalHtml = htmlBody;
-  if (!includeSignatureInline) {
-    finalHtml = finalHtml.replace(/<img src="cid:assinatura"[^>]*>/g, '');
-  }
-
   try {
     const res = await fetch(scriptUrl, {
       method: 'POST',
@@ -681,7 +670,7 @@ async function sendEmailViaGoogleScript(env, data) {
         to: destinatario,
         subject: assunto,
         body: plainBody,
-        htmlBody: finalHtml,
+        htmlBody: htmlBody,
         apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
         inlineImages,
         attachments,
@@ -690,11 +679,11 @@ async function sendEmailViaGoogleScript(env, data) {
 
     const result = await res.json();
     if (res.ok && result.success) {
-      return { success: true, _subject: assunto, _html: finalHtml };
+      return { success: true, _subject: assunto, _html: htmlBody };
     }
-    return { success: false, error: result.error || `Apps Script returned ${res.status}`, _subject: assunto, _html: finalHtml };
+    return { success: false, error: result.error || `Apps Script returned ${res.status}`, _subject: assunto, _html: htmlBody };
   } catch (e) {
-    return { success: false, error: e.message, _subject: assunto, _html: finalHtml };
+    return { success: false, error: e.message, _subject: assunto, _html: htmlBody };
   }
 }
 
@@ -843,9 +832,9 @@ async function sendEmailWithFallback(env, data) {
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 80000) {
+    if (raw && raw.length > 100 && raw.length < 2000000) {
       mailerooInlineImages.assinatura = raw;
-    } else if (raw && raw.length > 80000) {
+    } else if (raw && raw.length >= 2000000) {
       mailerooHtml = mailerooHtml.replace(/<img src="cid:assinatura"[^>]*>/g, '');
     }
   }
@@ -926,8 +915,10 @@ async function sendEmailWithFallback(env, data) {
     }
     if (sigImg) {
       const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-      if (raw && raw.length > 100) {
+      if (raw && raw.length > 100 && raw.length < 200000) {
         htmlForResend = htmlForResend.replace(/cid:assinatura/g, `data:image/png;base64,${raw}`);
+      } else {
+        htmlForResend = htmlForResend.replace(/<img src="cid:assinatura"[^>]*>/g, '');
       }
     }
     const result = await sendEmailViaResend(env, assunto, htmlForResend, destinatario);

@@ -673,21 +673,18 @@ async function sendEmailViaGoogleScript(env, data) {
   });
 
   try {
-    // GAS /exec returns 302 redirect. The echo URL only accepts GET, not POST.
-    // POST body is lost during the 302 redirect (HTTP spec: 302 converts POST→GET).
-    // Solution: Encode the JSON payload as base64 and send via GET parameter.
-    // The GAS doGet() function decodes the parameter and sends the email.
-    const encoded = btoa(unescape(encodeURIComponent(requestBody)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const getUrl = `${scriptUrl}?d=${encoded}`;
-
-    console.log(`[GAS] Sending via GET: ${getUrl.length} chars, to=${destinatario}`);
+    // GAS /exec returns 302 redirect, but POST body IS processed by GAS in the
+    // 1st request BEFORE the redirect. The redirect is only to fetch the response.
+    // POST works reliably with GAS doPost(). No need for GET/base64 encoding.
+    console.log(`[GAS] Sending via POST: to=${destinatario} subject=${assunto.slice(0, 50)}`);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    const res = await fetch(getUrl, {
-      method: 'GET',
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: requestBody,
       redirect: 'follow',
       signal: controller.signal,
     });
@@ -710,7 +707,7 @@ async function sendEmailViaGoogleScript(env, data) {
 
     return { success: false, error: `GAS returned ${res.status}: ${text.slice(0, 100)}`, _subject: assunto, _html: htmlBody };
   } catch (e) {
-    const errorMsg = e.name === 'AbortError' ? 'GAS timed out (20s)' : e.message;
+    const errorMsg = e.name === 'AbortError' ? 'GAS timed out (30s)' : e.message;
     console.error(`[GAS] Exception: ${errorMsg}`);
     return { success: false, error: errorMsg, _subject: assunto, _html: htmlBody };
   }

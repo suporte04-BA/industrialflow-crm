@@ -53,17 +53,18 @@ function doGet(e) {
     }
 
     var sentCount = 0;
+    var errors = [];
     for (var i = 0; i < recipients.length; i++) {
       try {
         GmailApp.sendEmail(recipients[i], data.subject, data.body || '', options);
         sentCount++;
       } catch (err) {
-        Logger.log('Error sending to ' + recipients[i] + ': ' + err.message);
+        errors.push(recipients[i] + ': ' + err.message);
       }
     }
 
     return ContentService.createTextOutput(
-      JSON.stringify({ success: true, sent: sentCount, total: recipients.length })
+      JSON.stringify({ success: sentCount > 0, sent: sentCount, total: recipients.length, errors: errors.length > 0 ? errors : undefined })
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
@@ -121,19 +122,20 @@ function doPost(e) {
     }
     
     var sentCount = 0;
+    var errors = [];
     for (var i = 0; i < recipients.length; i++) {
       try {
         GmailApp.sendEmail(recipients[i], data.subject, data.body || '', options);
         sentCount++;
       } catch (err) {
-        Logger.log('Error sending to ' + recipients[i] + ': ' + err.message);
+        errors.push(recipients[i] + ': ' + err.message);
       }
     }
-    
+
     return ContentService.createTextOutput(
-      JSON.stringify({ success: true, sent: sentCount, total: recipients.length })
+      JSON.stringify({ success: sentCount > 0, sent: sentCount, total: recipients.length, errors: errors.length > 0 ? errors : undefined })
     ).setMimeType(ContentService.MimeType.JSON);
-    
+
   } catch (err) {
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: err.message })

@@ -673,9 +673,6 @@ async function sendEmailViaGoogleScript(env, data) {
   });
 
   try {
-    // GAS /exec returns 302 redirect, but POST body IS processed by GAS in the
-    // 1st request BEFORE the redirect. The redirect is only to fetch the response.
-    // POST works reliably with GAS doPost(). No need for GET/base64 encoding.
     console.log(`[GAS] Sending via POST: to=${destinatario} subject=${assunto.slice(0, 50)}`);
 
     const controller = new AbortController();
@@ -699,13 +696,14 @@ async function sendEmailViaGoogleScript(env, data) {
         if (result.success) {
           return { success: true, _subject: assunto, _html: htmlBody };
         }
-        return { success: false, error: result.error || 'GAS returned success=false', _subject: assunto, _html: htmlBody };
+        const errMsg = result.errors ? result.errors.join(', ') : (result.error || 'GAS returned success=false');
+        return { success: false, error: errMsg, _subject: assunto, _html: htmlBody };
       } catch {
-        return { success: false, error: `GAS non-JSON: ${text.slice(0, 100)}`, _subject: assunto, _html: htmlBody };
+        return { success: false, error: `GAS non-JSON: ${text.slice(0, 200)}`, _subject: assunto, _html: htmlBody };
       }
     }
 
-    return { success: false, error: `GAS returned ${res.status}: ${text.slice(0, 100)}`, _subject: assunto, _html: htmlBody };
+    return { success: false, error: `GAS returned ${res.status}: ${text.slice(0, 200)}`, _subject: assunto, _html: htmlBody };
   } catch (e) {
     const errorMsg = e.name === 'AbortError' ? 'GAS timed out (30s)' : e.message;
     console.error(`[GAS] Exception: ${errorMsg}`);

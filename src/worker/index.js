@@ -714,7 +714,7 @@ async function sendEmailViaResend(env, subject, html, destinatario) {
   }
 }
 
-async function sendEmailViaMaileroo(env, subject, html, destinatario) {
+async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImages = {}, pdfAttachment = null) {
   const apiKey = env.MAILEROO_API_KEY;
   if (!apiKey) return { success: false, error: 'MAILEROO_API_KEY not configured' };
 
@@ -735,28 +735,59 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
+  const attachments = [];
+
+  if (inlineImages.logo) {
+    attachments.push({
+      file_name: 'logo.jpg',
+      content_type: 'image/jpeg',
+      content: inlineImages.logo,
+      inline: true,
+    });
+  }
+  if (inlineImages.assinatura) {
+    attachments.push({
+      file_name: 'assinatura.png',
+      content_type: 'image/png',
+      content: inlineImages.assinatura,
+      inline: true,
+    });
+  }
+  if (pdfAttachment) {
+    attachments.push({
+      file_name: pdfAttachment.filename,
+      content_type: 'application/pdf',
+      content: pdfAttachment.content,
+      inline: false,
+    });
+  }
+
   try {
+    const body = {
+      from: { address: senderEmail, display_name: 'TransObra' },
+      to: [{ address: destinatario }],
+      subject,
+      html,
+      plain: plainText,
+      tags: { sistema: 'transobra', tipo: 'notificacao' },
+      headers: {
+        'List-Unsubscribe': `<mailto:suporte04@baeletrica.com.br?subject=Descadastrar>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Entity-Ref-ID': `transobra-${Date.now()}`,
+        'X-Mailer': 'TransObra System',
+        'Precedence': 'bulk',
+      },
+    };
+    if (attachments.length > 0) {
+      body.attachments = attachments;
+    }
     const res = await fetch('https://smtp.maileroo.com/api/v2/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Api-Key': apiKey,
       },
-      body: JSON.stringify({
-        from: { address: senderEmail, display_name: 'TransObra' },
-        to: [{ address: destinatario }],
-        subject,
-        html,
-        plain: plainText,
-        tags: { sistema: 'transobra', tipo: 'notificacao' },
-        headers: {
-          'List-Unsubscribe': `<mailto:suporte04@baeletrica.com.br?subject=Descadastrar>`,
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-          'X-Entity-Ref-ID': `transobra-${Date.now()}`,
-          'X-Mailer': 'TransObra System',
-          'Precedence': 'bulk',
-        },
-      }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.success) {
@@ -792,28 +823,100 @@ async function sendEmailWithFallback(env, data) {
   const gasResult = await sendEmailViaGoogleScript(env, data);
   if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
 
-  // Prepare HTML for providers that don't support cid: protocol
-  let htmlForFallback = htmlBody;
+  // Prepare inline images for Maileroo (supports cid: via inline attachments)
+  const mailerooInlineImages = {};
   if (LOGO_BASE64) {
-    htmlForFallback = htmlForFallback.replace(/cid:logo/g, `data:image/jpeg;base64,${LOGO_BASE64}`);
+    mailerooInlineImages.logo = LOGO_BASE64;
   }
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
     if (raw && raw.length > 100) {
-      htmlForFallback = htmlForFallback.replace(/cid:assinatura/g, `data:image/png;base64,${raw}`);
+      mailerooInlineImages.assinatura = raw;
     }
   }
 
-  // 2nd: Maileroo (custom domain with DKIM)
+  // Generate PDF attachment for Maileroo
+  let mailerooPdfAttachment = null;
+  try {
+    const pdfSections = [];
+    if (contrato) {
+      pdfSections.push({ title: 'Dados do Contrato', items: [
+        { label: 'Número', value: contrato.numero },
+        { label: 'Cliente', value: contrato.cliente },
+        contrato.cnpj ? { label: 'CPF/CNPJ', value: contrato.cnpj || contrato.cpf_cnpj } : null,
+        contrato.rg ? { label: 'RG', value: contrato.rg } : null,
+        contrato.atendente ? { label: 'Atendente', value: contrato.atendente } : null,
+        contrato.telefone ? { label: 'Telefone', value: contrato.telefone } : null,
+      ].filter(Boolean) });
+      const equipItems = [
+        { label: 'Equipamentos', value: Array.isArray(contrato.equipamentos) ? contrato.equipamentos.join(', ') : '' },
+        contrato.inicio ? { label: 'Período', value: `${contrato.inicio} a ${contrato.fim}` } : null,
+        contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}/mês` } : null,
+        contrato.valorTotal ? { label: 'Valor Total', value: `R$ ${Number(contrato.valorTotal).toFixed(2)}` } : null,
+      ].filter(Boolean);
+      if (equipItems.length > 0) pdfSections.push({ title: 'Equipamentos e Valores', items: equipItems });
+    }
+    if (tipo === 'contrato_assinado') {
+      if (comprovante) {
+        pdfSections.push({ title: 'Dados da Entrega', items: [
+          { label: 'Locatário', value: comprovante.locatario },
+          { label: 'CPF', value: comprovante.cpf },
+          comprovante.endereco ? { label: 'Endereço', value: comprovante.endereco } : null,
+          { label: 'Total', value: comprovante.total ? `R$ ${Number(comprovante.total).toFixed(2)}` : '' },
+        ].filter(Boolean) });
+      }
+      if (signatario) {
+        pdfSections.push({ title: 'Assinatura Digital', items: [
+          { label: 'Nome', value: signatario.nome },
+          { label: 'CPF', value: signatario.cpf },
+          { label: 'Data/Hora', value: signatario.data ? new Date(signatario.data).toLocaleString('pt-BR') : '' },
+        ] });
+      }
+    }
+    if (tipo === 'devolucao_registrada') {
+      const devData = comprovante?._devolucao || devolucao || {};
+      const devItems = [
+        devData.data ? { label: 'Data da Devolução', value: devData.data } : null,
+        devData.hora ? { label: 'Hora', value: devData.hora } : null,
+        devData.localObra ? { label: 'Local da Obra', value: devData.localObra } : null,
+        devData.signatarioNome ? { label: 'Recebido por', value: devData.signatarioNome } : null,
+        devData.condicoes ? { label: 'Observações', value: devData.condicoes } : null,
+      ].filter(Boolean);
+      if (devItems.length > 0) pdfSections.push({ title: 'Dados da Devolução', items: devItems });
+    }
+    if (pdfSections.length > 0) {
+      const pdfTitle = tipo === 'contrato_assinado' ? 'Comprovante de Entrega Assinado' :
+                        tipo === 'contrato_renovado' ? 'Contrato Renovado' :
+                        tipo === 'devolucao_registrada' ? 'Devolução de Equipamento' : 'Novo Contrato';
+      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || comprovante?._devolucao?.assinaturaImagem);
+      const pdfName = tipo === 'contrato_assinado' ? `comprovante-entrega-${contrato?.numero || 'doc'}.pdf` :
+                      tipo === 'contrato_renovado' ? `contrato-renovado-${contrato?.numero || 'doc'}.pdf` :
+                      tipo === 'devolucao_registrada' ? `devolucao-${contrato?.numero || comprovante?.contrato || 'doc'}.pdf` :
+                      `contrato-${contrato?.numero || 'doc'}.pdf`;
+      mailerooPdfAttachment = { filename: pdfName, content: pdfB64 };
+    }
+  } catch (e) { console.error('[EMAIL] Maileroo PDF attachment failed:', e.message); }
+
+  // 2nd: Maileroo (custom domain with DKIM, inline images via cid:)
   if (env.MAILEROO_API_KEY) {
-    const result = await sendEmailViaMaileroo(env, assunto, htmlForFallback, destinatario);
+    const result = await sendEmailViaMaileroo(env, assunto, htmlBody, destinatario, mailerooInlineImages, mailerooPdfAttachment);
     if (result.success) return result;
   }
 
-  // 3rd: Resend (proper SPF/DKIM/DMARC, no inline images)
+  // 3rd: Resend (proper SPF/DKIM/DMARC, no inline images support - convert cid: to data:)
   if (env.RESEND_API_KEY) {
-    const result = await sendEmailViaResend(env, assunto, htmlForFallback, destinatario);
+    let htmlForResend = htmlBody;
+    if (LOGO_BASE64) {
+      htmlForResend = htmlForResend.replace(/cid:logo/g, `data:image/jpeg;base64,${LOGO_BASE64}`);
+    }
+    if (sigImg) {
+      const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
+      if (raw && raw.length > 100) {
+        htmlForResend = htmlForResend.replace(/cid:assinatura/g, `data:image/png;base64,${raw}`);
+      }
+    }
+    const result = await sendEmailViaResend(env, assunto, htmlForResend, destinatario);
     if (result.success) return { ...result, provider: 'resend' };
   }
 

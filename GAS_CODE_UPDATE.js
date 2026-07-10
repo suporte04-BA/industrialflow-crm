@@ -1,8 +1,9 @@
 function doGet(e) {
   try {
     if (!e || !e.parameter || !e.parameter.d) {
+      var remainingQuota = MailApp.getRemainingDailyQuota();
       return ContentService.createTextOutput(
-        JSON.stringify({ status: 'ok', message: 'TransObra Email API v6' })
+        JSON.stringify({ status: 'ok', message: 'TransObra Email API v7', remainingQuota: remainingQuota })
       ).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -64,11 +65,11 @@ function doGet(e) {
     }
 
     return ContentService.createTextOutput(
-      JSON.stringify({ success: sentCount > 0, sent: sentCount, total: recipients.length, errors: errors.length > 0 ? errors : undefined })
+      JSON.stringify({ success: sentCount > 0, sent: sentCount, total: recipients.length, errors: errors.length > 0 ? errors : undefined, remainingQuota: MailApp.getRemainingDailyQuota() })
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
-    Logger.log('doGet error: ' + err.message);
+    Logger.log('doPost error: ' + err.message);
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: err.message })
     ).setMimeType(ContentService.MimeType.JSON);

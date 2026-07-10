@@ -11,8 +11,8 @@ const gestorNav = [
 ];
 
 const funcionarioNav = [
-  { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
   { label: 'Assinatura', icon: PenLine, path: '/assinatura' },
+  { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
   { label: 'Perfil', icon: User, path: '/perfil' },
 ];
 

@@ -693,11 +693,14 @@ async function sendEmailViaGoogleScript(env, data) {
     if (res.ok) {
       try {
         const result = JSON.parse(text);
+        if (result.remainingQuota !== undefined) {
+          console.log(`[GAS] Remaining daily quota: ${result.remainingQuota}`);
+        }
         if (result.success) {
-          return { success: true, _subject: assunto, _html: htmlBody };
+          return { success: true, _subject: assunto, _html: htmlBody, remainingQuota: result.remainingQuota };
         }
         const errMsg = result.errors ? result.errors.join(', ') : (result.error || 'GAS returned success=false');
-        return { success: false, error: errMsg, _subject: assunto, _html: htmlBody };
+        return { success: false, error: errMsg, _subject: assunto, _html: htmlBody, remainingQuota: result.remainingQuota };
       } catch {
         return { success: false, error: `GAS non-JSON: ${text.slice(0, 200)}`, _subject: assunto, _html: htmlBody };
       }
@@ -1428,6 +1431,23 @@ export default {
           } catch (e) {
             return json({ error: e.message }, 500, corsHeaders);
           }
+        }
+      }
+
+      if (path === '/api/email/gas-status' && method === 'GET') {
+        const scriptUrl = env.GOOGLE_SCRIPT_URL;
+        if (!scriptUrl) return json({ error: 'GOOGLE_SCRIPT_URL not configured' }, 500, corsHeaders);
+        try {
+          const res = await fetch(scriptUrl, { method: 'GET', redirect: 'follow' });
+          const text = await res.text();
+          try {
+            const data = JSON.parse(text);
+            return json({ status: 'ok', gas: data }, 200, corsHeaders);
+          } catch {
+            return json({ status: 'ok', gas_raw: text.slice(0, 500) }, 200, corsHeaders);
+          }
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
         }
       }
 

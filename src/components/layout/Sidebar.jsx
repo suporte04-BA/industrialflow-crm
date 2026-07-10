@@ -8,8 +8,8 @@ const gestorNav = [
   { label: 'Ordens de Servico', icon: ClipboardList, path: '/ordens' },
   { label: 'Equipamentos', icon: Package, path: '/equipamentos' },
   { label: 'Contratos', icon: FileText, path: '/contratos' },
-  { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
   { label: 'Assinatura Digital', icon: PenLine, path: '/assinatura' },
+  { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
 ];
 
 const gestorNavSec = [
@@ -19,8 +19,8 @@ const gestorNavSec = [
 ];
 
 const funcionarioNav = [
-  { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
   { label: 'Assinatura Digital', icon: PenLine, path: '/assinatura' },
+  { label: 'Comprovantes', icon: ClipboardCheck, path: '/comprovantes' },
   { label: 'Meu Perfil', icon: User, path: '/perfil' },
 ];
 

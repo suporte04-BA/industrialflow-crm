@@ -574,10 +574,16 @@ async function sendEmailViaGoogleScript(env, data) {
     inlineImages.logo = LOGO_BASE64;
   }
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
+  let includeSignatureInline = true;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
     if (raw && raw.length > 100) {
-      inlineImages.assinatura = raw;
+      if (raw.length > 80000) {
+        includeSignatureInline = false;
+        console.log(`[EMAIL] Signature image too large (${Math.round(raw.length/1024)}KB), skipping inline. PDF has signature.`);
+      } else {
+        inlineImages.assinatura = raw;
+      }
     }
   }
 
@@ -662,6 +668,11 @@ async function sendEmailViaGoogleScript(env, data) {
     } catch (e) { console.error('[EMAIL] PDF attachment failed:', e.message); }
   }
 
+  let finalHtml = htmlBody;
+  if (!includeSignatureInline) {
+    finalHtml = finalHtml.replace(/<img src="cid:assinatura"[^>]*>/g, '');
+  }
+
   try {
     const res = await fetch(scriptUrl, {
       method: 'POST',
@@ -670,7 +681,7 @@ async function sendEmailViaGoogleScript(env, data) {
         to: destinatario,
         subject: assunto,
         body: plainBody,
-        htmlBody: htmlBody,
+        htmlBody: finalHtml,
         apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
         inlineImages,
         attachments,
@@ -679,11 +690,11 @@ async function sendEmailViaGoogleScript(env, data) {
 
     const result = await res.json();
     if (res.ok && result.success) {
-      return { success: true, _subject: assunto, _html: htmlBody };
+      return { success: true, _subject: assunto, _html: finalHtml };
     }
-    return { success: false, error: result.error || `Apps Script returned ${res.status}`, _subject: assunto, _html: htmlBody };
+    return { success: false, error: result.error || `Apps Script returned ${res.status}`, _subject: assunto, _html: finalHtml };
   } catch (e) {
-    return { success: false, error: e.message, _subject: assunto, _html: htmlBody };
+    return { success: false, error: e.message, _subject: assunto, _html: finalHtml };
   }
 }
 
@@ -739,7 +750,7 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImag
 
   if (inlineImages.logo) {
     attachments.push({
-      file_name: 'logo.jpg',
+      file_name: 'logo',
       content_type: 'image/jpeg',
       content: inlineImages.logo,
       inline: true,
@@ -747,7 +758,7 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImag
   }
   if (inlineImages.assinatura) {
     attachments.push({
-      file_name: 'assinatura.png',
+      file_name: 'assinatura',
       content_type: 'image/png',
       content: inlineImages.assinatura,
       inline: true,
@@ -828,11 +839,14 @@ async function sendEmailWithFallback(env, data) {
   if (LOGO_BASE64) {
     mailerooInlineImages.logo = LOGO_BASE64;
   }
+  let mailerooHtml = htmlBody;
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100) {
+    if (raw && raw.length > 100 && raw.length <= 80000) {
       mailerooInlineImages.assinatura = raw;
+    } else if (raw && raw.length > 80000) {
+      mailerooHtml = mailerooHtml.replace(/<img src="cid:assinatura"[^>]*>/g, '');
     }
   }
 
@@ -900,7 +914,7 @@ async function sendEmailWithFallback(env, data) {
 
   // 2nd: Maileroo (custom domain with DKIM, inline images via cid:)
   if (env.MAILEROO_API_KEY) {
-    const result = await sendEmailViaMaileroo(env, assunto, htmlBody, destinatario, mailerooInlineImages, mailerooPdfAttachment);
+    const result = await sendEmailViaMaileroo(env, assunto, mailerooHtml, destinatario, mailerooInlineImages, mailerooPdfAttachment);
     if (result.success) return result;
   }
 

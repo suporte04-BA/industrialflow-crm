@@ -576,7 +576,7 @@ async function sendEmailViaGoogleScript(env, data) {
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length < 2000000) {
+    if (raw && raw.length > 100 && raw.length <= 300000) {
       inlineImages.assinatura = raw;
     }
   }
@@ -832,9 +832,9 @@ async function sendEmailWithFallback(env, data) {
   const sigImg = signatario?.assinaturaImagem || devolucao?.assinaturaImagem;
   if (sigImg) {
     const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length < 2000000) {
+    if (raw && raw.length > 100 && raw.length <= 300000) {
       mailerooInlineImages.assinatura = raw;
-    } else if (raw && raw.length >= 2000000) {
+    } else if (raw && raw.length > 300000) {
       mailerooHtml = mailerooHtml.replace(/<img src="cid:assinatura"[^>]*>/g, '');
     }
   }
@@ -915,8 +915,8 @@ async function sendEmailWithFallback(env, data) {
     }
     if (sigImg) {
       const raw = (sigImg.includes(',') ? sigImg.split(',')[1] : sigImg).replace(/\s/g, '').replace(/\n/g, '');
-      if (raw && raw.length > 100 && raw.length < 200000) {
-        htmlForResend = htmlForResend.replace(/cid:assinatura/g, `data:image/png;base64,${raw}`);
+      if (raw && raw.length > 100 && raw.length < 300000) {
+        htmlForResend = htmlForResend.replace(/cid:assinatura/g, `data:image/jpeg;base64,${raw}`);
       } else {
         htmlForResend = htmlForResend.replace(/<img src="cid:assinatura"[^>]*>/g, '');
       }

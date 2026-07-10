@@ -85,9 +85,9 @@ export default function Perfil() {
   ];
 
   const tabColors = {
-    blue: { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'bg-blue-100 text-blue-600', active: 'bg-blue-500 text-white' },
-    green: { bg: 'bg-green-50', border: 'border-green-200', icon: 'bg-green-100 text-green-600', active: 'bg-green-500 text-white' },
-    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: 'bg-yellow-100 text-yellow-600', active: 'bg-yellow-400 text-gray-900' },
+    blue: { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'bg-blue-100 text-blue-600', active: 'bg-[#1C1C1C] text-white' },
+    green: { bg: 'bg-green-50', border: 'border-green-200', icon: 'bg-green-100 text-green-600', active: 'bg-[#1C1C1C] text-white' },
+    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: 'bg-yellow-100 text-yellow-600', active: 'bg-[#1C1C1C] text-white' },
   };
 
   return (
@@ -152,40 +152,40 @@ export default function Perfil() {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
             className="overflow-hidden">
-            <div className="bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-200 p-5 sm:p-6 shadow-sm">
+            <div className="bg-[#1C1C1C] rounded-2xl border border-gray-800 p-5 sm:p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                  <TrendingUp size={20} className="text-blue-600" />
+                <div className="w-10 h-10 rounded-xl bg-blue-400/20 flex items-center justify-center">
+                  <TrendingUp size={20} className="text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Relatorio Geral</h3>
-                  <p className="text-xs text-gray-500">Resumo das atividades do sistema</p>
+                  <h3 className="text-base font-bold text-white">Relatorio Geral</h3>
+                  <p className="text-xs text-gray-400">Resumo das atividades do sistema</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-white rounded-xl p-4 border border-blue-100">
+                <div className="bg-[#1C1C1C] rounded-xl p-4 border border-gray-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-medium text-gray-500">Entregas</span>
+                    <FileText className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs font-medium text-gray-400">Entregas</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{(comprovantes || []).length}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">comprovantes registrados</p>
+                  <p className="text-2xl font-bold text-white">{(comprovantes || []).length}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">comprovantes registrados</p>
                 </div>
-                <div className="bg-white rounded-xl p-4 border border-green-100">
+                <div className="bg-[#1C1C1C] rounded-xl p-4 border border-gray-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span className="text-xs font-medium text-gray-500">Assinaturas</span>
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <span className="text-xs font-medium text-gray-400">Assinaturas</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{(comprovantes || []).filter(c => c.assinado).length}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">documentos assinados</p>
+                  <p className="text-2xl font-bold text-white">{(comprovantes || []).filter(c => c.assinado).length}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">documentos assinados</p>
                 </div>
-                <div className="bg-white rounded-xl p-4 border border-yellow-100">
+                <div className="bg-[#1C1C1C] rounded-xl p-4 border border-gray-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <Building2 className="w-4 h-4 text-yellow-500" />
-                    <span className="text-xs font-medium text-gray-500">Contratos</span>
+                    <Building2 className="w-4 h-4 text-yellow-400" />
+                    <span className="text-xs font-medium text-gray-400">Contratos</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{(contratos || []).length}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">contratos no sistema</p>
+                  <p className="text-2xl font-bold text-white">{(contratos || []).length}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">contratos no sistema</p>
                 </div>
               </div>
             </div>
@@ -199,44 +199,44 @@ export default function Perfil() {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
             className="overflow-hidden">
-            <div className="bg-gradient-to-br from-green-50 to-white rounded-2xl border border-green-200 p-5 sm:p-6 shadow-sm">
+            <div className="bg-[#1C1C1C] rounded-2xl border border-gray-800 p-5 sm:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                    <FileText size={20} className="text-green-600" />
+                  <div className="w-10 h-10 rounded-xl bg-green-400/20 flex items-center justify-center">
+                    <FileText size={20} className="text-green-400" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">Comprovantes de Entrega</h3>
-                    <p className="text-xs text-gray-500">{myComprovantes.length} registro(s)</p>
+                    <h3 className="text-base font-bold text-white">Comprovantes de Entrega</h3>
+                    <p className="text-xs text-gray-400">{myComprovantes.length} registro(s)</p>
                   </div>
                 </div>
               </div>
               {myComprovantes.length === 0 ? (
                 <div className="text-center py-8">
-                  <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Nenhum comprovante encontrado</p>
+                  <FileText className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Nenhum comprovante encontrado</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                   {myComprovantes.map((c) => (
-                    <div key={c.id} className="bg-white rounded-xl border border-gray-100 p-3 hover:shadow-sm transition-shadow">
+                    <div key={c.id} className="bg-[#1C1C1C] rounded-xl border border-gray-800 p-3 hover:shadow-sm transition-shadow">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded">{c.contrato}</span>
+                            <span className="text-[10px] font-mono bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">{c.contrato}</span>
                             <StatusBadge status={c.status} />
                             {c.assinado && c.status !== 'assinado' && <StatusBadge status="assinado" />}
                           </div>
-                          <h4 className="text-sm font-semibold text-gray-900 truncate">{c.locatario}</h4>
-                          <div className="text-xs text-gray-500 mt-0.5">
+                          <h4 className="text-sm font-semibold text-white truncate">{c.locatario}</h4>
+                          <div className="text-xs text-gray-400 mt-0.5">
                             {c.endereco && <p className="truncate">{c.endereco}{c.numero ? `, ${c.numero}` : ''}</p>}
                             {c.cidade && <p>{c.cidade}{c.estado ? `/${c.estado}` : ''}</p>}
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-bold text-green-600">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-bold text-green-400">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                           <button onClick={() => handleExportPDF(c)}
-                            className="mt-1 text-[10px] text-blue-600 hover:text-blue-700 font-medium flex items-center gap-0.5">
+                            className="mt-1 text-[10px] text-blue-400 hover:text-blue-300 font-medium flex items-center gap-0.5">
                             <Download className="w-3 h-3" /> PDF
                           </button>
                         </div>
@@ -256,44 +256,44 @@ export default function Perfil() {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
             className="overflow-hidden">
-            <div className="bg-gradient-to-br from-yellow-50 to-white rounded-2xl border border-yellow-200 p-5 sm:p-6 shadow-sm">
+            <div className="bg-[#1C1C1C] rounded-2xl border border-gray-800 p-5 sm:p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center">
-                  <Building2 size={20} className="text-yellow-600" />
+                <div className="w-10 h-10 rounded-xl bg-yellow-400/20 flex items-center justify-center">
+                  <Building2 size={20} className="text-yellow-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Contratos</h3>
-                  <p className="text-xs text-gray-500">{myContratos.length} registro(s)</p>
+                  <h3 className="text-base font-bold text-white">Contratos</h3>
+                  <p className="text-xs text-gray-400">{myContratos.length} registro(s)</p>
                 </div>
               </div>
               {myContratos.length === 0 ? (
                 <div className="text-center py-8">
-                  <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Nenhum contrato encontrado</p>
+                  <Building2 className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">Nenhum contrato encontrado</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[50vh] overflow-y-auto">
                   {myContratos.map((ct) => (
-                    <div key={ct.id} className="bg-white rounded-xl border border-gray-100 p-3 hover:shadow-sm transition-shadow">
+                    <div key={ct.id} className="bg-[#1C1C1C] rounded-xl border border-gray-800 p-3 hover:shadow-sm transition-shadow">
                       <div className="flex items-start justify-between mb-1.5">
                         <div className="min-w-0">
-                          <h4 className="text-sm font-bold text-gray-900 truncate">{ct.cliente}</h4>
-                          {ct.cnpj && <p className="text-[10px] text-gray-400">CNPJ: {ct.cnpj}</p>}
+                          <h4 className="text-sm font-bold text-white truncate">{ct.cliente}</h4>
+                          {ct.cnpj && <p className="text-[10px] text-gray-500">CNPJ: {ct.cnpj}</p>}
                         </div>
                         <StatusBadge status={ct.status} />
                       </div>
-                      <div className="space-y-0.5 text-xs text-gray-600">
+                      <div className="space-y-0.5 text-xs text-gray-400">
                         <div className="flex items-center gap-1">
-                          <Wrench className="w-3 h-3 text-gray-400" />
+                          <Wrench className="w-3 h-3 text-gray-500" />
                           <span className="truncate">{Array.isArray(ct.equipamentos) ? ct.equipamentos.join(', ') : ct.equipamentos || '-'}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-gray-400" />
+                          <Calendar className="w-3 h-3 text-gray-500" />
                           <span>{ct.inicio || '-'} a {ct.fim || '-'}</span>
                         </div>
-                        <div className="flex items-center justify-between pt-1 border-t border-gray-50">
-                          <span className="font-medium text-green-600">R$ {Number(ct.valorMensal || 0).toLocaleString('pt-BR')}/mes</span>
-                          <span className="text-gray-400">Total: R$ {Number(ct.valorTotal || 0).toLocaleString('pt-BR')}</span>
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-800">
+                          <span className="font-medium text-green-400">R$ {Number(ct.valorMensal || 0).toLocaleString('pt-BR')}/mes</span>
+                          <span className="text-gray-500">Total: R$ {Number(ct.valorTotal || 0).toLocaleString('pt-BR')}</span>
                         </div>
                       </div>
                     </div>

@@ -15,6 +15,17 @@ import { getEmailHeaders } from '../lib/supabase';
 import { formatDateBR } from '../lib/dates';
 import { formatCPF, formatCNPJ, isValidCPF, isValidCNPJ, detectDocumentType } from '../lib/validation';
 
+function compressCanvas(src, w = 400, h = 160, quality = 0.7) {
+  const tmp = document.createElement('canvas');
+  tmp.width = w;
+  tmp.height = h;
+  const ctx = tmp.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, w, h);
+  return tmp.toDataURL('image/jpeg', quality);
+}
+
 export default function AssinaturaDigital() {
   const canvasRef = useRef(null);
   const isDrawingRef = useRef(false);
@@ -103,7 +114,10 @@ export default function AssinaturaDigital() {
   const sendEmailNotification = async (contrato, comprovante, signatario, imagemBase64, funcionarioNome) => {
     setSendingEmail(true);
     try {
-      const img = imagemBase64 || canvasRef.current.toDataURL('image/png');
+      let img = imagemBase64;
+      if (!img) {
+        img = compressCanvas(canvasRef.current);
+      }
       const emailData = {
         tipo: 'contrato_assinado',
         contrato_id: contrato?.id || null,
@@ -172,7 +186,7 @@ export default function AssinaturaDigital() {
       }
     } catch {
       try {
-        const imagemBase64 = canvasRef.current.toDataURL('image/png');
+        const imagemBase64 = compressCanvas(canvasRef.current);
         await generateFallbackEmailPDF({
           tipo: 'contrato_assinado',
           contrato: contrato ? {
@@ -215,7 +229,7 @@ export default function AssinaturaDigital() {
     if (!hasSignature) { toast.error('Faca a assinatura de quem recebeu o equipamento'); return; }
     setSaving(true);
     try {
-      const imagem = canvasRef.current.toDataURL('image/png');
+      const imagem = compressCanvas(canvasRef.current);
       await createAssinatura.mutateAsync({
         comprovanteId: selectedComprovante,
         nomeSignatario,

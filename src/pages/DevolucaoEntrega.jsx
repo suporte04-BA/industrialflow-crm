@@ -13,6 +13,17 @@ import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
+function compressCanvas(src, w = 400, h = 150, quality = 0.7) {
+  const tmp = document.createElement('canvas');
+  tmp.width = w;
+  tmp.height = h;
+  const ctx = tmp.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, w, h);
+  return tmp.toDataURL('image/jpeg', quality);
+}
+
 const EMPTY_FORM = {
   comprovanteId: '',
   locatario: '',
@@ -172,7 +183,7 @@ export default function DevolucaoEntrega() {
 
     setSaving(true);
     try {
-      const assinaturaImagem = canvas.toDataURL('image/png');
+      const assinaturaImagem = compressCanvas(canvas);
       const now = new Date();
       const devolucao = {
         ...form,

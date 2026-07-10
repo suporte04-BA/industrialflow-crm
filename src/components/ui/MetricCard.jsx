@@ -2,10 +2,10 @@ import { ChevronDown } from 'lucide-react';
 
 const accentStyles = {
   yellow: { bg: 'bg-[#1C1C1C]', text: 'text-white', iconBg: 'bg-yellow-400/20', iconColor: 'text-yellow-400', labelColor: 'text-gray-400' },
-  blue: { bg: 'bg-white', text: 'text-gray-900', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', labelColor: 'text-gray-500' },
-  green: { bg: 'bg-white', text: 'text-gray-900', iconBg: 'bg-green-100', iconColor: 'text-green-600', labelColor: 'text-gray-500' },
-  red: { bg: 'bg-white', text: 'text-gray-900', iconBg: 'bg-red-100', iconColor: 'text-red-600', labelColor: 'text-gray-500' },
-  default: { bg: 'bg-white', text: 'text-gray-900', iconBg: 'bg-yellow-100', iconColor: 'text-yellow-600', labelColor: 'text-gray-500' },
+  blue: { bg: 'bg-[#1C1C1C]', text: 'text-white', iconBg: 'bg-blue-400/20', iconColor: 'text-blue-400', labelColor: 'text-gray-400' },
+  green: { bg: 'bg-[#1C1C1C]', text: 'text-white', iconBg: 'bg-green-400/20', iconColor: 'text-green-400', labelColor: 'text-gray-400' },
+  red: { bg: 'bg-[#1C1C1C]', text: 'text-white', iconBg: 'bg-red-400/20', iconColor: 'text-red-400', labelColor: 'text-gray-400' },
+  default: { bg: 'bg-[#1C1C1C]', text: 'text-white', iconBg: 'bg-yellow-400/20', iconColor: 'text-yellow-400', labelColor: 'text-gray-400' },
 };
 
 export default function MetricCard({ title, value, subtitle, icon: Icon, accent = 'default', trend, onClick }) {

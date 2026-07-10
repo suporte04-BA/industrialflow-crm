@@ -682,15 +682,27 @@ async function sendEmailViaGoogleScript(env, data) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: requestBody,
-      redirect: 'follow',
+      redirect: 'manual',
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
-    const text = await res.text();
+    let text = await res.text();
     console.log(`[GAS] Response: status=${res.status} body=${text.slice(0, 300)}`);
 
-    if (res.ok) {
+    if (res.status === 302 || res.status === 307) {
+      const location = res.headers.get('Location');
+      console.log(`[GAS] Got redirect ${res.status} to ${location}`);
+      if (text && text.trim().startsWith('{')) {
+        console.log(`[GAS] Response body contains JSON, using it directly`);
+      } else {
+        const res2 = await fetch(location, { method: 'GET', redirect: 'follow', signal: controller.signal });
+        text = await res2.text();
+        console.log(`[GAS] Follow-up response: status=${res2.status} body=${text.slice(0, 300)}`);
+      }
+    }
+
+    if (res.ok || res.status === 302 || res.status === 307) {
       try {
         const result = JSON.parse(text);
         if (result.remainingQuota !== undefined) {

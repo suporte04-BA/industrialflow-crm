@@ -69,7 +69,7 @@ function doGet(e) {
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
-    Logger.log('doPost error: ' + err.message);
+    Logger.log('doGet error: ' + err.message);
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: err.message })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -78,6 +78,11 @@ function doGet(e) {
 
 function doPost(e) {
   try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: 'No POST data received. Make sure to send a POST request with JSON body.' })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
     var data = JSON.parse(e.postData.contents);
     var API_KEY = 'transobra-email-key-2026';
     
@@ -134,10 +139,11 @@ function doPost(e) {
     }
 
     return ContentService.createTextOutput(
-      JSON.stringify({ success: sentCount > 0, sent: sentCount, total: recipients.length, errors: errors.length > 0 ? errors : undefined })
+      JSON.stringify({ success: sentCount > 0, sent: sentCount, total: recipients.length, errors: errors.length > 0 ? errors : undefined, remainingQuota: MailApp.getRemainingDailyQuota() })
     ).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
+    Logger.log('doPost error: ' + err.message);
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: err.message })
     ).setMimeType(ContentService.MimeType.JSON);

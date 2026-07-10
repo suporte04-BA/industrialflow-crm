@@ -662,28 +662,56 @@ async function sendEmailViaGoogleScript(env, data) {
     } catch (e) { console.error('[EMAIL] PDF attachment failed:', e.message); }
   }
 
-  try {
-    const res = await fetch(scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: destinatario,
-        subject: assunto,
-        body: plainBody,
-        htmlBody: htmlBody,
-        apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
-        inlineImages,
-        attachments,
-      }),
-    });
+  const requestBody = JSON.stringify({
+    to: destinatario,
+    subject: assunto,
+    body: plainBody,
+    htmlBody: htmlBody,
+    apiKey: env.GOOGLE_SCRIPT_API_KEY || '',
+    inlineImages,
+    attachments,
+  });
 
-    const result = await res.json();
-    if (res.ok && result.success) {
-      return { success: true, _subject: assunto, _html: htmlBody };
+  try {
+    // GAS /exec returns 302 redirect. The echo URL only accepts GET, not POST.
+    // POST body is lost during the 302 redirect (HTTP spec: 302 converts POST→GET).
+    // Solution: Encode the JSON payload as base64 and send via GET parameter.
+    // The GAS doGet() function decodes the parameter and sends the email.
+    const encoded = btoa(unescape(encodeURIComponent(requestBody)));
+    const getUrl = `${scriptUrl}?d=${encoded}`;
+
+    console.log(`[GAS] Sending via GET: ${getUrl.length} chars, to=${destinatario}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    const res = await fetch(getUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const text = await res.text();
+    console.log(`[GAS] Response: status=${res.status} body=${text.slice(0, 300)}`);
+
+    if (res.ok) {
+      try {
+        const result = JSON.parse(text);
+        if (result.success) {
+          return { success: true, _subject: assunto, _html: htmlBody };
+        }
+        return { success: false, error: result.error || 'GAS returned success=false', _subject: assunto, _html: htmlBody };
+      } catch {
+        return { success: false, error: `GAS non-JSON: ${text.slice(0, 100)}`, _subject: assunto, _html: htmlBody };
+      }
     }
-    return { success: false, error: result.error || `Apps Script returned ${res.status}`, _subject: assunto, _html: htmlBody };
+
+    return { success: false, error: `GAS returned ${res.status}: ${text.slice(0, 100)}`, _subject: assunto, _html: htmlBody };
   } catch (e) {
-    return { success: false, error: e.message, _subject: assunto, _html: htmlBody };
+    const errorMsg = e.name === 'AbortError' ? 'GAS timed out (20s)' : e.message;
+    console.error(`[GAS] Exception: ${errorMsg}`);
+    return { success: false, error: errorMsg, _subject: assunto, _html: htmlBody };
   }
 }
 
@@ -820,7 +848,9 @@ async function sendEmailWithFallback(env, data) {
   const assunto = buildAssunto(tipo, contrato, comprovante);
 
   // 1st: Google Apps Script (supports inline images via cid:)
+  console.log(`[EMAIL] Attempting GAS for ${tipo} to ${destinatario}`);
   const gasResult = await sendEmailViaGoogleScript(env, data);
+  console.log(`[EMAIL] GAS result: success=${gasResult.success} error=${gasResult.error || 'none'}`);
   if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
 
   // Prepare inline images for Maileroo (supports cid: via inline attachments)
@@ -903,12 +933,15 @@ async function sendEmailWithFallback(env, data) {
 
   // 2nd: Maileroo (custom domain with DKIM, inline images via cid:)
   if (env.MAILEROO_API_KEY) {
+    console.log(`[EMAIL] GAS failed, attempting Maileroo for ${tipo} to ${destinatario}`);
     const result = await sendEmailViaMaileroo(env, assunto, mailerooHtml, destinatario, mailerooInlineImages, mailerooPdfAttachment);
+    console.log(`[EMAIL] Maileroo result: success=${result.success} error=${result.error || 'none'} provider=${result.provider || 'maileroo'}`);
     if (result.success) return result;
   }
 
   // 3rd: Resend (proper SPF/DKIM/DMARC, no inline images support - convert cid: to data:)
   if (env.RESEND_API_KEY) {
+    console.log(`[EMAIL] Maileroo failed, attempting Resend for ${tipo} to ${destinatario}`);
     let htmlForResend = htmlBody;
     if (LOGO_BASE64) {
       htmlForResend = htmlForResend.replace(/cid:logo/g, `data:image/jpeg;base64,${LOGO_BASE64}`);
@@ -922,9 +955,11 @@ async function sendEmailWithFallback(env, data) {
       }
     }
     const result = await sendEmailViaResend(env, assunto, htmlForResend, destinatario);
+    console.log(`[EMAIL] Resend result: success=${result.success} error=${result.error || 'none'}`);
     if (result.success) return { ...result, provider: 'resend' };
   }
 
+  console.error(`[EMAIL] ALL PROVIDERS FAILED for ${tipo} to ${destinatario}. GAS: ${gasResult.error}`);
   return { success: false, error: `All providers failed. Last: ${gasResult.error}` };
 }
 
@@ -1187,6 +1222,7 @@ export default {
         if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
         const { tipo, contrato_id, comprovante_id, destinatario: reqDest, contrato, comprovante, signatario, funcionario, tipoDocumento } = parsed.data;
         const emailTipo = tipo || 'contrato_assinado';
+        console.log(`[EMAIL-API] Received: tipo=${emailTipo} destinatario=${reqDest || 'none'} contrato=${contrato?.numero || 'none'}`);
 
         // Resolve recipients from Supabase profiles (gestores/admins)
         let recipients = [];
@@ -1204,6 +1240,7 @@ export default {
         if (reqDest && typeof reqDest === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reqDest) && !recipients.includes(reqDest)) {
           recipients.push(reqDest);
         }
+        console.log(`[EMAIL-API] Recipients: ${recipients.join(', ')}`);
 
         let emailStatus = 'pendente';
         let erroMsg = null;

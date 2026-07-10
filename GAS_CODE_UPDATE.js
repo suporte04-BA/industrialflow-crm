@@ -56,7 +56,7 @@ function doGet(e) {
     var errors = [];
     for (var i = 0; i < recipients.length; i++) {
       try {
-        GmailApp.sendEmail(recipients[i], data.subject, data.body || '', options);
+        MailApp.sendEmail(recipients[i], data.subject, data.body || '', options);
         sentCount++;
       } catch (err) {
         errors.push(recipients[i] + ': ' + err.message);
@@ -125,7 +125,7 @@ function doPost(e) {
     var errors = [];
     for (var i = 0; i < recipients.length; i++) {
       try {
-        GmailApp.sendEmail(recipients[i], data.subject, data.body || '', options);
+        MailApp.sendEmail(recipients[i], data.subject, data.body || '', options);
         sentCount++;
       } catch (err) {
         errors.push(recipients[i] + ': ' + err.message);

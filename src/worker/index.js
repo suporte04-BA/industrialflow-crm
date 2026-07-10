@@ -797,9 +797,10 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImag
       headers: {
         'List-Unsubscribe': `<mailto:suporte04@baeletrica.com.br?subject=Descadastrar>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Entity-Ref-ID': `transobra-${Date.now()}`,
+        'X-Entity-Ref-ID': `transobra-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
         'X-Mailer': 'TransObra System',
-        'Precedence': 'bulk',
+        'Feedback-ID': `transobra:email:${Date.now()}`,
+        'X-Campaign': 'transobra-notificacoes',
       },
     };
     if (attachments.length > 0) {

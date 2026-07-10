@@ -279,7 +279,7 @@ export default function HistoricoTransacoes() {
 
   const handleOpenPage = (item) => {
     if (item.tipo === 'os') {
-      navigate(`/os-detail/${item.id}`);
+      window.open(`/os-detail/${item.id}`, '_blank');
     } else if (item.tipo === 'contrato') {
       navigate('/contratos');
     } else if (item.tipo === 'comprovante') {

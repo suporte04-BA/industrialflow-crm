@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft, Printer, Edit3, Save, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrdensServico, useUpdateOS } from '../hooks/useOrdensServico';
@@ -19,7 +19,6 @@ const prioridadeLabels = {
 
 export default function OSDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({});
@@ -58,7 +57,8 @@ export default function OSDetailPage() {
   };
 
   const handleBack = () => {
-    navigate(-1);
+    window.close();
+    setTimeout(() => { window.location.href = '/ordens'; }, 200);
   };
 
   const handlePrint = () => window.print();

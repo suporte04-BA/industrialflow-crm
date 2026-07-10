@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
-import { X, Calendar, User, Wrench, DollarSign, Clock, ChevronDown, ExternalLink, FileText, AlertTriangle, Hash } from 'lucide-react';
+import { X, Calendar, User, Wrench, DollarSign, Clock, ChevronDown, ExternalLink, FileText, AlertTriangle, Hash, Printer } from 'lucide-react';
 
 const statusOptions = [
   { value: 'pendente', label: 'Pendente' },
@@ -38,7 +37,6 @@ const prioridadeLabelMap = {
 };
 
 export default function OSDetailModal({ isOpen, onClose, os, onUpdateStatus }) {
-  const navigate = useNavigate();
   const [newStatus, setNewStatus] = useState('');
 
   const handleUpdate = () => {
@@ -50,7 +48,7 @@ export default function OSDetailModal({ isOpen, onClose, os, onUpdateStatus }) {
 
   const handleOpenDetailPage = () => {
     if (os?.id) {
-      navigate(`/os-detail/${os.id}`);
+      window.open(`/os-detail/${os.id}`, '_blank');
     }
   };
 

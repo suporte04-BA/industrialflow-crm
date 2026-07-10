@@ -1,6 +1,6 @@
 import { useState, useMemo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, PenLine, Package, ClipboardList, Building2, Search, X, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, PenLine, Package, ClipboardList, Building2, Search, X, Download, ChevronDown, ChevronUp, ExternalLink, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useContratos } from '../hooks/useContratos';
@@ -38,10 +38,11 @@ function DetailRow({ label, value }) {
   );
 }
 
-function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF }) {
+function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF, onOpenPage }) {
   if (!isOpen || !item) return null;
 
   const Icon = tipoIcons[item.tipo] || FileText;
+  const tipoLabel = item.tipo === 'os' ? 'Ordem de Servico' : item.tipo === 'contrato' ? 'Contrato' : item.tipo === 'comprovante' ? 'Comprovante' : item.tipo === 'assinatura' ? 'Assinatura' : item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1);
 
   return (
     <AnimatePresence>
@@ -49,68 +50,91 @@ function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-3 sm:p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[85vh] flex flex-col"
+          initial={{ scale: 0.95, opacity: 0, y: 10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[88vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between p-4 border-b shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${tipoColors[item.tipo]}`}>
-                <Icon className="w-4 h-4" />
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tipoColors[item.tipo]} shadow-sm`}>
+                <Icon className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-bold text-gray-900 truncate">{item.titulo}</h3>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">{item.tipo}</p>
+                <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">{item.titulo}</h3>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider">{tipoLabel}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0">
-              <X className="w-4 h-4" />
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0 text-gray-400 hover:text-gray-700">
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
             <div>
               <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Dados Gerais</h4>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <DetailRow label="Tipo" value={item.tipo === 'os' ? 'OS' : item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1)} />
-                <DetailRow label="Status" value={<StatusBadge status={item.status} />} />
-                <DetailRow label="Data" value={item.data && item.data !== '-' ? formatDateBR(item.data) : '-'} />
-                <DetailRow label="Valor" value={item.valor ? `R$ ${Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'} />
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-100">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <DetailRow label="Tipo" value={tipoLabel} />
+                  <DetailRow label="Status" value={<StatusBadge status={item.status} />} />
+                  <DetailRow label="Data" value={item.data && item.data !== '-' ? formatDateBR(item.data) : '-'} />
+                  <DetailRow label="Valor" value={item.valor ? `R$ ${Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'} />
+                </div>
               </div>
             </div>
 
             {item.descricao && (
               <div>
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Descricao</h4>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-700">{item.descricao}</p>
+                <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-100">
+                  <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">{item.descricao}</p>
                 </div>
               </div>
             )}
 
             {item.detalhes && Object.keys(item.detalhes).length > 0 && (
               <div>
-                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Detalhes</h4>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  {Object.entries(item.detalhes).map(([key, value]) => (
-                    <DetailRow key={key} label={key.charAt(0).toUpperCase() + key.slice(1)} value={value} />
-                  ))}
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Detalhes Adicionais</h4>
+                <div className="bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-100">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {Object.entries(item.detalhes).map(([key, value]) => (
+                      <DetailRow key={key} label={key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')} value={value} />
+                    ))}
+                  </div>
                 </div>
+              </div>
+            )}
+
+            {item.tipo === 'os' && (
+              <div className="bg-yellow-50 rounded-xl p-3 sm:p-4 border border-yellow-200">
+                <p className="text-xs font-bold text-yellow-700 uppercase tracking-wider mb-1">Ordem de Servico</p>
+                <p className="text-xs text-yellow-600">Clique em "Abrir Pagina Completa" para ver todos os detalhes desta OS.</p>
               </div>
             )}
           </div>
 
-          <div className="p-4 border-t flex flex-col sm:flex-row gap-2 shrink-0">
+          <div className="p-4 sm:p-5 border-t flex flex-col sm:flex-row gap-2 shrink-0">
             <button onClick={() => onDownloadPDF(item)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-yellow-400 text-gray-900 rounded-lg font-medium text-sm hover:bg-yellow-300 transition-colors">
               <Download className="w-4 h-4" /> Baixar PDF
             </button>
+            {onOpenPage && item.tipo === 'os' && (
+              <button onClick={() => { onClose(); onOpenPage(item); }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-900 text-white rounded-lg font-medium text-sm hover:bg-gray-800 transition-colors">
+                <ExternalLink className="w-4 h-4" /> Abrir Pagina
+              </button>
+            )}
+            {onOpenPage && item.tipo !== 'os' && (
+              <button onClick={() => { onClose(); onOpenPage(item); }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
+                <Info className="w-4 h-4" /> Ver Detalhes
+              </button>
+            )}
             <button onClick={onClose}
               className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
               Fechar
@@ -253,6 +277,18 @@ export default function HistoricoTransacoes() {
     ordens: allTransactions.filter((t) => t.tipo === 'os').length,
   }), [allTransactions]);
 
+  const handleOpenPage = (item) => {
+    if (item.tipo === 'os') {
+      navigate(`/os-detail/${item.id}`);
+    } else if (item.tipo === 'contrato') {
+      navigate('/contratos');
+    } else if (item.tipo === 'comprovante') {
+      navigate('/comprovantes');
+    } else if (item.tipo === 'assinatura') {
+      navigate('/assinatura');
+    }
+  };
+
   const handleDownloadPDF = async (item) => {
     try {
       switch (item.tipo) {
@@ -388,9 +424,9 @@ export default function HistoricoTransacoes() {
                         <td className="px-3 sm:px-4 py-3 text-gray-500 text-xs hidden md:table-cell">{t.data && t.data !== '-' ? formatDateBR(t.data) : '-'}</td>
                         <td className="px-3 sm:px-4 py-3 text-right font-medium text-xs sm:text-sm">{t.valor ? `R$ ${Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}</td>
                         <td className="px-3 sm:px-4 py-3">
-                          <button onClick={(e) => { e.stopPropagation(); if (t.tipo === 'os') { navigate(`/ordens?expand=${t.id}`); } else { setModalItem(t); } }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver detalhes">
-                            <FileText className="w-4 h-4" />
+                          <button onClick={(e) => { e.stopPropagation(); setModalItem(t); }}
+                            className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors" title="Ver detalhes">
+                            <Info className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>
@@ -407,9 +443,9 @@ export default function HistoricoTransacoes() {
                                 ))}
                               </div>
                               <div className="mt-2 flex gap-2">
-                                <button onClick={(e) => { e.stopPropagation(); if (t.tipo === 'os') { navigate(`/ordens?expand=${t.id}`); } else { setModalItem(t); } }}
+                                <button onClick={(e) => { e.stopPropagation(); setModalItem(t); }}
                                   className="text-xs text-yellow-600 hover:text-yellow-700 font-medium flex items-center gap-1">
-                                  <FileText className="w-3 h-3" /> Ver detalhes
+                                  <Info className="w-3 h-3" /> Ver detalhes completos
                                 </button>
                                 <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(t); }}
                                   className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
@@ -434,6 +470,7 @@ export default function HistoricoTransacoes() {
         isOpen={!!modalItem}
         onClose={() => setModalItem(null)}
         onDownloadPDF={handleDownloadPDF}
+        onOpenPage={handleOpenPage}
       />
     </div>
   );

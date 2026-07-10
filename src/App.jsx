@@ -20,6 +20,7 @@ const Documentos = lazy(() => import('./pages/Documentos'));
 const HistoricoTransacoes = lazy(() => import('./pages/HistoricoTransacoes'));
 const Perfil = lazy(() => import('./pages/Perfil'));
 const Usuarios = lazy(() => import('./pages/Usuarios'));
+const OSDetailPage = lazy(() => import('./pages/OSDetailPage'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -69,8 +70,9 @@ function App() {
                 <Route path="/assinatura" element={<Suspense fallback={<PageLoader />}><AssinaturaDigital /></Suspense>} />
                 <Route path="/historico" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><HistoricoTransacoes /></Suspense></RoleGuard>} />
                 <Route path="/usuarios" element={<RoleGuard requiredRole="gestor"><Suspense fallback={<PageLoader />}><Usuarios /></Suspense></RoleGuard>} />
-                <Route path="/perfil" element={<Suspense fallback={<PageLoader />}><Perfil /></Suspense>} />
-              </Route>
+<Route path="/perfil" element={<Suspense fallback={<PageLoader />}><Perfil /></Suspense>} />
+              <Route path="/os-detail/:id" element={<Suspense fallback={<PageLoader />}><OSDetailPage /></Suspense>} />
+            </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>

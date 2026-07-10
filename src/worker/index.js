@@ -677,7 +677,8 @@ async function sendEmailViaGoogleScript(env, data) {
     // POST body is lost during the 302 redirect (HTTP spec: 302 converts POST→GET).
     // Solution: Encode the JSON payload as base64 and send via GET parameter.
     // The GAS doGet() function decodes the parameter and sends the email.
-    const encoded = btoa(unescape(encodeURIComponent(requestBody)));
+    const encoded = btoa(unescape(encodeURIComponent(requestBody)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const getUrl = `${scriptUrl}?d=${encoded}`;
 
     console.log(`[GAS] Sending via GET: ${getUrl.length} chars, to=${destinatario}`);

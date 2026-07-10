@@ -7,7 +7,7 @@ function doGet(e) {
     }
 
     var encoded = e.parameter.d;
-    var jsonStr = Utilities.base64Decode(encoded, 'UTF-8');
+    var jsonStr = Utilities.newBlob(Utilities.base64DecodeWebSafe(encoded)).getDataAsString('UTF-8');
     var data = JSON.parse(jsonStr);
 
     var API_KEY = 'transobra-email-key-2026';

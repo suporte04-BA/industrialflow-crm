@@ -23,3 +23,7 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 [assets]
 directory = "dist"
 binding = "ASSETS"
+
+# Cron: teste automatico do GAS diario as 10h (13:00 UTC)
+[triggers]
+crons = ["0 13 * * *"]

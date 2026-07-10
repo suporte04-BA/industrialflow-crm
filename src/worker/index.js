@@ -1483,44 +1483,62 @@ export default {
   async scheduled(event, env, ctx) {
     console.log('[CRON] Scheduled test triggered at', new Date().toISOString());
 
-    const testResult = await sendEmailWithFallback(env, {
-      tipo: 'contrato_assinado',
-      destinatario: env.EMAIL_RECIPIENT || 'suporte04@baeletrica.com.br',
-      contrato: {
-        numero: 'TESTE-CRON-001',
-        cliente: 'Teste Automatico GAS',
-        cnpj: '12.345.678/0001-90',
-        telefone: '(92) 99386-7171',
-        equipamentos: ['ROCADEIRA GASOLINA 4 TEMPOS'],
-        inicio: '2026-07-10',
-        fim: '2026-07-17',
-        valorMensal: 110,
-        valorTotal: 110,
-        atendente: 'TESTE CRON',
-        localEntrega: 'RUA TESTE, 123 - CENTRO',
-        endereco: 'RUA TESTE',
-        numero_endereco: '123',
-        bairro: 'CENTRO',
-        cidade: 'MANAUS',
-        estado: 'AM',
-        cep: '69000-000',
-        contato: 'Teste CRON',
-      },
-      comprovante: {
-        contrato: 'CT-TESTE',
-        locatario: 'Teste Automatico GAS',
-        cpf: '123.456.789-00',
-        endereco: 'RUA TESTE, 123',
-        total: 110,
-        itens: [],
-      },
-      signatario: {
-        nome: 'Teste CRON',
-        cpf: '123.456.789-00',
-        data: new Date().toISOString(),
-      },
-    });
+    let recipients = [];
+    try {
+      const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
+      const profilesResult = await supabaseRequest(env, 'GET', '/profiles?role=in.(admin,gestor)&select=email', null, serviceAuth);
+      if (profilesResult.data && Array.isArray(profilesResult.data) && profilesResult.data.length > 0) {
+        recipients = profilesResult.data.map((p) => p.email).filter(Boolean);
+      }
+    } catch { /* fallback below */ }
+    if (recipients.length === 0) {
+      recipients = [env.EMAIL_RECIPIENT || 'suporte04@baeletrica.com.br'];
+    }
+    console.log(`[CRON] Recipients: ${recipients.join(', ')}`);
 
-    console.log(`[CRON] Result: success=${testResult.success} provider=${testResult.provider || 'none'} error=${testResult.error || 'none'}`);
+    const results = {};
+    for (const recipient of recipients) {
+      const testResult = await sendEmailWithFallback(env, {
+        tipo: 'contrato_assinado',
+        destinatario: recipient,
+        contrato: {
+          numero: 'TESTE-CRON-001',
+          cliente: 'Teste Automatico GAS',
+          cnpj: '12.345.678/0001-90',
+          telefone: '(92) 99386-7171',
+          equipamentos: ['ROCADEIRA GASOLINA 4 TEMPOS'],
+          inicio: '2026-07-10',
+          fim: '2026-07-17',
+          valorMensal: 110,
+          valorTotal: 110,
+          atendente: 'TESTE CRON',
+          localEntrega: 'RUA TESTE, 123 - CENTRO',
+          endereco: 'RUA TESTE',
+          numero_endereco: '123',
+          bairro: 'CENTRO',
+          cidade: 'MANAUS',
+          estado: 'AM',
+          cep: '69000-000',
+          contato: 'Teste CRON',
+        },
+        comprovante: {
+          contrato: 'CT-TESTE',
+          locatario: 'Teste Automatico GAS',
+          cpf: '123.456.789-00',
+          endereco: 'RUA TESTE, 123',
+          total: 110,
+          itens: [],
+        },
+        signatario: {
+          nome: 'Teste CRON',
+          cpf: '123.456.789-00',
+          data: new Date().toISOString(),
+        },
+      });
+      results[recipient] = { success: testResult.success, provider: testResult.provider || 'none', error: testResult.error || 'none' };
+      console.log(`[CRON] ${recipient}: success=${testResult.success} provider=${testResult.provider || 'none'}`);
+    }
+
+    console.log(`[CRON] All results:`, JSON.stringify(results));
   },
 };

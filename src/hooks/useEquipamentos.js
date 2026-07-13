@@ -18,7 +18,7 @@ export function useEquipamentos(filters = {}) {
         q = q.eq('status', filters.status);
       }
       if (filters.search) {
-        q = q.or(`nome.ilike.%${filters.search}%,categoria.ilike.%${filters.search}%`);
+        q = q.or(`nome.ilike.%${filters.search}%,categoria.ilike.%${filters.search}%,patrimonio.ilike.%${filters.search}%`);
       }
       const { data, error } = await q.order('created_at', { ascending: false });
       if (error) throw handleSupabaseError(error);
@@ -47,6 +47,7 @@ export function useCreateEquipamento() {
         nome: newEq.nome,
         categoria: newEq.categoria,
         status: newEq.status || 'disponivel',
+        patrimonio: newEq.patrimonio || '',
         cliente: newEq.cliente || '-',
         contrato: newEq.contrato || '-',
         locacaoInicio: newEq.locacaoInicio,

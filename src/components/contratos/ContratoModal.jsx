@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, CheckCircle, ArrowLeft, AlertTriangle, Calendar, MapPin, User, FileText, Package, Wrench, DollarSign } from 'lucide-react';
+import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, CheckCircle, ArrowLeft, AlertTriangle, Calendar, MapPin, User, FileText, Package, Wrench, DollarSign, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '../ui/Button';
 import PdfImportButton from '../common/PdfImportButton';
@@ -81,7 +81,10 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
   const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState(null);
+  const [openSections, setOpenSections] = useState({ itens: true, equipamentos: true });
   const prevContratoIdRef = useRef(contrato?.id || (isRenew ? 'renew' : contrato ? 'edit' : 'new'));
+
+  const toggleSection = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     const contratoId = contrato?.id || (isRenew ? 'renew' : contrato ? 'edit' : 'new');
@@ -138,7 +141,15 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
       : undefined;
 
     const importedEquipamentos = Array.isArray(fields.equipamentos) && fields.equipamentos.length > 0
-      ? fields.equipamentos.filter(e => e && e.trim().length > 2)
+      ? fields.equipamentos.filter(e => {
+          if (!e || e.trim().length < 3) return false;
+          const lower = e.toLowerCase();
+          if (lower.includes('local da entrega') || lower.includes('local de entrega')) return false;
+          if (lower.includes('avenida') || lower.includes('rua') || lower.includes('av.')) return false;
+          if (lower.includes('bairro') || lower.includes('manaus') || lower.includes('cep:')) return false;
+          if (/^\d{5}-?\d{3}/.test(e.trim())) return false;
+          return true;
+        })
       : undefined;
 
     if (fields.tipo_documento) {
@@ -661,79 +672,94 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                   </div>
                 )}
 
-               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-green-800">Itens Locados</h3>
-                  <button type="button" onClick={addItem}
-                    className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700">
-                    <Plus className="w-3.5 h-3.5" /> Adicionar Item
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {form.itens.map((item, idx) => (
-                    <div key={idx} className="bg-white rounded-lg p-3 border border-green-100">
-                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Qtde *</label>
-                          <input type="number" min="1" required value={item.quantidade}
-                            onChange={(e) => updateItem(idx, 'quantidade', e.target.value)}
-                            className="input-base text-xs" />
-                        </div>
-                        <div className="col-span-2">
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Descrição *</label>
-                          <input type="text" required value={item.descricao}
-                            onChange={(e) => updateItem(idx, 'descricao', e.target.value)}
-                            className="input-base text-xs" placeholder="Descrição do item" />
-                        </div>
-                         <div>
-                           <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patrimônio</label>
-                           <input type="text" value={item.patrimonio}
-                             onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
-                             className="input-base text-xs" placeholder="PAT-000" />
-                         </div>
-                         {form.tipoDocumento === 'entrega' && (
-                           <>
-                             <div>
-                               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Loc</label>
-                               <input type="text" value={item.dataLocacao}
-                                 onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)}
-                                 className="input-base text-xs" placeholder="DD/MM/AAAA" />
-                             </div>
-                             <div>
-                               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Dev</label>
-                               <input type="text" value={item.dataDevolucao}
-                                 onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)}
-                                 className="input-base text-xs" placeholder="DD/MM/AAAA" />
-                             </div>
-                           </>
-                         )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Valor R$ *</label>
-                          <input type="number" min="0" step="0.01" required value={item.valorUnitario}
-                            onChange={(e) => updateItem(idx, 'valorUnitario', e.target.value)}
-                            className="input-base text-xs" placeholder="0,00" />
-                        </div>
-                        <div className="text-right text-xs font-medium text-green-700 mt-4">
-                          Subtotal: R$ {((Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                        {form.itens.length > 1 && (
-                          <button type="button" onClick={() => removeItem(idx)}
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded mt-3">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 text-right">
-                    <span className="text-sm font-bold text-green-800">
-                      Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
+               <div className="bg-green-50 rounded-xl border border-green-200 overflow-hidden">
+                <button type="button" onClick={() => toggleSection('itens')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-green-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-green-700" />
+                    <h3 className="text-sm font-bold text-green-800">Itens Locados ({form.itens.filter(it => it.descricao.trim()).length})</h3>
+                    <span className="text-xs font-bold text-green-600">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
-                </div>
+                  {openSections.itens ? <ChevronDown className="w-4 h-4 text-green-600" /> : <ChevronRight className="w-4 h-4 text-green-600" />}
+                </button>
+                <AnimatePresence>
+                  {openSections.itens && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                      <div className="px-4 pb-4 space-y-3">
+                        <div className="flex justify-end">
+                          <button type="button" onClick={addItem}
+                            className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700">
+                            <Plus className="w-3.5 h-3.5" /> Adicionar Item
+                          </button>
+                        </div>
+                        {form.itens.map((item, idx) => (
+                          <div key={idx} className="bg-white rounded-lg p-3 border border-green-100">
+                            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                              <div>
+                                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Qtde *</label>
+                                <input type="number" min="1" required value={item.quantidade}
+                                  onChange={(e) => updateItem(idx, 'quantidade', e.target.value)}
+                                  className="input-base text-xs" />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Descricao *</label>
+                                <input type="text" required value={item.descricao}
+                                  onChange={(e) => updateItem(idx, 'descricao', e.target.value)}
+                                  className="input-base text-xs" placeholder="Descricao do item" />
+                              </div>
+                               <div>
+                                 <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patrimonio</label>
+                                 <input type="text" value={item.patrimonio}
+                                   onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
+                                   className="input-base text-xs" placeholder="PAT-000" />
+                               </div>
+                               {form.tipoDocumento === 'entrega' && (
+                                 <>
+                                   <div>
+                                     <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Loc</label>
+                                     <input type="text" value={item.dataLocacao}
+                                       onChange={(e) => updateItem(idx, 'dataLocacao', e.target.value)}
+                                       className="input-base text-xs" placeholder="DD/MM/AAAA" />
+                                   </div>
+                                   <div>
+                                     <label className="block text-[10px] font-medium text-gray-500 mb-0.5">D.Dev</label>
+                                     <input type="text" value={item.dataDevolucao}
+                                       onChange={(e) => updateItem(idx, 'dataDevolucao', e.target.value)}
+                                       className="input-base text-xs" placeholder="DD/MM/AAAA" />
+                                   </div>
+                                 </>
+                               )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Valor R$ *</label>
+                                <input type="number" min="0" step="0.01" required value={item.valorUnitario}
+                                  onChange={(e) => updateItem(idx, 'valorUnitario', e.target.value)}
+                                  className="input-base text-xs" placeholder="0,00" />
+                              </div>
+                              <div className="text-right text-xs font-medium text-green-700 mt-4">
+                                Subtotal: R$ {((Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </div>
+                              {form.itens.length > 1 && (
+                                <button type="button" onClick={() => removeItem(idx)}
+                                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded mt-3">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="text-right pt-2 border-t border-green-200">
+                          <span className="text-sm font-bold text-green-800">
+                            Total: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
 
               <div>
@@ -742,22 +768,38 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                   className="input-base min-h-[80px] resize-none" placeholder="Observações sobre o contrato..." rows={3} />
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Equipamentos</h3>
-                {form.equipamentos.map((eq, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2">
-                    <input type="text" value={eq} onChange={(e) => updateEquipamento(idx, e.target.value)}
-                      className="input-base flex-1" placeholder="Nome do equipamento" />
-                    {form.equipamentos.length > 1 && (
-                      <button type="button" onClick={() => removeEquipamento(idx)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                    )}
+              <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                <button type="button" onClick={() => toggleSection('equipamentos')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-gray-700" />
+                    <h3 className="text-sm font-bold text-gray-800">Equipamentos ({form.equipamentos.filter(e => e.trim()).length})</h3>
                   </div>
-                ))}
-                <button type="button" onClick={addEquipamento}
-                  className="flex items-center gap-1 text-sm text-yellow-600 hover:text-yellow-700">
-                  <Plus className="w-4 h-4" /> Adicionar equipamento
+                  {openSections.equipamentos ? <ChevronDown className="w-4 h-4 text-gray-600" /> : <ChevronRight className="w-4 h-4 text-gray-600" />}
                 </button>
+                <AnimatePresence>
+                  {openSections.equipamentos && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                      <div className="px-4 pb-4 space-y-2">
+                        {form.equipamentos.map((eq, idx) => (
+                          <div key={idx} className="flex gap-2">
+                            <input type="text" value={eq} onChange={(e) => updateEquipamento(idx, e.target.value)}
+                              className="input-base flex-1 text-sm" placeholder="Nome do equipamento" />
+                            {form.equipamentos.length > 1 && (
+                              <button type="button" onClick={() => removeEquipamento(idx)}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                            )}
+                          </div>
+                        ))}
+                        <button type="button" onClick={addEquipamento}
+                          className="flex items-center gap-1 text-sm text-yellow-600 hover:text-yellow-700">
+                          <Plus className="w-4 h-4" /> Adicionar equipamento
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

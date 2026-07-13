@@ -250,8 +250,30 @@ export function useCreateContrato() {
             if (equipNames.length === 0) return;
             const { data: existing } = await supabase.from('equipamentos').select('nome');
             const existingNames = new Set((existing || []).map(e => (e.nome || '').toLowerCase()));
-            const newEquips = equipNames.filter(name => !existingNames.has(name.toLowerCase().trim())).map(name => ({ nome: name.trim(), categoria: 'Geral', status: 'locado', contrato: ctSaved.id, cliente: ctSaved.cliente }));
-            if (newEquips.length > 0) await supabase.from('equipamentos').insert(newEquips);
+            const itens = Array.isArray(ctSaved.itens) ? ctSaved.itens : [];
+            const newEquips = equipNames.filter(name => !existingNames.has(name.toLowerCase().trim())).map(name => {
+              const matchedItem = itens.find(it => (it.descricao || '').toLowerCase().trim() === name.toLowerCase().trim());
+              return {
+                nome: name.trim(),
+                categoria: 'Geral',
+                status: 'locado',
+                patrimonio: matchedItem?.patrimonio || '',
+                contrato: ctSaved.id,
+                cliente: ctSaved.cliente,
+                locacao_inicio: ctSaved.inicio || '',
+                locacao_fim: ctSaved.fim || '',
+                valor_mensal: matchedItem?.valorUnitario || 0,
+              };
+            });
+            if (newEquips.length > 0) {
+              const { error: insertErr } = await supabase.from('equipamentos').insert(newEquips);
+              if (insertErr) {
+                console.warn('[equipamentos] Insert with all fields failed, retrying without patrimonio:', insertErr.message);
+                const fallback = newEquips.map(({ patrimonio, ...rest }) => rest);
+                const { error: fallbackErr } = await supabase.from('equipamentos').insert(fallback);
+                if (fallbackErr) console.error('[equipamentos] Fallback insert also failed:', fallbackErr.message);
+              }
+            }
           }, 'equipamentos').then(() => {
             queryClient.invalidateQueries({ queryKey: ['equipamentos'] });
           }).catch(() => {});
@@ -297,6 +319,35 @@ export function useCreateContrato() {
           createdAt: now.toISOString(),
         };
         saveCompLocal(comp);
+
+        const localEqKey = 'equipamentos_local';
+        try {
+          const eqLocal = JSON.parse(localStorage.getItem(localEqKey) || '[]');
+          const equipNames = (item.equipamentos || []).filter(e => e && e.trim());
+          const itens = Array.isArray(item.itens) ? item.itens : [];
+          const existingNames = new Set(eqLocal.map(e => (e.nome || '').toLowerCase()));
+          const newEquips = equipNames.filter(name => !existingNames.has(name.toLowerCase().trim())).map(name => {
+            const matchedItem = itens.find(it => (it.descricao || '').toLowerCase().trim() === name.toLowerCase().trim());
+            return {
+              id: `EQ-${String(Date.now()).slice(-6)}-${Math.random().toString(36).slice(2, 5)}`,
+              nome: name.trim(),
+              categoria: 'Geral',
+              status: 'locado',
+              patrimonio: matchedItem?.patrimonio || '',
+              contrato: item.id,
+              cliente: item.cliente,
+              locacaoInicio: item.inicio || '',
+              locacaoFim: item.fim || '',
+              valorMensal: matchedItem?.valorUnitario || 0,
+              horasUso: 0,
+              ultimaRevisao: '',
+              createdAt: new Date().toISOString(),
+            };
+          });
+          if (newEquips.length > 0) {
+            localStorage.setItem(localEqKey, JSON.stringify([...newEquips, ...eqLocal]));
+          }
+        } catch { /* ignore */ }
 
         fetch('/api/email/send', {
           method: 'POST',

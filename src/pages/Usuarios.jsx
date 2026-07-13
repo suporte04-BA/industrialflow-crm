@@ -289,10 +289,14 @@ export default function Usuarios() {
                     <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setEditingUser(u); setEditForm({ fullName: u.fullName || '', email: u.email || '', password: '', role: u.role || 'funcionario', temEmail: u.temEmail !== false }); }}>
                       <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-gray-900">
-                              {(u.fullName || 'U').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </span>
+                          <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt={u.fullName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-bold text-gray-900">
+                                {(u.fullName || 'U').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </span>
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 truncate">{u.fullName}</p>

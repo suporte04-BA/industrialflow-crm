@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, Wrench, Clock, X, Calendar, DollarSign, User, FileText } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Wrench, Clock, X, Calendar, DollarSign, User, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEquipamentos, useCreateEquipamento, useUpdateEquipamento, useDeleteEquipamento } from '../hooks/useEquipamentos';
@@ -12,6 +12,65 @@ import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import { formatDateBR, daysUntil } from '../lib/dates';
 
+function EqCategoryModal({ tipo, items, isOpen, onClose, onSelectItem }) {
+  if (!isOpen || !tipo) return null;
+  const labels = { total: 'Todos os Equipamentos', locado: 'Locados', disponivel: 'Disponiveis', manutencao: 'Em Manutencao' };
+  const statusMap = { locado: 'locado', disponivel: 'disponivel', manutencao: 'manutencao' };
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-3 sm:p-4" onClick={onClose}>
+        <motion.div initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0">
+            <div className="flex items-center gap-3">
+              <Wrench className="w-5 h-5 text-yellow-600" />
+              <div>
+                <h3 className="text-base font-bold text-gray-900">{labels[tipo] || tipo}</h3>
+                <p className="text-xs text-gray-500">{items.length} registro(s)</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            {items.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">Nenhum registro</div>
+            ) : (
+              <div className="space-y-2">
+                {items.map((eq) => (
+                  <button key={eq.id} onClick={() => { onSelectItem(eq); onClose(); }}
+                    className="w-full text-left bg-gray-50 hover:bg-yellow-50 border border-gray-100 hover:border-yellow-200 rounded-xl p-3 sm:p-4 transition-all group">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-yellow-700">{eq.nome}</p>
+                          <StatusBadge status={eq.status} />
+                        </div>
+                        {eq.patrimonio && <p className="text-xs font-mono text-blue-600 mt-0.5">Pat: {eq.patrimonio}</p>}
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                          {eq.cliente && eq.cliente !== '-' && <span>{eq.cliente}</span>}
+                          {eq.contrato && eq.contrato !== '-' && <span>{eq.contrato}</span>}
+                          {eq.valorMensal > 0 && <span className="text-green-600 font-medium">R$ {eq.valorMensal.toLocaleString('pt-BR')}/mes</span>}
+                        </div>
+                      </div>
+                      <Edit3 className="w-4 h-4 text-gray-300 group-hover:text-yellow-500 shrink-0 mt-1" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="p-4 border-t shrink-0">
+            <button onClick={onClose} className="w-full py-2.5 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">Fechar</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function Equipamentos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
   const [searchInput, setSearchInput] = useState('');
@@ -19,6 +78,7 @@ export default function Equipamentos() {
   const [editingEq, setEditingEq] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [viewingEq, setViewingEq] = useState(null);
+  const [categoryModal, setCategoryModal] = useState(null);
 
   const { data: eqList, isLoading, isError, error, refetch } = useEquipamentos(filters);
   const createEq = useCreateEquipamento();
@@ -68,15 +128,18 @@ export default function Equipamentos() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: stats.total, color: 'bg-slate-100 text-slate-700 shadow-sm' },
-          { label: 'Locados', value: stats.locados, color: 'bg-blue-100 text-blue-700 shadow-sm' },
-          { label: 'Disponiveis', value: stats.disponiveis, color: 'bg-emerald-100 text-emerald-700 shadow-sm' },
-          { label: 'Manutencao', value: stats.manutencao, color: 'bg-orange-100 text-orange-700 shadow-sm' },
+          { key: 'total', label: 'Total', value: stats.total, color: 'bg-slate-100 text-slate-700 shadow-sm', hoverColor: 'hover:bg-slate-200' },
+          { key: 'locado', label: 'Locados', value: stats.locados, color: 'bg-blue-100 text-blue-700 shadow-sm', hoverColor: 'hover:bg-blue-200' },
+          { key: 'disponivel', label: 'Disponiveis', value: stats.disponiveis, color: 'bg-emerald-100 text-emerald-700 shadow-sm', hoverColor: 'hover:bg-emerald-200' },
+          { key: 'manutencao', label: 'Manutencao', value: stats.manutencao, color: 'bg-orange-100 text-orange-700 shadow-sm', hoverColor: 'hover:bg-orange-200' },
         ].map((s) => (
-          <div key={s.label} className={`rounded-xl p-4 ${s.color}`}>
+          <button key={s.key} onClick={() => {
+            const items = s.key === 'total' ? eqList : eqList.filter(e => e.status === s.key);
+            setCategoryModal({ tipo: s.key, items });
+          }} className={`rounded-xl p-4 ${s.color} ${s.hoverColor} transition-all cursor-pointer text-left active:scale-[0.97]`}>
             <p className="text-2xl font-bold">{s.value}</p>
             <p className="text-sm opacity-80 font-medium">{s.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -122,6 +185,7 @@ export default function Equipamentos() {
                     <p className="text-xs font-mono text-gray-400">{eq.id}</p>
                     <h3 className="font-bold text-gray-900 truncate">{eq.nome}</h3>
                     <p className="text-xs text-gray-500 mt-0.5">{eq.categoria}</p>
+                    {eq.patrimonio && <p className="text-xs font-mono text-blue-600 mt-0.5">Pat: {eq.patrimonio}</p>}
                   </div>
                   <StatusBadge status={eq.status} />
                 </div>
@@ -248,6 +312,12 @@ export default function Equipamentos() {
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                   <h4 className="text-sm font-semibold text-gray-900">Dados Tecnicos</h4>
                   <div className="grid grid-cols-2 gap-3">
+                    {viewingEq.patrimonio && (
+                      <div>
+                        <p className="text-xs text-gray-500">Patrimonio</p>
+                        <p className="text-sm font-semibold text-blue-600">{viewingEq.patrimonio}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-gray-500">Horas de Uso</p>
                       <p className="text-sm font-medium text-gray-900">{(viewingEq.horasUso || 0).toLocaleString('pt-BR')}h</p>
@@ -278,6 +348,13 @@ export default function Equipamentos() {
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
         title="Excluir Equipamento" message={`Tem certeza que deseja excluir ${deleteTarget?.nome}? Esta acao nao pode ser desfeita.`}
         confirmLabel="Excluir" danger />
+      <EqCategoryModal
+        tipo={categoryModal?.tipo}
+        items={categoryModal?.items || []}
+        isOpen={!!categoryModal}
+        onClose={() => setCategoryModal(null)}
+        onSelectItem={(eq) => setViewingEq(eq)}
+      />
     </div>
   );
 }

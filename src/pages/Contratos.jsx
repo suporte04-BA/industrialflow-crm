@@ -13,6 +13,7 @@ import { CardSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import { generateContratoPDF } from '../lib/pdfExport';
+import { useAssinaturas } from '../hooks/useAssinaturas';
 
 export default function Contratos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
@@ -24,6 +25,7 @@ export default function Contratos() {
 
   const { data: allCtList, isLoading, isError, error, refetch } = useContratos(filters);
   const { data: comprovantes } = useComprovantes();
+  const { data: allAssinaturas } = useAssinaturas();
 
   const getEffectiveStatus = (c) => {
     if (c.status === 'cancelado') return 'cancelado';
@@ -153,7 +155,19 @@ export default function Contratos() {
 
   const handleExportPDF = async (ct) => {
     try {
-      await generateContratoPDF(ct);
+      const comp = (comprovantes || []).find(c => c.contratoId === ct.id);
+      const assinatura = comp ? (allAssinaturas || []).find(a => a.comprovanteId === comp.id) : null;
+      const ctWithPhotos = {
+        ...ct,
+        ...(assinatura ? {
+          fotosEntrega: assinatura.fotosEntrega || assinatura.fotos_entrega || [],
+          fotosRetirada: assinatura.fotosRetirada || assinatura.fotos_retirada || [],
+          signatureImg: assinatura.assinaturaImagem || assinatura.assinatura_imagem || '',
+          signatarioNome: assinatura.nomeSignatario || assinatura.nome_signatario || '',
+          dataAssinatura: assinatura.dataAssinatura || assinatura.data_assinatura || '',
+        } : {}),
+      };
+      await generateContratoPDF(ctWithPhotos);
       toast.success('PDF gerado com sucesso!');
     } catch {
       toast.error('Erro ao gerar PDF');

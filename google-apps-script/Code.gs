@@ -18,15 +18,16 @@ var QUEUE_BATCH_SIZE = 3;
 var _sentHashes = {};
 
 function _hashStr(str) {
+  var s = String(str || '');
   var hash = 0;
-  for (var i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  for (var i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
   }
   return Math.abs(hash).toString(36);
 }
 
 function _makeDedupKey(to, subject, htmlBody) {
-  var payload = to + '|' + subject + '|' + (htmlBody || '').length;
+  var payload = (to || '') + '|' + (subject || '') + '|' + String(htmlBody || '').length;
   return _hashStr(payload);
 }
 
@@ -445,8 +446,8 @@ function cleanupDedup() {
 // ============================================
 function _makeUniqueSubject(originalSubject, recipient) {
   var ts = new Date().getTime();
-  var hash = _hashStr(recipient + '|' + ts);
-  return originalSubject + ' [' + hash.slice(0, 6) + ']';
+  var hash = _hashStr((recipient || '') + '|' + ts);
+  return (originalSubject || 'Notificacao') + ' [' + hash.slice(0, 6) + ']';
 }
 
 // ============================================

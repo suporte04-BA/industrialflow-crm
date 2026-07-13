@@ -38,6 +38,83 @@ function DetailRow({ label, value }) {
   );
 }
 
+function CategoryModal({ tipo, items, isOpen, onClose, onSelectItem }) {
+  if (!isOpen || !tipo) return null;
+  const Icon = tipo === 'all' ? ClipboardList : (tipoIcons[tipo] || FileText);
+  const labels = { all: 'Todas as Transacoes', contrato: 'Contratos', comprovante: 'Comprovantes', assinatura: 'Assinaturas', os: 'Ordens de Servico' };
+  const colors = { all: 'text-gray-600', contrato: 'text-blue-600', comprovante: 'text-green-600', assinatura: 'text-purple-600', os: 'text-orange-600' };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-3 sm:p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0">
+            <div className="flex items-center gap-3">
+              <Icon className={`w-5 h-5 ${colors[tipo]}`} />
+              <div>
+                <h3 className="text-base font-bold text-gray-900">{labels[tipo] || tipo}</h3>
+                <p className="text-xs text-gray-500">{items.length} registro(s)</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            {items.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">Nenhum registro encontrado</div>
+            ) : (
+              <div className="space-y-2">
+                {items.map((item) => (
+                  <button key={item.id}
+                    onClick={() => { onSelectItem(item); onClose(); }}
+                    className="w-full text-left bg-gray-50 hover:bg-yellow-50 border border-gray-100 hover:border-yellow-200 rounded-xl p-3 sm:p-4 transition-all group"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-yellow-700">{item.titulo}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">{item.descricao}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <StatusBadge status={item.status} />
+                          {item.data && item.data !== '-' && (
+                            <span className="text-[10px] text-gray-400">{formatDateBR(item.data)}</span>
+                          )}
+                          {item.valor ? (
+                            <span className="text-[10px] font-medium text-green-600">R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Info className="w-4 h-4 text-gray-300 group-hover:text-yellow-500 shrink-0 mt-1" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t shrink-0">
+            <button onClick={onClose}
+              className="w-full py-2.5 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
+              Fechar
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF, onOpenPage }) {
   const Icon = item ? (tipoIcons[item.tipo] || FileText) : FileText;
   const tipoLabel = item?.tipo === 'os' ? 'Ordem de Servico' : item?.tipo === 'contrato' ? 'Contrato' : item?.tipo === 'comprovante' ? 'Comprovante' : item?.tipo === 'assinatura' ? 'Assinatura' : item?.tipo ? item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1) : '';
@@ -51,7 +128,7 @@ function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF, onOpenPage
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-3 sm:p-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/65 p-3 sm:p-4"
           onClick={onClose}
         >
           <motion.div
@@ -159,6 +236,7 @@ export default function HistoricoTransacoes() {
   const [searchTerm, setSearchTerm] = useState(urlSearchInit);
   const [expandedId, setExpandedId] = useState(null);
   const [modalItem, setModalItem] = useState(null);
+  const [categoryModal, setCategoryModal] = useState(null);
 
   const handleSearch = () => setSearchTerm(searchInput);
   const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
@@ -275,10 +353,10 @@ export default function HistoricoTransacoes() {
 
   const stats = useMemo(() => ({
     total: allTransactions.length,
-    contratos: allTransactions.filter((t) => t.tipo === 'contrato').length,
-    comprovantes: allTransactions.filter((t) => t.tipo === 'comprovante').length,
-    assinaturas: allTransactions.filter((t) => t.tipo === 'assinatura').length,
-    ordens: allTransactions.filter((t) => t.tipo === 'os').length,
+    contratos: allTransactions.filter((t) => t.tipo === 'contrato'),
+    comprovantes: allTransactions.filter((t) => t.tipo === 'comprovante'),
+    assinaturas: allTransactions.filter((t) => t.tipo === 'assinatura'),
+    ordens: allTransactions.filter((t) => t.tipo === 'os'),
   }), [allTransactions]);
 
   const handleOpenPage = (item) => {
@@ -298,8 +376,24 @@ export default function HistoricoTransacoes() {
       switch (item.tipo) {
         case 'contrato': {
           const ct = (contratos || []).find(c => c.id === item.id);
-          if (ct) await generateContratoPDF(ct);
-          else toast.error('Contrato nao encontrado');
+          if (ct) {
+            const as = (assinaturas || []).find(a => {
+              const comp = (comprovantes || []).find(c => c.contratoId === ct.id);
+              return comp && a.comprovanteId === comp.id;
+            });
+            await generateContratoPDF({
+              ...ct,
+              ...(as ? {
+                fotosEntrega: as.fotosEntrega || as.fotos_entrega || [],
+                fotosRetirada: as.fotosRetirada || as.fotos_retirada || [],
+                signatureImg: as.assinaturaImagem || as.assinatura_imagem || '',
+                signatarioNome: as.nomeSignatario || as.nome_signatario || '',
+                dataAssinatura: as.dataAssinatura || as.data_assinatura || '',
+              } : {}),
+            });
+          } else {
+            toast.error('Contrato nao encontrado');
+          }
           break;
         }
         case 'comprovante': {
@@ -337,6 +431,14 @@ export default function HistoricoTransacoes() {
   if (isLoading) return <div className="p-4 md:p-6"><TableSkeleton rows={10} cols={5} /></div>;
   if (isError) return <div className="p-4 md:p-6"><ErrorDisplay error={error} onRetry={refetch} /></div>;
 
+  const statCards = [
+    { key: 'all', label: 'Total', value: stats.total, color: 'bg-gray-100 text-gray-700', hoverColor: 'hover:bg-gray-200' },
+    { key: 'contrato', label: 'Contratos', value: stats.contratos.length, color: 'bg-blue-100 text-blue-700', hoverColor: 'hover:bg-blue-200' },
+    { key: 'comprovante', label: 'Comprovantes', value: stats.comprovantes.length, color: 'bg-green-100 text-green-700', hoverColor: 'hover:bg-green-200' },
+    { key: 'assinatura', label: 'Assinaturas', value: stats.assinaturas.length, color: 'bg-purple-100 text-purple-700', hoverColor: 'hover:bg-purple-200' },
+    { key: 'os', label: 'OS', value: stats.ordens.length, color: 'bg-orange-100 text-orange-700', hoverColor: 'hover:bg-orange-200' },
+  ];
+
   return (
     <div className="space-y-4 md:space-y-6 px-3 sm:px-0 pb-20">
       <div>
@@ -345,17 +447,17 @@ export default function HistoricoTransacoes() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-        {[
-          { label: 'Total', value: stats.total, color: 'bg-gray-100 text-gray-700' },
-          { label: 'Contratos', value: stats.contratos, color: 'bg-blue-100 text-blue-700' },
-          { label: 'Comprovantes', value: stats.comprovantes, color: 'bg-green-100 text-green-700' },
-          { label: 'Assinaturas', value: stats.assinaturas, color: 'bg-purple-100 text-purple-700' },
-          { label: 'OS', value: stats.ordens, color: 'bg-orange-100 text-orange-700' },
-        ].map((s) => (
-          <div key={s.label} className={`rounded-xl p-2.5 sm:p-3 ${s.color}`}>
+        {statCards.map((s) => (
+          <button key={s.key}
+            onClick={() => {
+              const items = s.key === 'all' ? allTransactions : stats[s.key === 'contrato' ? 'contratos' : s.key === 'comprovante' ? 'comprovantes' : s.key === 'assinatura' ? 'assinaturas' : 'ordens'];
+              setCategoryModal({ tipo: s.key === 'all' ? 'all' : s.key, items });
+            }}
+            className={`rounded-xl p-2.5 sm:p-3 ${s.color} ${s.hoverColor} transition-all cursor-pointer text-left active:scale-[0.97]`}
+          >
             <p className="text-lg sm:text-xl font-bold">{s.value}</p>
             <p className="text-[10px] sm:text-xs opacity-80">{s.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -469,6 +571,14 @@ export default function HistoricoTransacoes() {
         </div>
       </div>
 
+      <CategoryModal
+        tipo={categoryModal?.tipo}
+        items={categoryModal?.items || []}
+        isOpen={!!categoryModal}
+        onClose={() => setCategoryModal(null)}
+        onSelectItem={(item) => setModalItem(item)}
+      />
+
       <HistoricoDetailModal
         item={modalItem}
         isOpen={!!modalItem}
@@ -479,4 +589,3 @@ export default function HistoricoTransacoes() {
     </div>
   );
 }
-

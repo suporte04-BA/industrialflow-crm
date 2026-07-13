@@ -12,6 +12,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     nome: '', categoria: 'Terraplanagem', status: 'disponivel',
+    patrimonio: '',
     cliente: '', contrato: '', locacaoInicio: '', locacaoFim: '',
     valorMensal: '', horasUso: '', ultimaRevisao: '',
   });
@@ -23,6 +24,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
         nome: equipamento.nome || '',
         categoria: equipamento.categoria || 'Terraplanagem',
         status: equipamento.status || 'disponivel',
+        patrimonio: equipamento.patrimonio || '',
         cliente: equipamento.cliente || '',
         contrato: equipamento.contrato || '',
         locacaoInicio: equipamento.locacaoInicio || '',
@@ -32,7 +34,7 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
         ultimaRevisao: equipamento.ultimaRevisao || '',
       });
     } else {
-      setForm({ nome: '', categoria: 'Terraplanagem', status: 'disponivel', cliente: '', contrato: '', locacaoInicio: '', locacaoFim: '', valorMensal: '', horasUso: '', ultimaRevisao: '' });
+      setForm({ nome: '', categoria: 'Terraplanagem', status: 'disponivel', patrimonio: '', cliente: '', contrato: '', locacaoInicio: '', locacaoFim: '', valorMensal: '', horasUso: '', ultimaRevisao: '' });
     }
   }, [equipamento, isOpen]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -70,6 +72,11 @@ export default function EquipamentoModal({ isOpen, onClose, onSave, equipamento 
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
                 <input type="text" required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })}
                   className="input-base" placeholder="Ex: Retroescavadeira CAT 416" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Patrimonio</label>
+                <input type="text" value={form.patrimonio} onChange={(e) => setForm({ ...form, patrimonio: e.target.value })}
+                  className="input-base" placeholder="Ex: PAT-00123" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

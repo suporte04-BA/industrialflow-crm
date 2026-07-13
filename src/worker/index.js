@@ -254,10 +254,9 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
       const neededH = Math.max(22, valueLines.length * 13 + 8);
       checkPage(neededH);
 
-      const bgColor = i % 2 === 0 ? rgb(0.97, 0.97, 0.98) : rgb(0.99, 0.99, 1.0);
-      page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: bgColor, borderWidth: 0 });
+      page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: rgb(1, 1, 1), borderWidth: 0 });
 
-      page.drawText(label, { x: ML + 8, y: y - 1, size: 9, font: helveticaBold, color: rgb(0.12, 0.12, 0.12) });
+      page.drawText(label, { x: ML + 8, y: y - 1, size: 9, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
 
       for (let li = 0; li < valueLines.length; li++) {
         page.drawText(valueLines[li], { x: ML + LABEL_W + 10, y: y - 1 - li * 13, size: 9.5, font: helvetica, color: rgb(0.22, 0.22, 0.22) });
@@ -305,43 +304,43 @@ function buildAssunto(tipo, contrato, comprovante) {
 }
 
 function emailWrapper(content) {
-  const footer = `<tr><td style="border-top:1px solid #E5E7EB;padding:16px 30px;text-align:center;">
-<p style="font-size:10px;color:#6B7280;margin:0 0 4px 0;">TransObra - Locação de Equipamentos | Av. Taruma, 1605 — Manaus/AM — (92) 99386-7171</p>
-<p style="font-size:9px;color:#9CA3AF;margin:0;">Este é um email automático do sistema TransObra CRM.</p>
+  const footer = `<tr><td style="border-top:1px solid #E5E7EB;padding:12px 24px;text-align:center;">
+<p style="font-size:9px;color:#9CA3AF;margin:0;">TransObra — Locação de Equipamentos | Av. Taruma, 1605 — Manaus/AM — (92) 99386-7171</p>
+<p style="font-size:8px;color:#D1D5DB;margin:2px 0 0 0;">Email automático do sistema TransObra CRM.</p>
 </td></tr>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:#111827;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#111827;"><tr><td align="center" style="padding:32px 16px;">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:0;overflow:hidden;border-collapse:collapse;">${content}${footer}</table>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:#F3F4F6;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;"><tr><td align="center" style="padding:20px 12px;">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:8px;overflow:hidden;border-collapse:collapse;box-shadow:0 1px 3px rgba(0,0,0,0.08);">${content}${footer}</table>
 </td></tr></table></body></html>`;
 }
 
 function brandHeader(title, subtitle, badgeText, headerBg, badgeBg) {
-  const logoImg = `<img src="cid:logo" style="height:34px;width:auto;display:block;" alt="TransObra" />`;
+  const logoImg = `<img src="cid:logo" style="height:28px;width:auto;display:block;" alt="TransObra" />`;
   return `<tr><td style="background:${headerBg};padding:0;">
 <table width="100%" cellpadding="0" cellspacing="0">
-<tr><td style="padding:18px 30px 14px;">
+<tr><td style="padding:14px 24px 10px;">
 ${logoImg}
-<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-top:6px;letter-spacing:2px;text-transform:uppercase;">${subtitle}</div>
+<div style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:4px;letter-spacing:2px;text-transform:uppercase;">${subtitle}</div>
 </td>
-<td align="right" valign="middle" style="padding:24px 30px 20px;">
-<div style="background:${badgeBg};color:${headerBg === '#EAB308' ? '#111827' : '#fff'};font-size:10px;font-weight:800;padding:6px 16px;border-radius:0;text-transform:uppercase;letter-spacing:1.5px;">${badgeText}</div>
+<td align="right" valign="middle" style="padding:14px 24px 10px;">
+<div style="background:${badgeBg};color:${headerBg === '#EAB308' ? '#111827' : '#fff'};font-size:9px;font-weight:800;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:1px;">${badgeText}</div>
 </td></tr>
-<tr><td colspan="2" style="height:4px;background:#EAB308;"></td></tr>
+<tr><td colspan="2" style="height:3px;background:#EAB308;"></td></tr>
 </table>
 </td></tr>`;
 }
 
 function sectionBlock(title, headerColor, borderColor, rows) {
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-left:4px solid ${borderColor};margin-bottom:16px;">
-<tr><td style="padding:10px 16px;border:1px solid #e5e7eb;border-left:none;">
-<div style="font-size:10px;font-weight:800;color:${headerColor};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e5e7eb;">${title}</div>
-<table width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+<tr><td style="padding:0;">
+<div style="font-size:9px;font-weight:800;color:${headerColor};text-transform:uppercase;letter-spacing:1.5px;padding:6px 12px;border-bottom:2px solid ${borderColor};margin-bottom:4px;">${title}</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:0 4px;">${rows}</table>
 </td></tr></table>`;
 }
 
 function row(label, value, opts = {}) {
   const { bold, color, w } = opts;
-  return `<tr><td style="padding:5px 0;color:#6b7280;width:${w || '130px'};vertical-align:top;font-size:12px;"><strong>${label}</strong></td><td style="padding:5px 0;color:${color || '#111827'};font-size:13px;${bold ? 'font-weight:700;' : ''}">${value}</td></tr>`;
+  return `<tr><td style="padding:3px 0;color:#6b7280;width:${w || '120px'};vertical-align:top;font-size:11px;"><strong>${label}</strong></td><td style="padding:3px 0;color:${color || '#111827'};font-size:12px;${bold ? 'font-weight:600;' : ''}">${value}</td></tr>`;
 }
 
 function buildItemsTableHtml(itens, borderColor = '#EAB308') {
@@ -354,34 +353,34 @@ function buildItemsTableHtml(itens, borderColor = '#EAB308') {
     const ddev = esc(it.dataDevolucao || it.data_devolucao || '-');
     const val = Number(it.valorUnitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     return `<tr>
-      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:12px;">${qtd}</td>
-      <td style="padding:5px 6px;border:1px solid #e5e7eb;font-size:12px;">${desc}</td>
-      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:12px;font-weight:700;color:#111827;">${pat}</td>
-      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${dloc}</td>
-      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${ddev}</td>
-      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:right;font-size:12px;">R$ ${val}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${qtd}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;font-size:11px;">${desc}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;font-weight:700;color:#111827;">${pat}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:10px;">${dloc}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:10px;">${ddev}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:right;font-size:11px;">R$ ${val}</td>
     </tr>`;
   }).join('');
 
   const total = itens.reduce((s, it) => s + (Number(it.quantidade) || 1) * (Number(it.valorUnitario) || 0), 0);
   const totalFormatted = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:10px 0;">
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0;">
     <thead>
       <tr>
-        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:left;font-size:10px;font-weight:700;border:1px solid #111827;">Qtde</th>
-        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:left;font-size:10px;font-weight:700;border:1px solid #111827;">Descrição</th>
-        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:center;font-size:10px;font-weight:700;border:1px solid #111827;">Patrimônio</th>
-        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:center;font-size:10px;font-weight:700;border:1px solid #111827;">D.Loc</th>
-        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:center;font-size:10px;font-weight:700;border:1px solid #111827;">D.Dev</th>
-        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:right;font-size:10px;font-weight:700;border:1px solid #111827;">Valor</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:left;font-size:9px;font-weight:700;border:1px solid #111827;">Qtde</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:left;font-size:9px;font-weight:700;border:1px solid #111827;">Descrição</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">Patrimônio</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">D.Loc</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">D.Dev</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:right;font-size:9px;font-weight:700;border:1px solid #111827;">Valor</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
       <tr>
-        <td colspan="5" style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:700;">TOTAL</td>
-        <td style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:800;color:#16a34a;">R$ ${totalFormatted}</td>
+        <td colspan="5" style="padding:5px;border:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:700;">TOTAL</td>
+        <td style="padding:5px;border:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#16a34a;">R$ ${totalFormatted}</td>
       </tr>
     </tfoot>
   </table>`;
@@ -393,35 +392,29 @@ function buildContratoCriadoHtml(contrato) {
   const itens = Array.isArray(c.itens) ? c.itens : [];
 
   const r = [
-    row('Número', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('Número', `<span style="font-size:14px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
-    row('CPF/CNPJ', fmt(c.cnpj || c.cpf_cnpj)),
+    c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj || c.cpf_cnpj)) : '',
     c.rg ? row('RG', fmt(c.rg)) : '',
     c.atendente ? row('Atendente', fmt(c.atendente)) : '',
-    row('Tipo', `<span style="display:inline-block;background:#EAB308;color:#111827;font-size:10px;font-weight:800;padding:3px 10px;text-transform:uppercase;letter-spacing:0.5px;">ENTREGA</span>`),
-  ].filter(Boolean).join('');
-
-  const equipSection = [
     c.inicio ? row('Período', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
   ].filter(Boolean).join('');
 
-  const addrSection = [
-    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
+  const addrRows = [
+    c.localEntrega ? row('Local', fmt(c.localEntrega)) : '',
     c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
     c.cidade ? row('Cidade', `${fmt(c.cidade)}${c.estado ? `/${esc(c.estado)}` : ''}`) : '',
-    c.cep ? row('CEP', fmt(c.cep)) : '',
     c.contato ? row('Contato', fmt(c.contato)) : '',
     c.telefone ? row('Telefone', fmt(c.telefone)) : '',
   ].filter(Boolean).join('');
 
   let html = `
 ${brandHeader('Novo Contrato', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'ENTREGA', '#111827', '#EAB308')}
-<tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Novo Contrato Cadastrado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Um novo contrato foi registrado no sistema. Confira os detalhes abaixo.</div>
-${sectionBlock('Dados do Contrato', '#111827', '#EAB308', r)}
-${equipSection ? sectionBlock('Dados da Locação', '#111827', '#EAB308', equipSection) : ''}`;
+<tr><td style="padding:20px 24px 8px;">
+<div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Novo Contrato Cadastrado</div>
+<div style="font-size:11px;color:#6b7280;margin-bottom:16px;">Um novo contrato foi registrado no sistema.</div>
+${sectionBlock('Contrato', '#111827', '#EAB308', r)}`;
 
   if (itens.length > 0) {
     html += sectionBlock('Itens Locados', '#111827', '#EAB308', `<tr><td style="padding:0;">${buildItemsTableHtml(itens)}</td></tr>`);
@@ -429,14 +422,14 @@ ${equipSection ? sectionBlock('Dados da Locação', '#111827', '#EAB308', equipS
 
   html += sectionBlock('Equipamentos', '#111827', '#EAB308', row('Equipamentos', esc(equips)));
 
-  if (addrSection) {
-    html += `${sectionBlock('Endereço e Contato', '#111827', '#EAB308', addrSection)}`;
+  if (addrRows) {
+    html += sectionBlock('Endereço e Contato', '#111827', '#EAB308', addrRows);
   }
 
   html += `
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
-<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+<tr><td style="padding:10px 20px;background:#111827;text-align:center;border-radius:0 0 8px 8px;">
+<div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;">TRANSOBRA CRM</div>
 </td></tr></table>
 </td></tr>`;
 
@@ -454,24 +447,17 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
   const fotosRetirada = (Array.isArray(s.fotosRetirada) ? s.fotosRetirada : (Array.isArray(s.fotos_retirada) ? s.fotos_retirada : [])).filter(Boolean);
 
   const rContrato = [
-    row('Número', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('Número', `<span style="font-size:14px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
-    c.rg ? row('RG', fmt(c.rg)) : '',
     c.atendente ? row('Atendente', fmt(c.atendente)) : '',
     c.inicio ? row('Período', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
-    c.cidade ? row('Cidade/UF', `${fmt(c.cidade)}/${fmt(c.estado)}`) : '',
-    c.cep ? row('CEP', fmt(c.cep)) : '',
-    c.telefone ? row('Telefone', fmt(c.telefone)) : '',
   ].filter(Boolean).join('');
 
   const rEntrega = [
     row('Locatário', fmt(comp.locatario), { bold: true }),
     comp.cpf ? row('CPF', fmt(comp.cpf)) : '',
-    comp.rg ? row('RG', fmt(comp.rg)) : '',
     comp.endereco ? row('Endereço', fmt(comp.endereco)) : '',
     comp.cidade ? row('Cidade', fmt(comp.cidade)) : '',
     row('Total', `R$ ${fmtMoney(comp.total)}`, { bold: true, color: '#16a34a' }),
@@ -479,12 +465,12 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
 
   let assinaturaHtml = '';
   if (s.nome) {
-    const sigImgTag = s.assinaturaImagem ? `<img src="cid:assinatura" style="max-width:280px;height:auto;border:1px solid #e5e7eb;padding:4px;" alt="Assinatura" />` : '';
-    assinaturaHtml = sectionBlock('Assinatura Digital do Recebedor', '#166534', '#22c55e', [
+    const sigImgTag = s.assinaturaImagem ? `<img src="cid:assinatura" style="max-width:120px;height:auto;border:1px solid #e5e7eb;padding:3px;border-radius:4px;" alt="Assinatura" />` : '';
+    assinaturaHtml = sectionBlock('Assinatura do Recebedor', '#166534', '#22c55e', [
       row('Nome', fmt(s.nome), { bold: true }),
-      row('CPF', fmt(s.cpf)),
-      row('Data/Hora', s.data ? fmtDateBR(s.data) : '-'),
-      sigImgTag ? `<tr><td colspan="2" style="padding-top:10px;"><div style="font-size:11px;color:#166534;font-weight:700;margin-bottom:6px;">ASSINATURA:</div>${sigImgTag}</td></tr>` : '',
+      s.cpf ? row('CPF', fmt(s.cpf)) : '',
+      row('Data', s.data ? fmtDateBR(s.data) : '-'),
+      sigImgTag ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:10px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div>${sigImgTag}</td></tr>` : '',
     ].filter(Boolean).join(''));
   }
 
@@ -494,13 +480,13 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
       const padded = [...fotos];
       while (padded.length < 3) padded.push(null);
       return `
-        <tr><td colspan="2" style="padding-top:12px;">
-          <div style="font-size:11px;font-weight:700;color:#111827;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;"> Fotos da ${label} </div>
-          <table width="100%" cellpadding="4" cellspacing="0"><tr>
+        <tr><td colspan="2" style="padding-top:8px;">
+          <div style="font-size:10px;font-weight:700;color:#111827;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Fotos da ${label}</div>
+          <table width="100%" cellpadding="2" cellspacing="0"><tr>
             ${padded.slice(0, 3).map((foto, i) => `
               <td width="33%" style="text-align:center;vertical-align:top;">
-                ${foto ? `<img src="cid:foto_${label.toLowerCase()}_${i}" style="width:100%;max-height:140px;object-fit:cover;border:1px solid #e5e7eb;" />` : `<div style="width:100%;height:100px;border:1px dashed #e5e7eb;font-size:9px;color:#9ca3af;display:flex;align-items:center;justify-content:center;">Sem foto</div>`}
-                <div style="font-size:9px;color:#6b7280;margin-top:3px;">Foto ${i + 1} - ${label}</div>
+                ${foto ? `<img src="cid:foto_${label.toLowerCase()}_${i}" style="width:100%;max-height:50px;object-fit:cover;border:1px solid #e5e7eb;border-radius:4px;" />` : `<div style="width:100%;height:40px;border:1px dashed #e5e7eb;border-radius:4px;font-size:8px;color:#9ca3af;display:flex;align-items:center;justify-content:center;">Sem foto</div>`}
+                <div style="font-size:8px;color:#6b7280;margin-top:2px;">Foto ${i + 1}</div>
               </td>
             `).join('')}
           </tr></table>
@@ -509,9 +495,7 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
     fotosHtml = `<table width="100%" cellpadding="0" cellspacing="0">${buildPhotoRow(fotosEntrega, 'Entrega')}${buildPhotoRow(fotosRetirada, 'Retirada')}</table>`;
   }
 
-  const funcionarioHtml = func.nome ? sectionBlock('Responsável pela Entrega', '#1e40af', '#2563eb', [
-    row('Nome', fmt(func.nome), { bold: true }),
-  ]) : '';
+  const funcionarioHtml = func.nome ? sectionBlock('Responsável', '#1e40af', '#2563eb', row('Nome', fmt(func.nome), { bold: true })) : '';
 
   let itensHtml = '';
   if (itens.length > 0) {
@@ -520,18 +504,18 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
 
   return emailWrapper(`
 ${brandHeader(tipoLabel === 'Devolução' ? 'Comprovante de Devolução' : 'Comprovante de Entrega', `${tipoLabel.toUpperCase()} ASSINADO DIGITALMENTE`, tipoLabel.toUpperCase(), '#EAB308', '#111827')}
-<tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Comprovante de ${tipoLabel} Assinado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. Válido como prova de ${tipoLabel === 'Devolução' ? 'devolução' : 'recebimento'}.</div>
-${c.id ? sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato) : ''}
+<tr><td style="padding:20px 24px 8px;">
+<div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Comprovante de ${tipoLabel} Assinado</div>
+<div style="font-size:11px;color:#6b7280;margin-bottom:16px;">Assinatura digital registrada. Válido como prova de ${tipoLabel === 'Devolução' ? 'devolução' : 'recebimento'}.</div>
+${c.id ? sectionBlock('Contrato', '#111827', '#EAB308', rContrato) : ''}
 ${comp.id ? sectionBlock(`Dados da ${tipoLabel}`, '#1e40af', '#2563eb', rEntrega) : ''}
 ${itensHtml}
 ${funcionarioHtml}
 ${assinaturaHtml}
 ${fotosHtml}
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
-<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+<tr><td style="padding:10px 20px;background:#111827;text-align:center;border-radius:0 0 8px 8px;">
+<div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;">TRANSOBRA CRM</div>
 </td></tr></table>
 </td></tr>`);
 }
@@ -541,23 +525,19 @@ function buildContratoRenovadoHtml(contrato) {
   const itens = Array.isArray(c.itens) ? c.itens : [];
 
   const r = [
-    row('Número', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
+    row('Número', `<span style="font-size:14px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
-    c.rg ? row('RG', fmt(c.rg)) : '',
     c.atendente ? row('Atendente', fmt(c.atendente)) : '',
     c.inicio ? row('Novo Período', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
-    c.cidade ? row('Cidade/UF', `${fmt(c.cidade)}/${fmt(c.estado)}`) : '',
   ].filter(Boolean).join('');
 
   let html = emailWrapper(`
 ${brandHeader('Contrato Renovado', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'RENOVAÇÃO', '#111827', '#3b82f6')}
-<tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Contrato Renovado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O contrato foi renovado com sucesso. Confira os novos dados abaixo.</div>
+<tr><td style="padding:20px 24px 8px;">
+<div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Contrato Renovado</div>
+<div style="font-size:11px;color:#6b7280;margin-bottom:16px;">O contrato foi renovado com sucesso.</div>
 ${sectionBlock('Dados da Renovação', '#111827', '#3b82f6', r)}`);
 
   if (itens.length > 0) {
@@ -565,9 +545,9 @@ ${sectionBlock('Dados da Renovação', '#111827', '#3b82f6', r)}`);
   }
 
   html += `
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
-<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+<tr><td style="padding:10px 20px;background:#111827;text-align:center;border-radius:0 0 8px 8px;">
+<div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;">TRANSOBRA CRM</div>
 </td></tr></table>
 </td></tr>`;
 
@@ -581,24 +561,17 @@ function buildDevolucaoHtml(contrato, comprovante) {
   const itens = Array.isArray(comp.itens) ? comp.itens : (Array.isArray(dev.itens) ? dev.itens : []);
 
   const r = [
-    row('Número', `<span style="font-size:16px;font-weight:900;color:#f97316;">${fmt(c.numero || comp.contrato)}</span>`),
+    row('Número', `<span style="font-size:14px;font-weight:900;color:#f97316;">${fmt(c.numero || comp.contrato)}</span>`),
     row('Cliente', fmt(c.cliente || comp.locatario), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
     c.telefone ? row('Telefone', fmt(c.telefone)) : '',
   ].filter(Boolean).join('');
 
-  const equipRows = [
-    c.inicio ? row('Período Original', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
-    c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-  ].filter(Boolean).join('');
-
   const devRows = [
-    dev.data ? row('Data da Devolução', fmt(dev.data)) : '',
+    dev.data ? row('Data', fmt(dev.data)) : '',
     dev.hora ? row('Hora', fmt(dev.hora)) : '',
     dev.localObra ? row('Local da Obra', fmt(dev.localObra)) : '',
     dev.signatarioNome ? row('Recebido por', fmt(dev.signatarioNome)) : '',
-    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
-    c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
   ].filter(Boolean).join('');
 
   const condicoes = dev.condicoes || {};
@@ -610,30 +583,26 @@ function buildDevolucaoHtml(contrato, comprovante) {
 
   let html = `
 ${brandHeader('Devolução Registrada', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'DEVOLUÇÃO', '#111827', '#f97316')}
-<tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Devolução de Equipamento</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Uma devolução de equipamento foi registrada no sistema. Confira os detalhes abaixo.</div>
-${sectionBlock('Dados do Contrato', '#111827', '#f97316', r)}`;
-
-  if (equipRows) {
-    html += `${sectionBlock('Dados da Locação', '#111827', '#f97316', equipRows)}`;
-  }
+<tr><td style="padding:20px 24px 8px;">
+<div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Devolução de Equipamento</div>
+<div style="font-size:11px;color:#6b7280;margin-bottom:16px;">Uma devolução foi registrada no sistema.</div>
+${sectionBlock('Contrato', '#111827', '#f97316', r)}`;
 
   if (itens.length > 0) {
     html += sectionBlock('Itens Devolvidos', '#111827', '#f97316', `<tr><td style="padding:0;">${buildItemsTableHtml(itens, '#f97316')}</td></tr>`);
   }
 
   if (devRows) {
-    html += `${sectionBlock('Dados da Devolução', '#111827', '#f97316', devRows)}`;
+    html += sectionBlock('Dados da Devolução', '#111827', '#f97316', devRows);
   }
   if (condRows) {
-    html += `${sectionBlock('Observações', '#111827', '#f97316', condRows)}`;
+    html += sectionBlock('Observações', '#111827', '#f97316', condRows);
   }
 
   html += `
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
-<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+<tr><td style="padding:10px 20px;background:#111827;text-align:center;border-radius:0 0 8px 8px;">
+<div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;">TRANSOBRA CRM</div>
 </td></tr></table>
 </td></tr>`;
 
@@ -653,13 +622,13 @@ function buildRoleChangeHtml(usuario) {
 
   return emailWrapper(`
 ${brandHeader('Alteração de Função', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'ADMIN', '#111827', '#8b5cf6')}
-<tr><td style="padding:28px 30px 12px;">
-<div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Alteração de Função</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">A função de um usuário foi alterada no sistema.</div>
+<tr><td style="padding:20px 24px 8px;">
+<div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Alteração de Função</div>
+<div style="font-size:11px;color:#6b7280;margin-bottom:16px;">A função de um usuário foi alterada no sistema.</div>
 ${sectionBlock('Dados da Alteração', '#111827', '#8b5cf6', r)}
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
-<tr><td style="padding:14px 20px;background:#111827;text-align:center;">
-<div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+<tr><td style="padding:10px 20px;background:#111827;text-align:center;border-radius:0 0 8px 8px;">
+<div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;">TRANSOBRA CRM</div>
 </td></tr></table>
 </td></tr>`);
 }
@@ -738,13 +707,13 @@ async function sendEmailViaGoogleScript(env, data) {
   const fotosRetirada = (Array.isArray(signatario?.fotosRetirada) ? signatario.fotosRetirada : (Array.isArray(signatario?.fotos_retirada) ? signatario.fotos_retirada : [])).filter(Boolean);
   fotosEntrega.slice(0, 3).forEach((foto, i) => {
     const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 500000) {
+    if (raw && raw.length > 100 && raw.length <= 250000) {
       inlineImages[`foto_entrega_${i}`] = raw;
     }
   });
   fotosRetirada.slice(0, 3).forEach((foto, i) => {
     const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 500000) {
+    if (raw && raw.length > 100 && raw.length <= 250000) {
       inlineImages[`foto_retirada_${i}`] = raw;
     }
   });
@@ -1076,7 +1045,7 @@ async function sendEmailWithFallback(env, data) {
   const mFotosRetirada = (Array.isArray(signatario?.fotosRetirada) ? signatario.fotosRetirada : (Array.isArray(signatario?.fotos_retirada) ? signatario.fotos_retirada : [])).filter(Boolean);
   [...mFotosEntrega, ...mFotosRetirada].slice(0, 6).forEach((foto, i) => {
     const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 500000) {
+    if (raw && raw.length > 100 && raw.length <= 250000) {
       const label = i < 3 ? `foto_entrega_${i}` : `foto_retirada_${i - 3}`;
       mailerooInlineImages[label] = raw;
     }

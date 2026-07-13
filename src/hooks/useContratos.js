@@ -311,11 +311,14 @@ export function useCreateContrato() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['contratos'] });
-      queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
-      queryClient.invalidateQueries({ queryKey: ['equipamentos'] });
-      queryClient.invalidateQueries({ queryKey: ['ordensServico'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Delay invalidation to let optimistic update settle
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['contratos'] });
+        queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
+        queryClient.invalidateQueries({ queryKey: ['equipamentos'] });
+        queryClient.invalidateQueries({ queryKey: ['ordensServico'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      }, 3000);
     },
   });
 }

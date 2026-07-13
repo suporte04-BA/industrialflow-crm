@@ -14,7 +14,7 @@ import EmptyState from '../components/ui/EmptyState';
 import { generateEntregaPDF, generateFallbackEmailPDF } from '../lib/pdfExport';
 import { getEmailHeaders } from '../lib/supabase';
 import { formatDateBR } from '../lib/dates';
-import { formatCPF, formatCNPJ, isValidCPF, isValidCNPJ, detectDocumentType } from '../lib/validation';
+import { formatCPF, formatCNPJ } from '../lib/validation';
 
 function compressCanvas(src, w = 400, h = 160, quality = 0.7) {
   const tmp = document.createElement('canvas');
@@ -168,6 +168,8 @@ export default function AssinaturaDigital() {
           cpf: cpfSignatario,
           data: new Date().toISOString(),
           assinaturaImagem: img,
+          fotosEntrega: fotosEntrega.filter(Boolean),
+          fotosRetirada: fotosRetirada.filter(Boolean),
         },
       };
 
@@ -202,7 +204,7 @@ export default function AssinaturaDigital() {
             locatario: comprovante?.locatario, cpf: comprovante?.cpf,
             itens: comprovante?.itens, cidade: comprovante?.cidade, total: comprovante?.total,
           },
-          signatario: { nome: signatario, cpf: cpfSignatario, assinaturaImagem: imagemBase64 },
+          signatario: { nome: signatario, cpf: cpfSignatario, assinaturaImagem: imagemBase64, fotosEntrega: fotosEntrega.filter(Boolean), fotosRetirada: fotosRetirada.filter(Boolean) },
         });
         toast.warning('Email indisponivel. PDF gerado como alternativa.');
       } catch {
@@ -225,11 +227,9 @@ export default function AssinaturaDigital() {
   const handleSave = async () => {
     if (!selectedComprovante) { toast.error('Selecione um comprovante de entrega'); return; }
     if (!nomeSignatario.trim()) { toast.error('Preencha o nome de quem recebeu o equipamento'); return; }
-    if (!cpfSignatario.trim()) { toast.error('Preencha o CPF/CNPJ de quem recebeu o equipamento'); return; }
-    const docType = detectDocumentType(cpfSignatario);
-    const isValidDoc = docType === 'cnpj' ? isValidCNPJ(cpfSignatario) : isValidCPF(cpfSignatario);
-    if (!isValidDoc) { toast.error(`${docType === 'cnpj' ? 'CNPJ' : 'CPF'} invalido. Verifique os digitos.`); return; }
     if (!hasSignature) { toast.error('Faca a assinatura de quem recebeu o equipamento'); return; }
+    const fotosEntregaCount = fotosEntrega.filter(Boolean).length;
+    if (fotosEntregaCount < 3) { toast.error('Capture as 3 fotos de entrega obrigatorias'); return; }
     setSaving(true);
     try {
       const imagem = compressCanvas(canvasRef.current);
@@ -379,8 +379,8 @@ export default function AssinaturaDigital() {
                 className="input-base" placeholder="Nome completo de quem recebeu o equipamento" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ de Quem Recebeu *</label>
-              <input type="text" required value={cpfSignatario}
+              <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ de Quem Recebeu</label>
+              <input type="text" value={cpfSignatario}
                 onChange={handleCpfChange}
                 className="input-base" placeholder="000.000.000-00 ou 00.000.000/0000-00" maxLength={18} />
             </div>
@@ -509,6 +509,25 @@ export default function AssinaturaDigital() {
                     {sig.cpfSignatario && <p className="text-xs text-gray-500">CPF: {sig.cpfSignatario}</p>}
                     {sig.assinaturaImagem && (
                       <img src={sig.assinaturaImagem} alt="Assinatura" className="border rounded bg-white h-16 object-contain" />
+                    )}
+                    {((sig.fotosEntrega && sig.fotosEntrega.filter(Boolean).length > 0) || (sig.fotosRetirada && sig.fotosRetirada.filter(Boolean).length > 0)) && (
+                      <div className="mt-2">
+                        <p className="text-[10px] text-gray-500 font-medium mb-1">FOTOS:</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {(sig.fotosEntrega || []).filter(Boolean).slice(0, 3).map((foto, i) => (
+                            <div key={`e-${i}`} className="relative">
+                              <img src={foto} alt={`Entrega ${i + 1}`} className="w-12 h-12 object-cover rounded border" />
+                              <span className="absolute -bottom-0.5 -right-0.5 text-[7px] bg-blue-600 text-white rounded px-0.5">E{i+1}</span>
+                            </div>
+                          ))}
+                          {(sig.fotosRetirada || []).filter(Boolean).slice(0, 3).map((foto, i) => (
+                            <div key={`r-${i}`} className="relative">
+                              <img src={foto} alt={`Retirada ${i + 1}`} className="w-12 h-12 object-cover rounded border" />
+                              <span className="absolute -bottom-0.5 -right-0.5 text-[7px] bg-orange-600 text-white rounded px-0.5">R{i+1}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     <p className="text-xs text-gray-400">
                       {sig.dataAssinatura ? formatDateBR(sig.dataAssinatura) : '-'}

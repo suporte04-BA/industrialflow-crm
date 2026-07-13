@@ -403,6 +403,8 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
   const func = comprovante?._funcionario || {};
   const tipoLabel = comprovante?.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega';
   const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
+  const fotosEntrega = (Array.isArray(s.fotosEntrega) ? s.fotosEntrega : (Array.isArray(s.fotos_entrega) ? s.fotos_entrega : [])).filter(Boolean);
+  const fotosRetirada = (Array.isArray(s.fotosRetirada) ? s.fotosRetirada : (Array.isArray(s.fotos_retirada) ? s.fotos_retirada : [])).filter(Boolean);
 
   const rContrato = [
     row('Número', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
@@ -441,6 +443,27 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
     ].filter(Boolean).join(''));
   }
 
+  let fotosHtml = '';
+  if (fotosEntrega.length > 0 || fotosRetirada.length > 0) {
+    const buildPhotoRow = (fotos, label) => {
+      const padded = [...fotos];
+      while (padded.length < 3) padded.push(null);
+      return `
+        <tr><td colspan="2" style="padding-top:12px;">
+          <div style="font-size:11px;font-weight:700;color:#111827;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;"> Fotos da ${label} </div>
+          <table width="100%" cellpadding="4" cellspacing="0"><tr>
+            ${padded.slice(0, 3).map((foto, i) => `
+              <td width="33%" style="text-align:center;vertical-align:top;">
+                ${foto ? `<img src="cid:foto_${label.toLowerCase()}_${i}" style="width:100%;max-height:140px;object-fit:cover;border:1px solid #e5e7eb;" />` : `<div style="width:100%;height:100px;border:1px dashed #e5e7eb;font-size:9px;color:#9ca3af;display:flex;align-items:center;justify-content:center;">Sem foto</div>`}
+                <div style="font-size:9px;color:#6b7280;margin-top:3px;">Foto ${i + 1} - ${label}</div>
+              </td>
+            `).join('')}
+          </tr></table>
+        </td></tr>`;
+    };
+    fotosHtml = `<table width="100%" cellpadding="0" cellspacing="0">${buildPhotoRow(fotosEntrega, 'Entrega')}${buildPhotoRow(fotosRetirada, 'Retirada')}</table>`;
+  }
+
   const funcionarioHtml = func.nome ? sectionBlock('Responsável pela Entrega', '#1e40af', '#2563eb', [
     row('Nome', fmt(func.nome), { bold: true }),
   ]) : '';
@@ -454,6 +477,7 @@ ${c.id ? sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato) : ''
 ${comp.id ? sectionBlock(`Dados da ${tipoLabel}`, '#1e40af', '#2563eb', rEntrega) : ''}
 ${funcionarioHtml}
 ${assinaturaHtml}
+${fotosHtml}
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
 <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
@@ -630,6 +654,22 @@ async function sendEmailViaGoogleScript(env, data) {
       inlineImages.assinatura = raw;
     }
   }
+
+  // Include photos as inline images
+  const fotosEntrega = (Array.isArray(signatario?.fotosEntrega) ? signatario.fotosEntrega : (Array.isArray(signatario?.fotos_entrega) ? signatario.fotos_entrega : [])).filter(Boolean);
+  const fotosRetirada = (Array.isArray(signatario?.fotosRetirada) ? signatario.fotosRetirada : (Array.isArray(signatario?.fotos_retirada) ? signatario.fotos_retirada : [])).filter(Boolean);
+  fotosEntrega.slice(0, 3).forEach((foto, i) => {
+    const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
+    if (raw && raw.length > 100 && raw.length <= 500000) {
+      inlineImages[`foto_entrega_${i}`] = raw;
+    }
+  });
+  fotosRetirada.slice(0, 3).forEach((foto, i) => {
+    const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
+    if (raw && raw.length > 100 && raw.length <= 500000) {
+      inlineImages[`foto_retirada_${i}`] = raw;
+    }
+  });
 
   const attachments = [];
   if (['contrato_assinado', 'contrato_renovado', 'contrato_criado', 'devolucao_registrada'].includes(tipo)) {
@@ -952,6 +992,17 @@ async function sendEmailWithFallback(env, data) {
       mailerooHtml = mailerooHtml.replace(/<img src="cid:assinatura"[^>]*>/g, '');
     }
   }
+
+  // Include photos as inline images for Maileroo
+  const mFotosEntrega = (Array.isArray(signatario?.fotosEntrega) ? signatario.fotosEntrega : (Array.isArray(signatario?.fotos_entrega) ? signatario.fotos_entrega : [])).filter(Boolean);
+  const mFotosRetirada = (Array.isArray(signatario?.fotosRetirada) ? signatario.fotosRetirada : (Array.isArray(signatario?.fotos_retirada) ? signatario.fotos_retirada : [])).filter(Boolean);
+  [...mFotosEntrega, ...mFotosRetirada].slice(0, 6).forEach((foto, i) => {
+    const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
+    if (raw && raw.length > 100 && raw.length <= 500000) {
+      const label = i < 3 ? `foto_entrega_${i}` : `foto_retirada_${i - 3}`;
+      mailerooInlineImages[label] = raw;
+    }
+  });
 
   // Generate PDF attachment for Maileroo
   let mailerooPdfAttachment = null;

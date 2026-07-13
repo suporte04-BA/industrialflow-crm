@@ -198,10 +198,11 @@ function buildSignatureBlock(signatarioNome, signatureImg) {
     </table>`;
 }
 
-function buildPhotoGrid(fotos, tipo) {
+function buildPhotoGrid(fotos, tipo, timestamps) {
   if (!fotos || fotos.length === 0) return '';
   const padded = [...fotos];
   while (padded.length < 3) padded.push(null);
+  const ts = Array.isArray(timestamps) ? timestamps : [];
   return `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;">
       <tr><td style="font-size:8px;font-weight:700;color:${BRAND.preto};padding:3px 0;border-bottom:1px solid ${BRAND.cinzaBorda};">${esc(tipo)}</td></tr>
@@ -211,7 +212,10 @@ function buildPhotoGrid(fotos, tipo) {
         ${padded.slice(0, 3).map((foto, i) => `
           <td width="33%" style="text-align:center;vertical-align:top;">
             ${foto
-              ? `<img src="${foto}" style="width:100%;max-height:110px;object-fit:cover;border:1px solid ${BRAND.cinzaBorda};" />`
+              ? `<div style="position:relative;display:inline-block;width:100%;">
+                  <img src="${foto}" style="width:100%;max-height:110px;object-fit:cover;border:1px solid ${BRAND.cinzaBorda};" />
+                  ${ts[i] ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:5px;padding:1px 2px;text-align:center;font-family:monospace;">${esc(ts[i])}</div>` : ''}
+                </div>`
               : `<div style="width:100%;height:90px;border:1px dashed ${BRAND.cinzaBorda};display:flex;align-items:center;justify-content:center;font-size:7px;color:${BRAND.cinzaTexto};">Sem foto</div>`
             }
             <div style="font-size:6px;color:${BRAND.cinzaTexto};margin-top:1px;">Foto ${i + 1}</div>
@@ -236,6 +240,8 @@ export async function generateEntregaPDF(comprovante) {
   const total = c.total != null ? c.total : itens.reduce((s, it) => s + (it.quantidade || 1) * (it.valorUnitario || 0), 0);
   const fotosEntrega = (Array.isArray(c.fotosEntrega) ? c.fotosEntrega : (Array.isArray(c.fotos_entrega) ? c.fotos_entrega : [])).filter(Boolean);
   const fotosRetirada = (Array.isArray(c.fotosRetirada) ? c.fotosRetirada : (Array.isArray(c.fotos_retirada) ? c.fotos_retirada : [])).filter(Boolean);
+  const tsEntrega = (Array.isArray(c.fotosEntregaTimestamps) ? c.fotosEntregaTimestamps : (Array.isArray(c.fotos_entrega_timestamps) ? c.fotos_entrega_timestamps : []));
+  const tsRetirada = (Array.isArray(c.fotosRetiradaTimestamps) ? c.fotosRetiradaTimestamps : (Array.isArray(c.fotos_retirada_timestamps) ? c.fotos_retirada_timestamps : []));
 
   const html = `
     <div style="font-family:Arial,sans-serif;padding:0;max-width:760px;margin:0 auto;font-size:8px;color:#374151;">
@@ -306,8 +312,8 @@ export async function generateEntregaPDF(comprovante) {
             Contrato: ${esc(c.numero || c.contrato || '')} | Data: ${esc(c.data || new Date().toLocaleDateString('pt-BR'))}
           </td></tr>
         </table>
-        ${buildPhotoGrid(fotosEntrega, 'ENTREGA')}
-        ${buildPhotoGrid(fotosRetirada, 'RETIRADA')}
+        ${buildPhotoGrid(fotosEntrega, 'ENTREGA', tsEntrega)}
+        ${buildPhotoGrid(fotosRetirada, 'RETIRADA', tsRetirada)}
         ${buildFooter('REGISTRO FOTOGRAFICO')}
       </div>` : ''}
     </div>`;
@@ -429,6 +435,10 @@ export async function generateDevolucaoPDF(devolucao) {
 export async function generateContratoPDF(contrato) {
   const itens = Array.isArray(contrato.itens) ? contrato.itens : [];
   const equipamentos = Array.isArray(contrato.equipamentos) ? contrato.equipamentos : [];
+  const equipsWithPat = equipamentos.map(eqName => {
+    const match = itens.find(it => (it.descricao || it.nome || '') === eqName);
+    return match?.patrimonio ? `${eqName} (Pat: ${match.patrimonio})` : eqName;
+  });
   const fotosEntrega = (Array.isArray(contrato.fotosEntrega) ? contrato.fotosEntrega : (Array.isArray(contrato.fotos_entrega) ? contrato.fotos_entrega : [])).filter(Boolean);
   const fotosRetirada = (Array.isArray(contrato.fotosRetirada) ? contrato.fotosRetirada : (Array.isArray(contrato.fotos_retirada) ? contrato.fotos_retirada : [])).filter(Boolean);
   const signatureImg = contrato.signatureImg || contrato.assinaturaImagem || contrato.assinaturaImg || '';
@@ -480,7 +490,7 @@ export async function generateContratoPDF(contrato) {
       ${equipamentos.length > 0 ? `
       <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;border:1px solid ${BRAND.cinzaBorda};">
         <tr><td style="font-size:8px;padding:4px;">
-          <strong style="color:${BRAND.preto};">Equipamentos:</strong> ${esc(equipamentos.join(', ') || '-')}
+          <strong style="color:${BRAND.preto};">Equipamentos:</strong> ${esc(equipsWithPat.join(' | ') || '-')}
         </td></tr>
       </table>` : ''}
 
@@ -506,33 +516,10 @@ export async function generateContratoPDF(contrato) {
           ${dataAssinatura ? `<div style="font-size:7px;color:${BRAND.cinzaTexto};margin-top:2px;">${esc(dataAssinatura)}</div>` : ''}
         </div>
 
-        ${fotosEntrega.length > 0 ? `
-        <div style="margin-bottom:8px;">
-          <div style="font-size:7px;font-weight:700;color:${BRAND.cinzaTexto};margin-bottom:3px;text-transform:uppercase;">Fotos da Entrega (${fotosEntrega.length})</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;">
-            ${fotosEntrega.map((foto, i) => `
-              <div style="flex:1 1 calc(50% - 2px);max-width:50%;text-align:center;">
-                <img src="${foto}" style="width:100%;height:120px;object-fit:cover;border:1px solid ${BRAND.cinzaBorda};border-radius:3px;" />
-                <div style="font-size:6px;color:${BRAND.cinzaTexto};margin-top:1px;">Entrega ${i + 1}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>` : ''}
+        ${buildPhotoGrid(fotosEntrega, 'FOTOS DA ENTREGA', contrato.fotosEntregaTimestamps)}
+        ${buildPhotoGrid(fotosRetirada, 'FOTOS DA RETIRADA', contrato.fotosRetiradaTimestamps)}
 
-        ${fotosRetirada.length > 0 ? `
-        <div style="margin-bottom:8px;">
-          <div style="font-size:7px;font-weight:700;color:${BRAND.cinzaTexto};margin-bottom:3px;text-transform:uppercase;">Fotos da Retirada (${fotosRetirada.length})</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;">
-            ${fotosRetirada.map((foto, i) => `
-              <div style="flex:1 1 calc(50% - 2px);max-width:50%;text-align:center;">
-                <img src="${foto}" style="width:100%;height:120px;object-fit:cover;border:1px solid ${BRAND.cinzaBorda};border-radius:3px;" />
-                <div style="font-size:6px;color:${BRAND.cinzaTexto};margin-top:1px;">Retirada ${i + 1}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>` : ''}
-
-        ${signatarioNome ? `<div style="margin-top:6px;font-size:7px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">Signatario:</strong> ${esc(signatarioNome)}</div>` : ''}
+        ${signatarioNome ? `<div style="margin-top:6px;font-size:7px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">Signatario:</strong> ${esc(signatarioNome)}${dataAssinatura ? ` | <strong style="color:${BRAND.preto};">Data:</strong> ${esc(dataAssinatura)}` : ''}</div>` : ''}
       </div>` : ''}
 
       ${buildFooter('COMPROVANTE DE ENTREGA')}

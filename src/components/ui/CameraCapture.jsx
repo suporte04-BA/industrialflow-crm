@@ -10,7 +10,7 @@ function isMobileDevice() {
   return isMobile || isTouch;
 }
 
-function compressImage(file, maxSize = 800, quality = 0.7) {
+function compressImage(file, maxSize = 600, quality = 0.5) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -39,7 +39,7 @@ function compressImage(file, maxSize = 800, quality = 0.7) {
   });
 }
 
-function compressDataUrl(dataUrl, maxSize = 800, quality = 0.7) {
+function compressDataUrl(dataUrl, maxSize = 600, quality = 0.5) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -78,9 +78,17 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const containerRef = useRef(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [flash, setFlash] = useState(false);
+  const [dimensions, setDimensions] = useState({ w: window.innerWidth, h: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setDimensions({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -88,7 +96,11 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
       try {
         const facingMode = isMob ? 'environment' : 'user';
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: {
+            facingMode,
+            width: { ideal: Math.min(1920, dimensions.w * 2) },
+            height: { ideal: Math.min(1080, dimensions.h * 2) },
+          },
           audio: false,
         });
         if (!mounted) { stream.getTracks().forEach(t => t.stop()); return; }
@@ -117,7 +129,7 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
         streamRef.current = null;
       }
     };
-  }, [isMob]);
+  }, [isMob, dimensions.w, dimensions.h]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -136,9 +148,9 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
     stopCamera();
-    compressDataUrl(dataUrl, 800, 0.7).then((compressed) => {
+    compressDataUrl(dataUrl, 600, 0.5).then((compressed) => {
       onCapture(compressed, getTimestamp());
     });
   }, [onCapture, stopCamera]);
@@ -148,35 +160,42 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
     onClose();
   }, [stopCamera, onClose]);
 
+  const isSmallScreen = dimensions.w < 640;
+  const isMediumScreen = dimensions.w >= 640 && dimensions.w < 1024;
+  const viewfinderHeight = isSmallScreen ? dimensions.h * 0.55 : isMediumScreen ? dimensions.h * 0.6 : dimensions.h * 0.65;
+  const viewfinderWidth = Math.min(dimensions.w * (isSmallScreen ? 0.92 : isMediumScreen ? 0.7 : 0.5), 500);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-black flex flex-col"
+      style={{ height: '100dvh' }}
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-black/80">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-black/80 shrink-0">
         <button onClick={handleClose} className="p-2 text-white/80 hover:text-white">
-          <ArrowLeft size={22} />
+          <ArrowLeft size={isSmallScreen ? 20 : 22} />
         </button>
-        <span className="text-white/90 text-sm font-medium">{slotLabel || 'Camera'}</span>
+        <span className="text-white/90 text-xs sm:text-sm font-medium">{slotLabel || 'Camera'}</span>
         <div className="w-10" />
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4 py-2">
+      <div ref={containerRef} className="flex-1 flex items-center justify-center px-3 sm:px-4 py-2 overflow-hidden">
         {cameraError ? (
-          <div className="text-center px-6">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
-              <Camera size={28} className="text-white/40" />
+          <div className="text-center px-6 max-w-sm">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
+              <Camera size={isSmallScreen ? 24 : 28} className="text-white/40" />
             </div>
-            <p className="text-white/70 text-sm mb-4">{cameraError}</p>
+            <p className="text-white/70 text-xs sm:text-sm mb-4">{cameraError}</p>
             <button onClick={handleClose}
               className="px-6 py-2.5 bg-white/10 text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors">
               Fechar
             </button>
           </div>
         ) : (
-          <div className="relative w-full max-w-md aspect-[3/4] rounded-2xl overflow-hidden border-2 border-white/20">
+          <div className="relative rounded-xl sm:rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl"
+            style={{ width: viewfinderWidth, height: viewfinderHeight, maxWidth: '100%', maxHeight: '100%' }}>
             <video
               ref={videoRef}
               autoPlay
@@ -202,31 +221,33 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
             {!cameraReady && !cameraError && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                 <div className="text-center">
-                  <Loader2 size={32} className="text-white animate-spin mx-auto mb-2" />
-                  <p className="text-white/70 text-xs">Abrindo camera...</p>
+                  <Loader2 size={isSmallScreen ? 28 : 32} className="text-white animate-spin mx-auto mb-2" />
+                  <p className="text-white/70 text-[10px] sm:text-xs">Abrindo camera...</p>
                 </div>
               </div>
             )}
 
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
-              <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-white/40 rounded-tr-lg" />
-              <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-white/40 rounded-bl-lg" />
-              <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-white/40 rounded-br-lg" />
+              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 w-6 h-6 sm:w-8 sm:h-8 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
+              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 w-6 h-6 sm:w-8 sm:h-8 border-t-2 border-r-2 border-white/40 rounded-tr-lg" />
+              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 w-6 h-6 sm:w-8 sm:h-8 border-b-2 border-l-2 border-white/40 rounded-bl-lg" />
+              <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-6 h-6 sm:w-8 sm:h-8 border-b-2 border-r-2 border-white/40 rounded-br-lg" />
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex justify-center pb-8 pt-4 bg-black">
+      <div className="flex justify-center pb-6 sm:pb-8 pt-3 sm:pt-4 bg-black shrink-0">
         {!cameraError && (
           <button
             onClick={capturePhoto}
             disabled={!cameraReady}
-            className="w-[72px] h-[72px] rounded-full bg-white flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 shadow-lg shadow-white/20"
+            className="rounded-full bg-white flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 shadow-lg shadow-white/20"
+            style={{ width: isSmallScreen ? 60 : 72, height: isSmallScreen ? 60 : 72 }}
           >
-            <div className="w-[60px] h-[60px] rounded-full border-[3px] border-black/10 flex items-center justify-center">
-              <Camera size={26} className="text-black/70" />
+            <div className="rounded-full border-[3px] border-black/10 flex items-center justify-center"
+              style={{ width: isSmallScreen ? 48 : 60, height: isSmallScreen ? 48 : 60 }}>
+              <Camera size={isSmallScreen ? 22 : 26} className="text-black/70" />
             </div>
           </button>
         )}
@@ -236,30 +257,42 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
 }
 
 function PreviewOverlay({ preview, timestamp, onConfirm, onRetake }) {
+  const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const h = () => setDims({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  const isSmall = dims.w < 640;
+  const previewH = isSmall ? dims.h * 0.5 : dims.h * 0.6;
+  const previewW = Math.min(dims.w * (isSmall ? 0.92 : 0.6), 500);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-black flex flex-col"
+      style={{ height: '100dvh' }}
     >
-      <div className="flex-1 flex items-center justify-center px-4 py-4">
-        <div className="relative w-full max-w-md aspect-[3/4] rounded-2xl overflow-hidden border-2 border-green-400/50">
+      <div className="flex-1 flex items-center justify-center px-3 sm:px-4 py-4 overflow-hidden">
+        <div className="relative rounded-xl sm:rounded-2xl overflow-hidden border-2 border-green-400/50 shadow-2xl"
+          style={{ width: previewW, height: previewH, maxWidth: '100%', maxHeight: '100%' }}>
           <img src={preview} alt="Preview" className="w-full h-full object-cover" />
           <div className="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-black/70 to-transparent">
-            <p className="text-white text-[11px] font-mono text-center">{timestamp}</p>
+            <p className="text-white text-[10px] sm:text-[11px] font-mono text-center">{timestamp}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-4 justify-center pb-8 pt-4 px-6 bg-black">
+      <div className="flex gap-3 sm:gap-4 justify-center pb-6 sm:pb-8 pt-3 sm:pt-4 px-4 sm:px-6 bg-black shrink-0">
         <button onClick={onRetake}
-          className="flex-1 max-w-[160px] flex items-center justify-center gap-2 py-3.5 bg-white/10 text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors border border-white/20">
-          <RotateCcw size={16} /> Repetir
+          className="flex-1 max-w-[160px] flex items-center justify-center gap-2 py-3 sm:py-3.5 bg-white/10 text-white rounded-full text-xs sm:text-sm font-medium hover:bg-white/20 transition-colors border border-white/20">
+          <RotateCcw size={isSmall ? 14 : 16} /> Repetir
         </button>
         <button onClick={onConfirm}
-          className="flex-1 max-w-[160px] flex items-center justify-center gap-2 py-3.5 bg-green-500 text-white rounded-full text-sm font-bold hover:bg-green-600 transition-colors shadow-lg shadow-green-500/30">
-          <Check size={16} /> Confirmar
+          className="flex-1 max-w-[160px] flex items-center justify-center gap-2 py-3 sm:py-3.5 bg-green-500 text-white rounded-full text-xs sm:text-sm font-bold hover:bg-green-600 transition-colors shadow-lg shadow-green-500/30">
+          <Check size={isSmall ? 14 : 16} /> Confirmar
         </button>
       </div>
     </motion.div>
@@ -334,12 +367,12 @@ export default function CameraCapture({ onCapture, label, slotLabel, disabled = 
             <button
               onClick={() => inputRef.current?.click()}
               disabled={disabled || capturing}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-600 hover:border-yellow-400 hover:bg-yellow-50 transition-colors disabled:opacity-50 active:bg-yellow-100"
+              className="w-full flex items-center justify-center gap-2 py-2.5 sm:py-3 px-3 sm:px-4 border-2 border-dashed border-gray-300 rounded-xl text-xs sm:text-sm text-gray-600 hover:border-yellow-400 hover:bg-yellow-50 transition-colors disabled:opacity-50 active:bg-yellow-100"
             >
               {capturing ? (
-                <Loader2 size={16} className="animate-spin" />
+                <Loader2 size={14} className="animate-spin" />
               ) : (
-                <Camera size={16} />
+                <Camera size={14} />
               )}
               {capturing ? 'Processando...' : slotLabel || label || 'Tirar Foto'}
             </button>
@@ -358,15 +391,15 @@ export default function CameraCapture({ onCapture, label, slotLabel, disabled = 
             <button
               onClick={() => setShowCamera(true)}
               disabled={disabled}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-blue-300 rounded-xl text-sm text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 sm:py-3 px-3 sm:px-4 border-2 border-dashed border-blue-300 rounded-xl text-xs sm:text-sm text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50"
             >
-              <Video size={16} />
+              <Video size={14} />
               {slotLabel || label || 'Usar Webcam'}
             </button>
             <p className="text-[10px] text-gray-400 text-center mt-0.5">Abra a camera do notebook/PC</p>
           </>
         )}
-        {error && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><X size={10} />{error}</p>}
+        {error && <p className="text-[10px] sm:text-xs text-red-500 mt-1 flex items-center gap-1"><X size={10} />{error}</p>}
       </div>
 
       <AnimatePresence>

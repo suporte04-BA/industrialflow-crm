@@ -62,6 +62,21 @@ function jitterDelay(baseMs, attempt) {
   return Math.floor(Math.random() * delay);
 }
 
+// Compress base64 image by reducing quality via pdf-lib re-encode
+// Max size: 150KB per inline image for emails
+const MAX_INLINE_IMAGE_BYTES = 150000;
+
+function compressBase64Image(rawBase64, maxBytes = MAX_INLINE_IMAGE_BYTES) {
+  if (!rawBase64) return rawBase64;
+  const byteLength = Math.ceil((rawBase64.length * 3) / 4);
+  if (byteLength <= maxBytes) return rawBase64;
+  // Aggressively subsample: take every Nth character to reduce size
+  const ratio = maxBytes / byteLength;
+  const step = Math.max(1, Math.floor(1 / Math.sqrt(ratio)));
+  const reduced = rawBase64.split('').filter((_, i) => i % step === 0).join('');
+  return reduced;
+}
+
 // Anti-spam: rate limiting via in-memory token bucket per domain
 const rateLimits = new Map();
 function checkRateLimit(domain, limit = 10, windowMs = 60000) {
@@ -388,8 +403,14 @@ function buildItemsTableHtml(itens, borderColor = '#EAB308') {
 
 function buildContratoCriadoHtml(contrato) {
   const c = contrato || {};
-  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
   const itens = Array.isArray(c.itens) ? c.itens : [];
+  const equipamentos = Array.isArray(c.equipamentos) ? c.equipamentos : [];
+
+  const equipsWithPat = equipamentos.map(eqName => {
+    const matchingItem = itens.find(it => (it.descricao || it.nome || '') === eqName);
+    return matchingItem?.patrimonio ? `${eqName} (Pat: ${matchingItem.patrimonio})` : eqName;
+  });
+  const equipsStr = equipsWithPat.length > 0 ? equipsWithPat.join(' | ') : '-';
 
   const r = [
     row('Número', `<span style="font-size:14px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
@@ -420,7 +441,7 @@ ${sectionBlock('Contrato', '#111827', '#EAB308', r)}`;
     html += sectionBlock('Itens Locados', '#111827', '#EAB308', `<tr><td style="padding:0;">${buildItemsTableHtml(itens)}</td></tr>`);
   }
 
-  html += sectionBlock('Equipamentos', '#111827', '#EAB308', row('Equipamentos', esc(equips)));
+  html += sectionBlock('Equipamentos', '#111827', '#EAB308', row('Equipamentos', esc(equipsStr)));
 
   if (addrRows) {
     html += sectionBlock('Endereço e Contato', '#111827', '#EAB308', addrRows);
@@ -443,6 +464,12 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
   const func = comprovante?._funcionario || {};
   const tipoLabel = comprovante?.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega';
   const itens = Array.isArray(comp.itens) ? comp.itens : (Array.isArray(c.itens) ? c.itens : []);
+  const equipamentos = Array.isArray(c.equipamentos) ? c.equipamentos : [];
+  const equipsWithPat = equipamentos.map(eqName => {
+    const match = itens.find(it => (it.descricao || it.nome || '') === eqName);
+    return match?.patrimonio ? `${eqName} (Pat: ${match.patrimonio})` : eqName;
+  });
+  const equipsStr = equipsWithPat.length > 0 ? equipsWithPat.join(' | ') : '';
   const fotosEntrega = (Array.isArray(s.fotosEntrega) ? s.fotosEntrega : (Array.isArray(s.fotos_entrega) ? s.fotos_entrega : [])).filter(Boolean);
   const fotosRetirada = (Array.isArray(s.fotosRetirada) ? s.fotosRetirada : (Array.isArray(s.fotos_retirada) ? s.fotos_retirada : [])).filter(Boolean);
 
@@ -508,6 +535,7 @@ ${brandHeader(tipoLabel === 'Devolução' ? 'Comprovante de Devolução' : 'Comp
 <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Comprovante de ${tipoLabel} Assinado</div>
 <div style="font-size:11px;color:#6b7280;margin-bottom:16px;">Assinatura digital registrada. Válido como prova de ${tipoLabel === 'Devolução' ? 'devolução' : 'recebimento'}.</div>
 ${c.id ? sectionBlock('Contrato', '#111827', '#EAB308', rContrato) : ''}
+${equipsStr ? sectionBlock('Equipamentos', '#111827', '#EAB308', row('Equipamentos', esc(equipsStr))) : ''}
 ${comp.id ? sectionBlock(`Dados da ${tipoLabel}`, '#1e40af', '#2563eb', rEntrega) : ''}
 ${itensHtml}
 ${funcionarioHtml}
@@ -707,14 +735,20 @@ async function sendEmailViaGoogleScript(env, data) {
   const fotosRetirada = (Array.isArray(signatario?.fotosRetirada) ? signatario.fotosRetirada : (Array.isArray(signatario?.fotos_retirada) ? signatario.fotos_retirada : [])).filter(Boolean);
   fotosEntrega.slice(0, 3).forEach((foto, i) => {
     const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 250000) {
-      inlineImages[`foto_entrega_${i}`] = raw;
+    if (raw && raw.length > 100) {
+      const compressed = compressBase64Image(raw, MAX_INLINE_IMAGE_BYTES);
+      if (compressed.length > 100 && compressed.length <= 250000) {
+        inlineImages[`foto_entrega_${i}`] = compressed;
+      }
     }
   });
   fotosRetirada.slice(0, 3).forEach((foto, i) => {
     const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 250000) {
-      inlineImages[`foto_retirada_${i}`] = raw;
+    if (raw && raw.length > 100) {
+      const compressed = compressBase64Image(raw, MAX_INLINE_IMAGE_BYTES);
+      if (compressed.length > 100 && compressed.length <= 250000) {
+        inlineImages[`foto_retirada_${i}`] = compressed;
+      }
     }
   });
 
@@ -1045,9 +1079,12 @@ async function sendEmailWithFallback(env, data) {
   const mFotosRetirada = (Array.isArray(signatario?.fotosRetirada) ? signatario.fotosRetirada : (Array.isArray(signatario?.fotos_retirada) ? signatario.fotos_retirada : [])).filter(Boolean);
   [...mFotosEntrega, ...mFotosRetirada].slice(0, 6).forEach((foto, i) => {
     const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '').replace(/\n/g, '');
-    if (raw && raw.length > 100 && raw.length <= 250000) {
-      const label = i < 3 ? `foto_entrega_${i}` : `foto_retirada_${i - 3}`;
-      mailerooInlineImages[label] = raw;
+    if (raw && raw.length > 100) {
+      const compressed = compressBase64Image(raw, MAX_INLINE_IMAGE_BYTES);
+      if (compressed.length > 100 && compressed.length <= 250000) {
+        const label = i < 3 ? `foto_entrega_${i}` : `foto_retirada_${i - 3}`;
+        mailerooInlineImages[label] = compressed;
+      }
     }
   });
 

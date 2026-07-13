@@ -1,14 +1,16 @@
 // ============================================
-// TransObra CRM - Google Apps Script Email API v8
-// Advanced anti-spam, dedup, queue, audit log
+// TransObra CRM - Google Apps Script Email API v9
+// Hash busting, queue with time-driven triggers,
+// advanced anti-spam, dedup, audit log
 // ============================================
 
 var API_KEY = 'transobra-email-key-2026';
 var SENDER_NAME = 'TransObra - Gestão de Locação';
 var REPLY_TO = 'transobras.no.replay@gmail.com';
 var MAX_RECIPIENTS_PER_RUN = 50;
-var DELAY_BETWEEN_EMAILS_MS = 2000;
-var DEDUP_SPREADSHEET_ID = null;
+var DELAY_BETWEEN_EMAILS_MS = 5000;
+var QUEUE_SHEET_NAME = 'Fila_Emails';
+var QUEUE_BATCH_SIZE = 3;
 
 // ============================================
 // ANTI-SPAM: In-memory dedup (reset per execution)
@@ -150,7 +152,7 @@ function doGet(e) {
 
     var info = {
       status: 'ok',
-      version: 'transobra-email-v8',
+      version: 'transobra-email-v9',
       remainingQuota: remaining,
       dedupEntries: dedupCount,
       config: {
@@ -162,6 +164,7 @@ function doGet(e) {
         maxRecipientsPerRun: MAX_RECIPIENTS_PER_RUN,
         delayBetweenEmailsMs: DELAY_BETWEEN_EMAILS_MS,
         dedupWindowHours: 1,
+        queueBatchSize: QUEUE_BATCH_SIZE,
       }
     };
 
@@ -280,8 +283,11 @@ function _processSend(data) {
       continue;
     }
 
+    // Apply hash busting: unique subject per recipient
+    var uniqueSubject = _makeUniqueSubject(data.subject, recipient);
+
     // Send with retry
-    var sent = _sendWithRetry(recipient, data.subject, data.body || '', options, 2);
+    var sent = _sendWithRetry(recipient, uniqueSubject, data.body || '', options, 2);
     if (sent) {
       sentCount++;
     } else {
@@ -432,4 +438,244 @@ function cleanupDedup() {
   }
   _saveDedupStore(store);
   Logger.log('[CLEANUP] Removed ' + cleaned + ' old dedup entries');
+}
+
+// ============================================
+// HASH BUSTING: Dynamic subject to avoid spam filters
+// ============================================
+function _makeUniqueSubject(originalSubject, recipient) {
+  var ts = new Date().getTime();
+  var hash = _hashStr(recipient + '|' + ts);
+  return originalSubject + ' [' + hash.slice(0, 6) + ']';
+}
+
+// ============================================
+// QUEUE: Spreadsheet-based email queue
+// ============================================
+function _getOrCreateQueueSheet() {
+  var ssId = PropertiesService.getScriptProperties().getProperty('audit_spreadsheet_id');
+  if (!ssId) {
+    Logger.log('[QUEUE] No spreadsheet ID configured. Set audit_spreadsheet_id in script properties.');
+    return null;
+  }
+  try {
+    var ss = SpreadsheetApp.openById(ssId);
+    var sheet = ss.getSheetByName(QUEUE_SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(QUEUE_SHEET_NAME);
+      sheet.appendRow(['Timestamp', 'To', 'Subject', 'HtmlBody', 'PlainText', 'InlineImages', 'Status', 'Attempts', 'LastError', 'SentAt']);
+      sheet.setFrozenRows(1);
+      sheet.setColumnWidth(1, 160);
+      sheet.setColumnWidth(3, 200);
+      sheet.setColumnWidth(4, 300);
+    }
+    return sheet;
+  } catch (e) {
+    Logger.log('[QUEUE] Failed to access spreadsheet: ' + e.message);
+    return null;
+  }
+}
+
+function _enqueueEmail(data) {
+  var sheet = _getOrCreateQueueSheet();
+  if (!sheet) {
+    // Fallback: send directly if no spreadsheet
+    return _processSend(data);
+  }
+
+  var recipients = (data.to || '').split(',').map(function(r) { return r.trim(); }).filter(Boolean);
+  var queued = 0;
+
+  for (var i = 0; i < recipients.length; i++) {
+    var recipient = recipients[i];
+    var uniqueSubject = _makeUniqueSubject(data.subject || '', recipient);
+
+    // Add unique timestamp marker to HTML body for hash busting
+    var timestamp = new Date().getTime();
+    var htmlWithHash = (data.htmlBody || '') + '<!-- ref:' + timestamp + ' -->';
+
+    sheet.appendRow([
+      new Date().toISOString(),
+      recipient,
+      uniqueSubject,
+      htmlWithHash,
+      data.body || '',
+      JSON.stringify(data.inlineImages || {}),
+      'Pendente',
+      0,
+      '',
+      ''
+    ]);
+    queued++;
+  }
+
+  Logger.log('[QUEUE] Enqueued ' + queued + ' emails for processing');
+  return ContentService.createTextOutput(
+    JSON.stringify({ success: true, queued: queued, message: 'Emails added to queue. Processed by time-driven trigger.' })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============================================
+// QUEUE PROCESSOR: Run by time-driven trigger (every 1-5 min)
+// ============================================
+function processEmailQueue() {
+  var sheet = _getOrCreateQueueSheet();
+  if (!sheet) {
+    Logger.log('[QUEUE] No spreadsheet available');
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    Logger.log('[QUEUE] Queue is empty');
+    return;
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var processed = 0;
+  var sent = 0;
+  var failed = 0;
+
+  for (var i = 1; i < data.length && processed < QUEUE_BATCH_SIZE; i++) {
+    var row = data[i];
+    var status = row[6]; // Status column (G)
+
+    if (status !== 'Pendente') continue;
+
+    var timestamp = row[0];
+    var to = row[1];
+    var subject = row[2];
+    var htmlBody = row[3];
+    var plainText = row[4];
+    var inlineImagesRaw = row[5];
+    var attempts = parseInt(row[7]) || 0;
+
+    // Rate limit check
+    var domain = to.split('@')[1] || 'unknown';
+    if (!_checkRateLimit(domain, 10, 60000)) {
+      Logger.log('[QUEUE] Rate limited for ' + domain + ', skipping');
+      continue;
+    }
+
+    // Quota check
+    var quota = _checkQuota(1);
+    if (!quota.ok) {
+      Logger.log('[QUEUE] Quota exhausted, stopping processing');
+      break;
+    }
+
+    // Parse inline images
+    var inlineImages = {};
+    try {
+      inlineImages = JSON.parse(inlineImagesRaw || '{}');
+    } catch (e) {}
+
+    var options = {
+      htmlBody: htmlBody,
+      name: SENDER_NAME,
+      replyTo: REPLY_TO,
+      noReply: true,
+      inlineImages: inlineImages,
+    };
+
+    // Process inline images
+    for (var key in inlineImages) {
+      if (inlineImages[key]) {
+        var clean = String(inlineImages[key]).replace(/\s/g, '').replace(/\n/g, '');
+        var mime = 'image/png';
+        if (clean.length > 100) mime = 'image/jpeg';
+        try {
+          options.inlineImages[key] = Utilities.newBlob(
+            Utilities.base64Decode(clean), mime, key
+          );
+        } catch (e) {}
+      }
+    }
+
+    // Dedup check
+    if (_isDuplicate(to, subject, htmlBody)) {
+      sheet.getRange(i + 1, 7).setValue('Duplicado');
+      processed++;
+      continue;
+    }
+
+    // Send with retry
+    var sent = _sendWithRetry(to, subject, plainText || '', options, 2);
+
+    if (sent) {
+      sheet.getRange(i + 1, 7).setValue('Enviado');
+      sheet.getRange(i + 1, 10).setValue(new Date().toISOString());
+      sent++;
+    } else {
+      var newAttempts = attempts + 1;
+      if (newAttempts >= 3) {
+        sheet.getRange(i + 1, 7).setValue('Falhou');
+        sheet.getRange(i + 1, 9).setValue('Failed after 3 attempts');
+        failed++;
+      } else {
+        sheet.getRange(i + 1, 7).setValue('Pendente');
+        sheet.getRange(i + 1, 8).setValue(newAttempts);
+      }
+    }
+
+    processed++;
+
+    // Delay between emails
+    if (processed < QUEUE_BATCH_SIZE) {
+      _sleep(DELAY_BETWEEN_EMAILS_MS);
+    }
+  }
+
+  Logger.log('[QUEUE] Processed: ' + processed + ', Sent: ' + sent + ', Failed: ' + failed);
+
+  _logEmail('queue', 'batch_process', sent > 0 ? 'sent' : 'processed', 'gas_queue',
+    failed > 0 ? failed + ' failed' : null,
+    { processed: processed, sent: sent, failed: failed }
+  );
+}
+
+// ============================================
+// SETUP QUEUE TRIGGER: Run once to create time-driven trigger
+// ============================================
+function setupQueueTrigger() {
+  // Remove existing triggers for processEmailQueue
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'processEmailQueue') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  // Create new trigger: runs every 2 minutes
+  ScriptApp.newTrigger('processEmailQueue')
+    .timeBased()
+    .everyMinutes(2)
+    .create();
+
+  Logger.log('[TRIGGER] Created time-driven trigger: processEmailQueue every 2 minutes');
+}
+
+// ============================================
+// CLEANUP QUEUE: Remove old processed emails (> 7 days)
+// ============================================
+function cleanupQueue() {
+  var sheet = _getOrCreateQueueSheet();
+  if (!sheet) return;
+
+  var data = sheet.getDataRange().getValues();
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  var removed = 0;
+
+  // Iterate backwards to avoid index shifting
+  for (var i = data.length - 1; i >= 1; i--) {
+    var timestamp = new Date(data[i][0]);
+    var status = data[i][6];
+    if (timestamp < cutoff && status !== 'Pendente') {
+      sheet.deleteRow(i + 1);
+      removed++;
+    }
+  }
+
+  Logger.log('[CLEANUP] Removed ' + removed + ' old queue entries');
 }

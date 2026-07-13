@@ -345,9 +345,53 @@ function row(label, value, opts = {}) {
   return `<tr><td style="padding:5px 0;color:#6b7280;width:${w || '130px'};vertical-align:top;font-size:12px;"><strong>${label}</strong></td><td style="padding:5px 0;color:${color || '#111827'};font-size:13px;${bold ? 'font-weight:700;' : ''}">${value}</td></tr>`;
 }
 
+function buildItemsTableHtml(itens, borderColor = '#EAB308') {
+  if (!itens || itens.length === 0) return '';
+  const rows = itens.filter(it => it.descricao || it.nome).map(it => {
+    const desc = esc(it.descricao || it.nome || '-');
+    const pat = esc(it.patrimonio || '-');
+    const qtd = esc(it.quantidade || 1);
+    const dloc = esc(it.dataLocacao || it.data_locacao || '-');
+    const ddev = esc(it.dataDevolucao || it.data_devolucao || '-');
+    const val = Number(it.valorUnitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    return `<tr>
+      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:12px;">${qtd}</td>
+      <td style="padding:5px 6px;border:1px solid #e5e7eb;font-size:12px;">${desc}</td>
+      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:12px;font-weight:700;color:#111827;">${pat}</td>
+      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${dloc}</td>
+      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${ddev}</td>
+      <td style="padding:5px 6px;border:1px solid #e5e7eb;text-align:right;font-size:12px;">R$ ${val}</td>
+    </tr>`;
+  }).join('');
+
+  const total = itens.reduce((s, it) => s + (Number(it.quantidade) || 1) * (Number(it.valorUnitario) || 0), 0);
+  const totalFormatted = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:10px 0;">
+    <thead>
+      <tr>
+        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:left;font-size:10px;font-weight:700;border:1px solid #111827;">Qtde</th>
+        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:left;font-size:10px;font-weight:700;border:1px solid #111827;">Descrição</th>
+        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:center;font-size:10px;font-weight:700;border:1px solid #111827;">Patrimônio</th>
+        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:center;font-size:10px;font-weight:700;border:1px solid #111827;">D.Loc</th>
+        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:center;font-size:10px;font-weight:700;border:1px solid #111827;">D.Dev</th>
+        <th style="padding:5px 6px;background:#111827;color:#fff;text-align:right;font-size:10px;font-weight:700;border:1px solid #111827;">Valor</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:700;background:#f9fafb;">TOTAL</td>
+        <td style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:800;color:#16a34a;background:#f9fafb;">R$ ${totalFormatted}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+}
+
 function buildContratoCriadoHtml(contrato) {
   const c = contrato || {};
   const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
+  const itens = Array.isArray(c.itens) ? c.itens : [];
 
   const r = [
     row('Número', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
@@ -359,10 +403,8 @@ function buildContratoCriadoHtml(contrato) {
   ].filter(Boolean).join('');
 
   const equipSection = [
-    row('Equipamentos', esc(equips)),
     c.inicio ? row('Período', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
   ].filter(Boolean).join('');
 
   const addrSection = [
@@ -380,7 +422,13 @@ ${brandHeader('Novo Contrato', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'ENTREGA', '#1
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Novo Contrato Cadastrado</div>
 <div style="font-size:12px;color:#6b7280;margin-bottom:24px;">Um novo contrato foi registrado no sistema. Confira os detalhes abaixo.</div>
 ${sectionBlock('Dados do Contrato', '#111827', '#EAB308', r)}
-${sectionBlock('Equipamentos e Valores', '#111827', '#EAB308', equipSection)}`;
+${equipSection ? sectionBlock('Dados da Locação', '#111827', '#EAB308', equipSection) : ''}`;
+
+  if (itens.length > 0) {
+    html += sectionBlock('Itens Locados', '#111827', '#EAB308', `<tr><td style="padding:0;">${buildItemsTableHtml(itens)}</td></tr>`);
+  }
+
+  html += sectionBlock('Equipamentos', '#111827', '#EAB308', row('Equipamentos', esc(equips)));
 
   if (addrSection) {
     html += `${sectionBlock('Endereço e Contato', '#111827', '#EAB308', addrSection)}`;
@@ -402,7 +450,7 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
   const s = signatario || {};
   const func = comprovante?._funcionario || {};
   const tipoLabel = comprovante?.tipoDocumento === 'devolucao' ? 'Devolução' : 'Entrega';
-  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
+  const itens = Array.isArray(comp.itens) ? comp.itens : (Array.isArray(c.itens) ? c.itens : []);
   const fotosEntrega = (Array.isArray(s.fotosEntrega) ? s.fotosEntrega : (Array.isArray(s.fotos_entrega) ? s.fotos_entrega : [])).filter(Boolean);
   const fotosRetirada = (Array.isArray(s.fotosRetirada) ? s.fotosRetirada : (Array.isArray(s.fotos_retirada) ? s.fotos_retirada : [])).filter(Boolean);
 
@@ -412,10 +460,8 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
     c.rg ? row('RG', fmt(c.rg)) : '',
     c.atendente ? row('Atendente', fmt(c.atendente)) : '',
-    row('Equipamentos', esc(equips)),
     c.inicio ? row('Período', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
     c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
     c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
     c.cidade ? row('Cidade/UF', `${fmt(c.cidade)}/${fmt(c.estado)}`) : '',
@@ -468,6 +514,11 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
     row('Nome', fmt(func.nome), { bold: true }),
   ]) : '';
 
+  let itensHtml = '';
+  if (itens.length > 0) {
+    itensHtml = sectionBlock('Itens Locados', '#111827', '#EAB308', `<tr><td style="padding:0;">${buildItemsTableHtml(itens)}</td></tr>`);
+  }
+
   return emailWrapper(`
 ${brandHeader(tipoLabel === 'Devolução' ? 'Comprovante de Devolução' : 'Comprovante de Entrega', `${tipoLabel.toUpperCase()} ASSINADO DIGITALMENTE`, tipoLabel.toUpperCase(), '#EAB308', '#111827')}
 <tr><td style="padding:28px 30px 12px;">
@@ -475,6 +526,7 @@ ${brandHeader(tipoLabel === 'Devolução' ? 'Comprovante de Devolução' : 'Comp
 <div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O comprovante foi assinado digitalmente pelo recebedor. Válido como prova de ${tipoLabel === 'Devolução' ? 'devolução' : 'recebimento'}.</div>
 ${c.id ? sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato) : ''}
 ${comp.id ? sectionBlock(`Dados da ${tipoLabel}`, '#1e40af', '#2563eb', rEntrega) : ''}
+${itensHtml}
 ${funcionarioHtml}
 ${assinaturaHtml}
 ${fotosHtml}
@@ -487,37 +539,47 @@ ${fotosHtml}
 
 function buildContratoRenovadoHtml(contrato) {
   const c = contrato || {};
-  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : '-';
+  const itens = Array.isArray(c.itens) ? c.itens : [];
 
   const r = [
     row('Número', `<span style="font-size:16px;font-weight:900;color:#EAB308;">${fmt(c.numero)}</span>`),
     row('Cliente', fmt(c.cliente), { bold: true }),
     c.cnpj ? row('CPF/CNPJ', fmt(c.cnpj)) : '',
-    row('Equipamentos', esc(equips)),
+    c.rg ? row('RG', fmt(c.rg)) : '',
+    c.atendente ? row('Atendente', fmt(c.atendente)) : '',
     c.inicio ? row('Novo Período', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
+    c.localEntrega ? row('Local de Entrega', fmt(c.localEntrega)) : '',
+    c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+    c.cidade ? row('Cidade/UF', `${fmt(c.cidade)}/${fmt(c.estado)}`) : '',
   ].filter(Boolean).join('');
 
-  return emailWrapper(`
+  let html = emailWrapper(`
 ${brandHeader('Contrato Renovado', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'RENOVAÇÃO', '#111827', '#3b82f6')}
 <tr><td style="padding:28px 30px 12px;">
 <div style="font-size:18px;font-weight:800;color:#111827;margin-bottom:4px;">Contrato Renovado</div>
-<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O contrato foi renovado com sucesso.</div>
-${sectionBlock('Dados da Renovação', '#111827', '#3b82f6', r)}
+<div style="font-size:12px;color:#6b7280;margin-bottom:24px;">O contrato foi renovado com sucesso. Confira os novos dados abaixo.</div>
+${sectionBlock('Dados da Renovação', '#111827', '#3b82f6', r)}`);
+
+  if (itens.length > 0) {
+    html += sectionBlock('Itens Locados', '#111827', '#3b82f6', `<tr><td style="padding:0;">${buildItemsTableHtml(itens)}</td></tr>`);
+  }
+
+  html += `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
 <tr><td style="padding:14px 20px;background:#111827;text-align:center;">
 <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;">TRANSOBRA CRM &mdash; SISTEMA DE GESTÃO DE LOCAÇÃO</div>
 </td></tr></table>
-</td></tr>`);
+</td></tr>`;
+
+  return html;
 }
 
 function buildDevolucaoHtml(contrato, comprovante) {
   const c = contrato || {};
   const comp = comprovante || {};
   const dev = comp._devolucao || {};
-  const equips = Array.isArray(c.equipamentos) ? c.equipamentos.join(', ') : (Array.isArray(comp.itens) ? comp.itens.map(i => i.nome || i.descricao || i).join(', ') : '');
-  const itens = Array.isArray(comp.itens) ? comp.itens : [];
+  const itens = Array.isArray(comp.itens) ? comp.itens : (Array.isArray(dev.itens) ? dev.itens : []);
 
   const r = [
     row('Número', `<span style="font-size:16px;font-weight:900;color:#f97316;">${fmt(c.numero || comp.contrato)}</span>`),
@@ -526,12 +588,10 @@ function buildDevolucaoHtml(contrato, comprovante) {
     c.telefone ? row('Telefone', fmt(c.telefone)) : '',
   ].filter(Boolean).join('');
 
-  const equipRows = equips ? [
-    row('Equipamentos', esc(equips)),
+  const equipRows = [
     c.inicio ? row('Período Original', `${fmt(c.inicio)} a ${fmt(c.fim)}`) : '',
     c.valorMensal ? row('Valor Mensal', `R$ ${fmtMoney(c.valorMensal)}/mês`) : '',
-    c.valorTotal ? row('Valor Total', `R$ ${fmtMoney(c.valorTotal)}`, { bold: true, color: '#16a34a' }) : '',
-  ].filter(Boolean).join('') : '';
+  ].filter(Boolean).join('');
 
   const devRows = [
     dev.data ? row('Data da Devolução', fmt(dev.data)) : '',
@@ -542,7 +602,12 @@ function buildDevolucaoHtml(contrato, comprovante) {
     c.endereco ? row('Endereço', `${fmt(c.endereco)}${c.numero_endereco ? `, ${esc(c.numero_endereco)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
   ].filter(Boolean).join('');
 
-  const condRows = dev.condicoes ? row('Observações', fmt(dev.condicoes)) : '';
+  const condicoes = dev.condicoes || {};
+  const condicoesList = [];
+  if (condicoes.danificado) condicoesList.push('Danificado');
+  if (condicoes.extraviado) condicoesList.push('Extraviado');
+  if (condicoes.testarEmpresa) condicoesList.push('Testar na Empresa');
+  const condRows = condicoesList.length > 0 ? row('Condições', condicoesList.join(', ')) : '';
 
   let html = `
 ${brandHeader('Devolução Registrada', 'SISTEMA DE GESTÃO DE LOCAÇÃO', 'DEVOLUÇÃO', '#111827', '#f97316')}
@@ -554,6 +619,11 @@ ${sectionBlock('Dados do Contrato', '#111827', '#f97316', r)}`;
   if (equipRows) {
     html += `${sectionBlock('Dados da Locação', '#111827', '#f97316', equipRows)}`;
   }
+
+  if (itens.length > 0) {
+    html += sectionBlock('Itens Devolvidos', '#111827', '#f97316', `<tr><td style="padding:0;">${buildItemsTableHtml(itens, '#f97316')}</td></tr>`);
+  }
+
   if (devRows) {
     html += `${sectionBlock('Dados da Devolução', '#111827', '#f97316', devRows)}`;
   }
@@ -598,18 +668,27 @@ ${sectionBlock('Dados da Alteração', '#111827', '#8b5cf6', r)}
 function buildPlainText(tipo, contrato, comprovante, signatario, usuario) {
   const num = contrato?.numero || contrato?.id || comprovante?.contrato || '-';
   const cliente = contrato?.cliente || comprovante?.locatario || '-';
+  const itens = comprovante?.itens || contrato?.itens || [];
+  const itensText = Array.isArray(itens) && itens.length > 0
+    ? '\nItens:\n' + itens.map(it => {
+        if (typeof it === 'string') return '  - ' + it;
+        const pat = it.patrimonio ? ` [Pat: ${it.patrimonio}]` : '';
+        const val = Number(it.valorUnitario || 0) > 0 ? ` - R$ ${Number(it.valorUnitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '';
+        return `  - ${it.quantidade || 1}x ${it.descricao || it.nome || '-'}${pat}${val}`;
+      }).join('\n')
+    : '';
   const footer = '\n\n====================================\nTransObra — Gestão de Locação de Equipamentos\nAv. Taruma, 1605 — Manaus/AM — CEP 69060-000\nTelefone: (92) 99386-7171\nE-mail: contato@transobra.com.br\nCNPJ: 00.000.000/0001-00\n====================================\n\nEste é um e-mail automático do sistema TransObra.\nSe não deseja mais receber, entre em contato conosco.';
   switch (tipo) {
     case 'contrato_criado':
-      return `NOVO CONTRATO CADASTRADO — TransObra\n\nUm novo contrato foi cadastrado no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : '-'}\nPeríodo: ${contrato?.inicio || '-'} a ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mês\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `NOVO CONTRATO CADASTRADO — TransObra\n\nUm novo contrato foi cadastrado no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : '-'}\nPeríodo: ${contrato?.inicio || '-'} a ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mês\n${itensText}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'contrato_assinado':
-      return `CONTRATO ASSINADO — TransObra\n\nO contrato foi assinado digitalmente com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nAssinado por: ${signatario?.nome || '-'}\nData da Assinatura: ${signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `CONTRATO ASSINADO — TransObra\n\nO contrato foi assinado digitalmente com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nAssinado por: ${signatario?.nome || '-'}\nData da Assinatura: ${signatario?.data ? new Date(signatario.data).toLocaleDateString('pt-BR') : '-'}\n${itensText}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'contrato_renovado':
-      return `CONTRATO RENOVADO — TransObra\n\nO contrato foi renovado com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nNova Validade: ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mês\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `CONTRATO RENOVADO — TransObra\n\nO contrato foi renovado com sucesso.\n\nContrato: ${num}\nCliente: ${cliente}\nNova Validade: ${contrato?.fim || '-'}\nValor Mensal: R$ ${Number(contrato?.valorMensal || 0).toLocaleString('pt-BR')}/mês\n${itensText}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     case 'devolucao_registrada': {
       const dev = comprovante?._devolucao || {};
       const equips = Array.isArray(contrato?.equipamentos) ? contrato.equipamentos.join(', ') : (Array.isArray(comprovante?.itens) ? comprovante.itens.map(i => i.nome || i.descricao || i).join(', ') : '-');
-      return `DEVOLUÇÃO REGISTRADA — TransObra\n\nUma devolução de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${equips}\nData da Devolução: ${dev.data || '-'}\nHora: ${dev.hora || '-'}\nLocal da Obra: ${dev.localObra || '-'}\nRecebido por: ${dev.signatarioNome || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
+      return `DEVOLUÇÃO REGISTRADA — TransObra\n\nUma devolução de equipamento foi registrada no sistema.\n\nContrato: ${num}\nCliente: ${cliente}\nEquipamentos: ${equips}\nData da Devolução: ${dev.data || '-'}\nHora: ${dev.hora || '-'}\nLocal da Obra: ${dev.localObra || '-'}\nRecebido por: ${dev.signatarioNome || '-'}\n${itensText}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;
     }
     case 'role_change':
       return `ALTERAÇÃO DE FUNÇÃO — TransObra\n\nA função de um usuário foi alterada no sistema.\n\nUsuário: ${usuario?.nome || '-'}\nE-mail: ${usuario?.email || '-'}\nNova Função: ${usuario?.novaFuncao || '-'}\n\nAcesse o sistema TransObra para visualizar os detalhes.${footer}`;

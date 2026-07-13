@@ -124,6 +124,25 @@ function buildLocatarioBlock(d) {
     </table>`;
 }
 
+function buildContractInfoBlock(c) {
+  return `
+    <div style="border:1px solid ${BRAND.cinzaBorda};padding:6px;margin:6px 0;">
+      <div style="text-align:center;font-weight:700;font-size:9px;margin-bottom:4px;color:${BRAND.preto};padding-bottom:3px;border-bottom:1px solid ${BRAND.cinzaBorda};">
+        DADOS DO CONTRATO
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${buildInfoGrid([
+          ['Inicio', c.inicio || '-'],
+          ['Fim', c.fim || '-'],
+          ['Valor Mensal', 'R$ ' + formatMoney(c.valorMensal) + '/mes'],
+          ['Valor Total', 'R$ ' + formatMoney(c.valorTotal)],
+          ['Status', (c.status || '-').toUpperCase()],
+          c.assinado ? ['Assinatura', 'CONTRATO ASSINADO'] : null,
+        ])}
+      </table>
+    </div>`;
+}
+
 function buildItemsTableEntrega(itens) {
   if (!itens || itens.length === 0) return '';
   const rows = itens.map((it) => `
@@ -248,6 +267,8 @@ export async function generateEntregaPDF(comprovante) {
 
       ${c.telefoneEntrega ? `<div style="margin:3px 0;font-size:9px;"><strong style="color:${BRAND.preto};">Telefone do local:</strong> ${esc(c.telefoneEntrega)}</div>` : ''}
 
+      ${c.referencia ? `<div style="margin:3px 0;font-size:9px;"><strong style="color:${BRAND.preto};">Referencia:</strong> ${esc(c.referencia)}</div>` : ''}
+
       ${buildItemsTableEntrega(itens)}
 
       <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
@@ -315,7 +336,8 @@ export async function generateDevolucaoPDF(devolucao) {
   const itensHtml = itens.length > 0
     ? itens.map((it) => `
       <div style="margin:2px 0;font-size:9px;padding:2px 4px;">
-        ${checkbox(it.qtdDevolvida > 0)}&nbsp;&nbsp;${it.quantidade || 1} - ${esc(it.descricao || '')} - ${esc(it.patrimonio || '')}
+        ${checkbox(it.qtdDevolvida > 0)}&nbsp;&nbsp;${it.quantidade || 1} - ${esc(it.descricao || '')}
+        ${it.patrimonio ? `<strong style="color:${BRAND.preto};"> [Pat: ${esc(it.patrimonio)}]</strong>` : ''}
         ${it.qtdFaltante > 0 ? `<span style="color:${BRAND.vermelho};margin-left:6px;font-weight:700;">FALTANTE: ${it.qtdFaltante}</span>` : ''}
       </div>`).join('')
     : `<p style="font-size:9px;color:${BRAND.cinzaTexto};">Nenhum item informado</p>`;
@@ -439,6 +461,8 @@ export async function generateContratoPDF(contrato) {
 
       ${contrato.telefoneEntrega ? `<div style="margin:3px 0;font-size:9px;"><strong style="color:${BRAND.preto};">Telefone do local de entrega:</strong> ${esc(contrato.telefoneEntrega)}</div>` : ''}
 
+      ${contrato.referencia ? `<div style="margin:3px 0;font-size:9px;"><strong style="color:${BRAND.preto};">Referencia:</strong> ${esc(contrato.referencia)}</div>` : ''}
+
       ${buildItemsTableEntrega(itens)}
 
       <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
@@ -447,31 +471,19 @@ export async function generateContratoPDF(contrato) {
         </td></tr>
       </table>
 
+      ${equipamentos.length > 0 ? `
       <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;padding:6px;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
         <tr><td style="font-size:9px;">
           <strong style="color:${BRAND.preto};">Equipamentos:</strong> ${esc(equipamentos.join(', ') || '-')}
         </td></tr>
-      </table>
+      </table>` : ''}
 
       ${contrato.observacao ? `
       <div style="margin:4px 0;font-size:9px;padding:4px 8px;border-left:3px solid ${BRAND.amarelo};">
         <strong style="color:${BRAND.preto};">Observacao:</strong> ${esc(contrato.observacao)}
       </div>` : ''}
 
-      ${buildSectionTitle('DADOS DO CONTRATO')}
-      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${BRAND.cinzaBorda};padding:6px;">
-        ${buildInfoGrid([
-          ['Inicio', contrato.inicio || '-'],
-          ['Fim', contrato.fim || '-'],
-          ['Valor Mensal', 'R$ ' + formatMoney(contrato.valorMensal) + '/mes'],
-          ['Valor Total', 'R$ ' + formatMoney(contrato.valorTotal)],
-        ])}
-      </table>
-
-      <div style="text-align:center;margin:6px 0;">
-        <span style="font-size:9px;color:${BRAND.cinzaTexto};">Status: ${contrato.status?.toUpperCase() || '-'}</span>
-        ${contrato.assinado ? `<div style="font-size:9px;color:${BRAND.verde};font-weight:700;margin-top:2px;">CONTRATO ASSINADO</div>` : ''}
-      </div>
+      ${buildContractInfoBlock(contrato)}
 
       <div style="text-align:right;margin-top:6px;font-size:9px;color:#374151;">
         ${esc(contrato.cidade || EMPRESA.cidade)}, ${dataPorExtenso(contrato.dataContrato)}
@@ -514,12 +526,9 @@ export async function generateFallbackEmailPDF(emailData) {
     devolucao_registrada: 'NOTIFICACAO - DEVOLUCAO REGISTRADA',
   }[tipo] || 'NOTIFICACAO';
 
-  const itens = comprovante.itens || devolucao.itens || contrato.equipamentos || [];
-  const itensHtml = Array.isArray(itens) && itens.length > 0
-    ? itens.map((it) => `
-      <div style="margin:2px 0;font-size:9px;padding:2px 4px;">
-        ${typeof it === 'string' ? esc(it) : `${esc(it.quantidade || 1)}x ${esc(it.descricao || it.nome || '-')} ${it.patrimonio ? '- Pat: ' + esc(it.patrimonio) : ''}`}
-      </div>`).join('')
+  const itens = comprovante.itens || devolucao.itens || contrato.itens || [];
+  const itensTableHtml = Array.isArray(itens) && itens.length > 0
+    ? buildItemsTableEntrega(itens.filter(it => typeof it === 'object'))
     : `<p style="font-size:9px;color:${BRAND.cinzaTexto};">Nenhum item informado</p>`;
 
   const html = `
@@ -553,14 +562,7 @@ export async function generateFallbackEmailPDF(emailData) {
       </div>` : ''}
 
       ${buildSectionTitle('ITENS')}
-      ${itensHtml}
-
-      ${(contrato.valorTotal || comprovante.total) ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
-        <tr><td style="text-align:right;font-weight:700;font-size:10px;padding:4px 8px;">
-          TOTAL: R$ ${formatMoney(contrato.valorTotal || comprovante.total)}
-        </td></tr>
-      </table>` : ''}
+      ${itensTableHtml}
 
       ${contrato.inicio ? `
       <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;padding:6px;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">

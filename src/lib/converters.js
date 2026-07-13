@@ -90,6 +90,9 @@ const SNAKE_TO_CAMEL = {
   qtd_devolvida: 'qtdDevolvida',
   qtd_faltante: 'qtdFaltante',
   condicoes: 'condicoes',
+  fotos_entrega: 'fotosEntrega',
+  fotos_retirada: 'fotosRetirada',
+  funcionario_id: 'funcionarioId',
 };
 
 const CAMEL_TO_SNAKE = {};

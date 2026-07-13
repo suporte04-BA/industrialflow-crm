@@ -188,64 +188,92 @@ export async function generateEntregaPDF(comprovante) {
   const c = comprovante;
   const itens = Array.isArray(c.itens) ? c.itens : [];
   const total = c.total != null ? c.total : itens.reduce((s, it) => s + (it.quantidade || 1) * (it.valorUnitario || 0), 0);
+  const fotosEntrega = Array.isArray(c.fotosEntrega) ? c.fotosEntrega : (Array.isArray(c.fotos_entrega) ? c.fotos_entrega : []);
+  const fotosRetirada = Array.isArray(c.fotosRetirada) ? c.fotosRetirada : (Array.isArray(c.fotos_retirada) ? c.fotos_retirada : []);
 
   const html = `
-    <div style="font-family:Arial,sans-serif;padding:10px;max-width:760px;margin:0 auto;font-size:10px;color:#374151;">
+    <div style="font-family:Arial,sans-serif;padding:6px;max-width:760px;margin:0 auto;font-size:9px;color:#374151;">
       ${buildHeader()}
 
-      <div style="padding:12px 0;">
-        <div style="text-align:center;margin:8px 0 12px 0;">
-          <span style="font-size:13px;font-weight:bold;color:${BRAND.preto};letter-spacing:1px;">COMPROVANTE DE ENTREGA</span>
+      <div style="padding:8px 0;">
+        <div style="text-align:center;margin:4px 0 8px 0;">
+          <span style="font-size:12px;font-weight:bold;color:${BRAND.preto};letter-spacing:1px;">COMPROVANTE DE ENTREGA</span>
         </div>
 
-        <div style="display:flex;justify-content:space-between;margin:6px 0;font-size:10px;">
+        <div style="display:flex;justify-content:space-between;margin:4px 0;font-size:9px;">
           <span><strong style="color:${BRAND.preto};">CONTRATO:</strong> ${esc(c.numero || c.contrato || '')}</span>
           <span><strong style="color:${BRAND.preto};">ATENDENTE:</strong> ${esc(c.atendente || '')}</span>
         </div>
 
-        <div style="background:${BRAND.cinzaFundo};padding:8px 10px;border-radius:4px;margin:8px 0;">
-          <div style="font-size:10px;line-height:1.6;">
-            <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(c.locatario || '')}<br>
-            <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(c.cidade || '')}<br>
+        <div style="background:${BRAND.cinzaFundo};padding:6px 8px;border-radius:4px;margin:4px 0;">
+          <div style="font-size:9px;line-height:1.5;">
+            <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(c.locatario || '')} | <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(c.cidade || '')}<br>
             <strong style="color:${BRAND.preto};">Local da entrega:</strong> ${esc(c.localEntrega || '')}
           </div>
         </div>
 
-        <p style="text-align:justify;margin:10px 0;font-size:10px;color:#374151;line-height:1.5;">
+        <p style="text-align:justify;margin:6px 0;font-size:9px;color:#374151;line-height:1.4;">
           DECLARO(AMOS) para os fins e efeito de direito que recebi(emos) o(s) objeto(s) abaixo discriminado(s):
         </p>
 
         ${buildLocatarioBlock(c)}
 
-        ${c.telefoneEntrega ? `
-        <div style="margin:6px 0;font-size:10px;">
-          <strong style="color:${BRAND.preto};">Telefone do local de entrega:</strong> ${esc(c.telefoneEntrega)}
-        </div>` : ''}
+        ${c.telefoneEntrega ? `<div style="margin:4px 0;font-size:9px;"><strong style="color:${BRAND.preto};">Telefone do local:</strong> ${esc(c.telefoneEntrega)}</div>` : ''}
 
         ${buildItemsTableEntrega(itens)}
 
-        <div style="text-align:right;font-weight:bold;margin:8px 0;font-size:11px;padding:6px 10px;background:${BRAND.amareloClaro};border-radius:4px;">
+        <div style="text-align:right;font-weight:bold;margin:4px 0;font-size:10px;padding:4px 8px;background:${BRAND.amareloClaro};border-radius:4px;">
           <span style="color:${BRAND.preto};">TOTAL: R$ ${formatMoney(total)}</span>
         </div>
 
-        <p style="font-size:10px;text-align:justify;margin:10px 0;color:#374151;line-height:1.5;">
+        <p style="font-size:9px;text-align:justify;margin:6px 0;color:#374151;line-height:1.4;">
           Declaro que recebi todos os equipamentos acima listados testados e aptos para uso.
         </p>
 
-        <div style="text-align:right;margin-top:12px;font-size:10px;color:#374151;">
+        <div style="text-align:right;margin-top:6px;font-size:9px;color:#374151;">
           ${esc(c.cidade || EMPRESA.cidade)}, ${dataPorExtenso(c.data)}
         </div>
 
         ${buildSignatureBlock(c.signatarioNome || c.nomeSignatario, c.signatureImg || c.assinaturaImagem || c.assinaturaImg)}
 
         ${c.observacao ? `
-        <div style="margin-top:12px;font-size:10px;padding:6px 10px;background:${BRAND.amareloClaro};border-left:3px solid ${BRAND.amarelo};border-radius:0 4px 4px 0;">
+        <div style="margin-top:8px;font-size:9px;padding:4px 8px;background:${BRAND.amareloClaro};border-left:3px solid ${BRAND.amarelo};border-radius:0 4px 4px 0;">
           <strong style="color:${BRAND.preto};">Observacao:</strong> ${esc(c.observacao)}
         </div>` : ''}
 
-        ${c.metodoEntrega ? `
-        <p style="margin-top:10px;font-size:9px;font-style:italic;color:${BRAND.cinzaTexto};">${esc(getMetodoEntregaText(c.metodoEntrega))}</p>` : ''}
+        ${c.metodoEntrega ? `<p style="margin-top:6px;font-size:8px;font-style:italic;color:${BRAND.cinzaTexto};">${esc(getMetodoEntregaText(c.metodoEntrega))}</p>` : ''}
       </div>
+
+      ${fotosEntrega.length > 0 || fotosRetirada.length > 0 ? `
+      <div style="page-break-before:always;margin-top:0;">
+        <div style="text-align:center;margin:8px 0 12px 0;padding:6px;background:${BRAND.preto};border-radius:6px;">
+          <span style="font-size:12px;font-weight:bold;color:${BRAND.branco};letter-spacing:1px;">REGISTRO FOTOGRÁFICO</span>
+        </div>
+        ${fotosEntrega.length > 0 ? `
+        <div style="margin:8px 0;">
+          <div style="font-size:10px;font-weight:bold;color:${BRAND.preto};margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid ${BRAND.cinzaBorda};">FOTOS DA ENTREGA</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${fotosEntrega.map((foto, idx) => `
+              <div style="flex:1;min-width:30%;max-width:32%;text-align:center;">
+                <img src="${foto}" style="width:100%;height:auto;border:1px solid ${BRAND.cinzaBorda};border-radius:4px;" />
+                <div style="font-size:7px;color:${BRAND.cinzaTexto};margin-top:2px;">Foto ${idx + 1} - Entrega</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+        ${fotosRetirada.length > 0 ? `
+        <div style="margin:8px 0;">
+          <div style="font-size:10px;font-weight:bold;color:${BRAND.preto};margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid ${BRAND.cinzaBorda};">FOTOS DA RETIRADA</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${fotosRetirada.map((foto, idx) => `
+              <div style="flex:1;min-width:30%;max-width:32%;text-align:center;">
+                <img src="${foto}" style="width:100%;height:auto;border:1px solid ${BRAND.cinzaBorda};border-radius:4px;" />
+                <div style="font-size:7px;color:${BRAND.cinzaTexto};margin-top:2px;">Foto ${idx + 1} - Retirada</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+      </div>` : ''}
 
       ${buildFooter('COMPROVANTE DE ENTREGA')}
     </div>`;

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2, Download, User } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download, User, Camera, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
@@ -7,6 +7,7 @@ import { useContratos, useUpdateContrato } from '../hooks/useContratos';
 import { useAuth } from '../lib/AuthContext';
 import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
+import CameraCapture from '../components/ui/CameraCapture';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
@@ -35,6 +36,8 @@ export default function AssinaturaDigital() {
   const [cpfSignatario, setCpfSignatario] = useState('');
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [fotosEntrega, setFotosEntrega] = useState([]);
+  const [fotosRetirada, setFotosRetirada] = useState([]);
 
   const { isFuncionario, profile } = useAuth();
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
@@ -236,6 +239,8 @@ export default function AssinaturaDigital() {
         cpfSignatario,
         assinaturaImagem: imagem,
         funcionarioId: isFuncionario ? profile?.id : null,
+        fotosEntrega: fotosEntrega.length > 0 ? fotosEntrega : [],
+        fotosRetirada: fotosRetirada.length > 0 ? fotosRetirada : [],
       });
 
       const comp = (comprovantes || []).find((c) => c.id === selectedComprovante);
@@ -389,6 +394,80 @@ export default function AssinaturaDigital() {
               </div>
               <p className="text-xs text-gray-500 mt-1">Quem recebeu o equipamento deve assinar aqui</p>
             </div>
+
+            <div className="bg-blue-50 rounded-lg border border-blue-200 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Camera className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-800">Fotos Obrigatórias da Entrega (3)</span>
+              </div>
+              <p className="text-xs text-blue-600 mb-3">Tire fotos do equipamento no momento da entrega</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={`entrega-${i}`}>
+                    <CameraCapture
+                      label={fotosEntrega[i] ? `Foto ${i + 1}` : `Foto ${i + 1}`}
+                      icon={Camera}
+                      onCapture={(img) => {
+                        const newFotos = [...fotosEntrega];
+                        newFotos[i] = img;
+                        setFotosEntrega(newFotos);
+                      }}
+                      disabled={saving}
+                    />
+                    {fotosEntrega[i] && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <img src={fotosEntrega[i]} alt={`Entrega ${i + 1}`} className="w-full h-16 object-cover rounded border" />
+                        <button onClick={() => {
+                          const newFotos = [...fotosEntrega];
+                          newFotos.splice(i, 1);
+                          setFotosEntrega(newFotos);
+                        }} className="text-red-400 hover:text-red-600 p-0.5">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {fotosEntrega.length >= 3 && <p className="text-xs text-green-600 mt-2 font-medium">3 fotos capturadas</p>}
+            </div>
+
+            <div className="bg-orange-50 rounded-lg border border-orange-200 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Image className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-semibold text-orange-800">Fotos da Retirada (3)</span>
+              </div>
+              <p className="text-xs text-orange-600 mb-3">Tire fotos do equipamento no momento da retirada (opcional)</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={`retirada-${i}`}>
+                    <CameraCapture
+                      label={fotosRetirada[i] ? `Foto ${i + 1}` : `Foto ${i + 1}`}
+                      icon={Image}
+                      onCapture={(img) => {
+                        const newFotos = [...fotosRetirada];
+                        newFotos[i] = img;
+                        setFotosRetirada(newFotos);
+                      }}
+                      disabled={saving}
+                    />
+                    {fotosRetirada[i] && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <img src={fotosRetirada[i]} alt={`Retirada ${i + 1}`} className="w-full h-16 object-cover rounded border" />
+                        <button onClick={() => {
+                          const newFotos = [...fotosRetirada];
+                          newFotos.splice(i, 1);
+                          setFotosRetirada(newFotos);
+                        }} className="text-red-400 hover:text-red-600 p-0.5">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-2">
               <Button variant="secondary" onClick={clearCanvas} icon={Eraser}>Limpar</Button>
               <Button onClick={handleSave} icon={saving ? Loader2 : Save} disabled={saving || sendingEmail}>

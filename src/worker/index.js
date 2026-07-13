@@ -254,8 +254,8 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
       const neededH = Math.max(22, valueLines.length * 13 + 8);
       checkPage(neededH);
 
-      const bgColor = i % 2 === 0 ? rgb(0.96, 0.96, 0.98) : rgb(1, 1, 1);
-      page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: bgColor });
+      const bgColor = i % 2 === 0 ? rgb(0.97, 0.97, 0.98) : rgb(0.99, 0.99, 1.0);
+      page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: bgColor, borderWidth: 0 });
 
       page.drawText(label, { x: ML + 8, y: y - 1, size: 9, font: helveticaBold, color: rgb(0.12, 0.12, 0.12) });
 
@@ -893,6 +893,25 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImag
 async function sendEmailWithFallback(env, data) {
   const { tipo, destinatario, contrato, comprovante, signatario, usuario, devolucao } = data;
 
+  // Anti-spam: idempotency check
+  const idempotencyKey = makeIdempotencyKey(
+    tipo,
+    contrato?.id || contrato?.numero,
+    comprovante?.id,
+    destinatario
+  );
+  if (wasRecentlySent(idempotencyKey)) {
+    console.log(`[EMAIL] Skipping duplicate email: ${tipo} to ${destinatario} (key: ${idempotencyKey})`);
+    return { success: true, provider: 'deduplicated', skipped: true };
+  }
+
+  // Anti-spam: rate limit per recipient domain
+  const domain = destinatario?.split('@')[1] || 'unknown';
+  if (!checkRateLimit(domain, 15, 60000)) {
+    console.log(`[EMAIL] Rate limited for domain ${domain}`);
+    return { success: false, error: 'Rate limited', provider: 'rate_limiter' };
+  }
+
   let htmlBody = '';
   switch (tipo) {
     case 'contrato_criado': htmlBody = buildContratoCriadoHtml(contrato); break;
@@ -913,7 +932,10 @@ async function sendEmailWithFallback(env, data) {
   console.log(`[EMAIL] Attempting GAS for ${tipo} to ${destinatario}`);
   const gasResult = await sendEmailViaGoogleScript(env, data);
   console.log(`[EMAIL] GAS result: success=${gasResult.success} error=${gasResult.error || 'none'}`);
-  if (gasResult.success) return { ...gasResult, provider: 'google_apps_script' };
+  if (gasResult.success) {
+    markSent(idempotencyKey);
+    return { ...gasResult, provider: 'google_apps_script' };
+  }
 
   // Prepare inline images for Maileroo (supports cid: via inline attachments)
   const mailerooInlineImages = {};
@@ -998,7 +1020,10 @@ async function sendEmailWithFallback(env, data) {
     console.log(`[EMAIL] GAS failed, attempting Maileroo for ${tipo} to ${destinatario}`);
     const result = await sendEmailViaMaileroo(env, assunto, mailerooHtml, destinatario, mailerooInlineImages, mailerooPdfAttachment);
     console.log(`[EMAIL] Maileroo result: success=${result.success} error=${result.error || 'none'} provider=${result.provider || 'maileroo'}`);
-    if (result.success) return result;
+    if (result.success) {
+      markSent(idempotencyKey);
+      return result;
+    }
   }
 
   // 3rd: Resend (proper SPF/DKIM/DMARC, no inline images support - convert cid: to data:)
@@ -1018,7 +1043,10 @@ async function sendEmailWithFallback(env, data) {
     }
     const result = await sendEmailViaResend(env, assunto, htmlForResend, destinatario);
     console.log(`[EMAIL] Resend result: success=${result.success} error=${result.error || 'none'}`);
-    if (result.success) return { ...result, provider: 'resend' };
+    if (result.success) {
+      markSent(idempotencyKey);
+      return { ...result, provider: 'resend' };
+    }
   }
 
   console.error(`[EMAIL] ALL PROVIDERS FAILED for ${tipo} to ${destinatario}. GAS: ${gasResult.error}`);
@@ -1563,64 +1591,7 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    console.log('[CRON] Scheduled test triggered at', new Date().toISOString());
-
-    let recipients = [];
-    try {
-      const serviceAuth = `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY}`;
-      const profilesResult = await supabaseRequest(env, 'GET', '/profiles?role=in.(admin,gestor)&select=email', null, serviceAuth);
-      if (profilesResult.data && Array.isArray(profilesResult.data) && profilesResult.data.length > 0) {
-        recipients = profilesResult.data.map((p) => p.email).filter(Boolean);
-      }
-    } catch { /* fallback below */ }
-    if (recipients.length === 0) {
-      recipients = [env.EMAIL_RECIPIENT || 'suporte04@baeletrica.com.br'];
-    }
-    console.log(`[CRON] Recipients: ${recipients.join(', ')}`);
-
-    const results = {};
-    for (const recipient of recipients) {
-      const testResult = await sendEmailWithFallback(env, {
-        tipo: 'contrato_assinado',
-        destinatario: recipient,
-        contrato: {
-          numero: 'TESTE-CRON-001',
-          cliente: 'Teste Automatico GAS',
-          cnpj: '12.345.678/0001-90',
-          telefone: '(92) 99386-7171',
-          equipamentos: ['ROCADEIRA GASOLINA 4 TEMPOS'],
-          inicio: '2026-07-10',
-          fim: '2026-07-17',
-          valorMensal: 110,
-          valorTotal: 110,
-          atendente: 'TESTE CRON',
-          localEntrega: 'RUA TESTE, 123 - CENTRO',
-          endereco: 'RUA TESTE',
-          numero_endereco: '123',
-          bairro: 'CENTRO',
-          cidade: 'MANAUS',
-          estado: 'AM',
-          cep: '69000-000',
-          contato: 'Teste CRON',
-        },
-        comprovante: {
-          contrato: 'CT-TESTE',
-          locatario: 'Teste Automatico GAS',
-          cpf: '123.456.789-00',
-          endereco: 'RUA TESTE, 123',
-          total: 110,
-          itens: [],
-        },
-        signatario: {
-          nome: 'Teste CRON',
-          cpf: '123.456.789-00',
-          data: new Date().toISOString(),
-        },
-      });
-      results[recipient] = { success: testResult.success, provider: testResult.provider || 'none', error: testResult.error || 'none' };
-      console.log(`[CRON] ${recipient}: success=${testResult.success} provider=${testResult.provider || 'none'}`);
-    }
-
-    console.log(`[CRON] All results:`, JSON.stringify(results));
+    // 9AM test cron disabled — no more automatic test emails
+    console.log('[CRON] Scheduled triggered at', new Date().toISOString(), '— no action (test cron disabled)');
   },
 };

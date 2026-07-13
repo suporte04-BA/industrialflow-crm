@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2, Download, User, Camera, Image } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download, User, Camera, Image, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
@@ -267,7 +267,7 @@ export default function AssinaturaDigital() {
         const contrato = comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null;
         const funcionarioNome = profile?.fullName || profile?.full_name || '';
         sendEmailNotification(contrato, comp, nomeSignatario, imagem, funcionarioNome).catch(() => {});
-        generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem }).catch(() => {});
+        generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem, fotosEntrega, fotosRetirada }).catch(() => {});
       } else {
         toast.success('Assinatura registrada com sucesso!');
         clearCanvas();
@@ -405,8 +405,7 @@ export default function AssinaturaDigital() {
                 {[0, 1, 2].map((i) => (
                   <div key={`entrega-${i}`}>
                     <CameraCapture
-                      label={fotosEntrega[i] ? `Foto ${i + 1}` : `Foto ${i + 1}`}
-                      icon={Camera}
+                      label={`Foto ${i + 1}`}
                       onCapture={(img) => {
                         const newFotos = [...fotosEntrega];
                         newFotos[i] = img;
@@ -419,7 +418,7 @@ export default function AssinaturaDigital() {
                         <img src={fotosEntrega[i]} alt={`Entrega ${i + 1}`} className="w-full h-16 object-cover rounded border" />
                         <button onClick={() => {
                           const newFotos = [...fotosEntrega];
-                          newFotos.splice(i, 1);
+                          newFotos[i] = null;
                           setFotosEntrega(newFotos);
                         }} className="text-red-400 hover:text-red-600 p-0.5">
                           <X size={12} />
@@ -429,7 +428,7 @@ export default function AssinaturaDigital() {
                   </div>
                 ))}
               </div>
-              {fotosEntrega.length >= 3 && <p className="text-xs text-green-600 mt-2 font-medium">3 fotos capturadas</p>}
+              {fotosEntrega.filter(Boolean).length >= 3 && <p className="text-xs text-green-600 mt-2 font-medium">3 fotos capturadas</p>}
             </div>
 
             <div className="bg-orange-50 rounded-lg border border-orange-200 p-3">
@@ -442,8 +441,7 @@ export default function AssinaturaDigital() {
                 {[0, 1, 2].map((i) => (
                   <div key={`retirada-${i}`}>
                     <CameraCapture
-                      label={fotosRetirada[i] ? `Foto ${i + 1}` : `Foto ${i + 1}`}
-                      icon={Image}
+                      label={`Foto ${i + 1}`}
                       onCapture={(img) => {
                         const newFotos = [...fotosRetirada];
                         newFotos[i] = img;
@@ -456,7 +454,7 @@ export default function AssinaturaDigital() {
                         <img src={fotosRetirada[i]} alt={`Retirada ${i + 1}`} className="w-full h-16 object-cover rounded border" />
                         <button onClick={() => {
                           const newFotos = [...fotosRetirada];
-                          newFotos.splice(i, 1);
+                          newFotos[i] = null;
                           setFotosRetirada(newFotos);
                         }} className="text-red-400 hover:text-red-600 p-0.5">
                           <X size={12} />
@@ -493,7 +491,7 @@ export default function AssinaturaDigital() {
                         <StatusBadge status="assinado" />
                         {comp && (
                           <button
-                            onClick={() => generateEntregaPDF({ ...comp, signatureImg: sig.assinaturaImagem, signatarioNome: sig.nomeSignatario }).catch(() => toast.error('Erro ao gerar PDF'))}
+                            onClick={() => generateEntregaPDF({ ...comp, signatureImg: sig.assinaturaImagem, signatarioNome: sig.nomeSignatario, fotosEntrega: sig.fotosEntrega || [], fotosRetirada: sig.fotosRetirada || [] }).catch(() => toast.error('Erro ao gerar PDF'))}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Baixar PDF"
                           >

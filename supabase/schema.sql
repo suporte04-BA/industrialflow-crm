@@ -139,7 +139,10 @@ CREATE TABLE IF NOT EXISTS assinaturas (
   cpf_signatario TEXT,
   assinatura_imagem TEXT,
   data_assinatura TIMESTAMPTZ DEFAULT NOW(),
-  ip_address TEXT
+  ip_address TEXT,
+  funcionario_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  fotos_entrega JSONB DEFAULT '[]',
+  fotos_retirada JSONB DEFAULT '[]'
 );
 
 -- ============================================
@@ -196,6 +199,8 @@ CREATE INDEX IF NOT EXISTS idx_ce_created ON comprovantes_entrega(created_at DES
 CREATE INDEX IF NOT EXISTS idx_ce_contrato ON comprovantes_entrega(contrato);
 CREATE INDEX IF NOT EXISTS idx_ce_contrato_id ON comprovantes_entrega(contrato_id);
 CREATE INDEX IF NOT EXISTS idx_as_comprovante ON assinaturas(comprovante_id);
+CREATE INDEX IF NOT EXISTS idx_as_fotos_entrega ON assinaturas USING GIN (fotos_entrega);
+CREATE INDEX IF NOT EXISTS idx_as_fotos_retirada ON assinaturas USING GIN (fotos_retirada);
 CREATE INDEX IF NOT EXISTS idx_no_updated ON notas(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_el_contrato ON email_logs(contrato_id);
 CREATE INDEX IF NOT EXISTS idx_el_created ON email_logs(created_at DESC);

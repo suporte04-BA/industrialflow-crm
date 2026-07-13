@@ -92,7 +92,6 @@ const SNAKE_TO_CAMEL = {
   condicoes: 'condicoes',
   fotos_entrega: 'fotosEntrega',
   fotos_retirada: 'fotosRetirada',
-  funcionario_id: 'funcionarioId',
 };
 
 const CAMEL_TO_SNAKE = {};

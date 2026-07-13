@@ -317,7 +317,7 @@ export default function HistoricoTransacoes() {
           const as = (assinaturas || []).find(a => a.id === item.id);
           const cp = as ? (comprovantes || []).find(c => c.id === as.comprovanteId) : null;
           if (cp) {
-            await generateEntregaPDF({ ...cp, signatureImg: as.assinaturaImagem, signatarioNome: as.nomeSignatario });
+            await generateEntregaPDF({ ...cp, signatureImg: as.assinaturaImagem, signatarioNome: as.nomeSignatario, fotosEntrega: as.fotosEntrega || [], fotosRetirada: as.fotosRetirada || [] });
           } else {
             toast.error('Comprovante associado nao encontrado');
           }

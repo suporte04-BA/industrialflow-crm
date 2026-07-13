@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Camera, X, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { Camera, RotateCcw, Check, Loader2 } from 'lucide-react';
 
 function compressImage(file, maxSize = 800, quality = 0.7) {
   return new Promise((resolve) => {
@@ -28,7 +28,7 @@ function compressImage(file, maxSize = 800, quality = 0.7) {
   });
 }
 
-export default function CameraCapture({ onCapture, label, icon: Icon, disabled = false }) {
+export default function CameraCapture({ onCapture, label, disabled = false }) {
   const [preview, setPreview] = useState(null);
   const [capturing, setCapturing] = useState(false);
   const [error, setError] = useState(null);

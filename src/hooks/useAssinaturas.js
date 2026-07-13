@@ -68,7 +68,7 @@ export function useCreateAssinatura() {
           if (error) throw error;
           return toCamel(data);
         } catch {
-          const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
+          const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), funcionarioId: funcionarioId || null, fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
           const stored = getLocal();
           stored.unshift(local);
           saveLocal(stored);
@@ -76,7 +76,7 @@ export function useCreateAssinatura() {
         }
       }
 
-      const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
+      const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), funcionarioId: funcionarioId || null, fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
       const stored = getLocal();
       stored.unshift(local);
       saveLocal(stored);

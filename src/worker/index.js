@@ -52,6 +52,56 @@ function sanitizeEdgeFuncName(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
 }
 
+// Utility: sleep with jitter for anti-spam
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function jitterDelay(baseMs, attempt) {
+  const delay = Math.min(baseMs * Math.pow(2, attempt), 60000);
+  return Math.floor(Math.random() * delay);
+}
+
+// Anti-spam: rate limiting via in-memory token bucket per domain
+const rateLimits = new Map();
+function checkRateLimit(domain, limit = 10, windowMs = 60000) {
+  const now = Date.now();
+  const key = domain;
+  if (!rateLimits.has(key)) rateLimits.set(key, []);
+  const timestamps = rateLimits.get(key).filter(t => now - t < windowMs);
+  rateLimits.set(key, timestamps);
+  if (timestamps.length >= limit) return false;
+  timestamps.push(now);
+  return true;
+}
+
+// Idempotency key for email dedup
+function makeIdempotencyKey(tipo, contratoId, comprovanteId, recipient) {
+  const payload = `${tipo}:${contratoId || 'none'}:${comprovanteId || 'none'}:${recipient}:${new Date().toISOString().slice(0, 13)}`;
+  let hash = 0;
+  for (let i = 0; i < payload.length; i++) {
+    hash = ((hash << 5) - hash + payload.charCodeAt(i)) | 0;
+  }
+  return `email-${Math.abs(hash).toString(36)}`;
+}
+
+// Email sent dedup store (in-memory, TTL 1 hour)
+const sentEmails = new Map();
+function wasRecentlySent(key) {
+  const entry = sentEmails.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry > 3600000) { sentEmails.delete(key); return false; }
+  return true;
+}
+function markSent(key) {
+  sentEmails.set(key, Date.now());
+  // Cleanup old entries periodically
+  if (sentEmails.size > 1000) {
+    const cutoff = Date.now() - 3600000;
+    for (const [k, v] of sentEmails) { if (v < cutoff) sentEmails.delete(k); }
+  }
+}
+
 function esc(v) {
   if (v === null || v === undefined) return '';
   return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

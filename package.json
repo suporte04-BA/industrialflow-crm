@@ -8,10 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy:pages": "npm run build && npx wrangler pages deploy dist --project-name=transobras",
-    "deploy:worker": "echo 'Use deploy:pages instead'",
-    "deploy:all": "npm run build && npx wrangler pages deploy dist --project-name=transobras",
-    "logs": "npx wrangler pages deployment list --project-name=transobras"
+    "deploy:worker": "npm run build && npx wrangler deploy",
+    "deploy:all": "npm run build && npx wrangler deploy",
+    "logs": "npx wrangler tail transobras"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

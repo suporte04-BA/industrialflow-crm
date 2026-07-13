@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft, Printer, Edit3 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useOrdensServico, useUpdateOS } from '../hooks/useOrdensServico';
 import StatusBadge from '../components/ui/StatusBadge';
 
@@ -28,7 +29,6 @@ const prioridadeLabels = {
 
 export default function OSPrintPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const { data: osList } = useOrdensServico();
@@ -62,9 +62,10 @@ export default function OSPrintPage() {
   const handleSave = async () => {
     try {
       await updateOS.mutateAsync({ id: os.id, updates: formData });
+      toast.success('Ordem de Servico atualizada com sucesso!');
       setEditing(false);
     } catch (err) {
-      console.error(err);
+      toast.error('Erro ao salvar: ' + (err.message || 'Erro desconhecido'));
     }
   };
 

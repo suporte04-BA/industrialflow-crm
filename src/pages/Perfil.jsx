@@ -10,48 +10,53 @@ import StatusBadge from '../components/ui/StatusBadge';
 import { generateEntregaPDF } from '../lib/pdfExport';
 
 function PerfilModal({ isOpen, onClose, title, subtitle, icon: Icon, iconColor, children }) {
-  if (!isOpen) return null;
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 sm:p-4"
-        onClick={onClose}
-      >
+      {isOpen && (
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 10 }}
-          className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
+          key="perfil-modal-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 sm:p-4"
+          onClick={onClose}
         >
-          <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconColor}`}>
-                <Icon size={20} />
+          <motion.div
+            key="perfil-modal-content"
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconColor}`}>
+                  <Icon size={20} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 truncate">{title}</h3>
+                  {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
+                </div>
               </div>
-              <div className="min-w-0">
-                <h3 className="text-base font-bold text-gray-900 truncate">{title}</h3>
-                {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
-              </div>
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0 text-gray-400 hover:text-gray-700">
+                <X size={20} />
+              </button>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0 text-gray-400 hover:text-gray-700">
-              <X size={20} />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-            {children}
-          </div>
-          <div className="p-4 border-t flex shrink-0">
-            <button onClick={onClose}
-              className="w-full py-2.5 px-4 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
-              Fechar
-            </button>
-          </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              {children}
+            </div>
+            <div className="p-4 border-t flex shrink-0">
+              <button onClick={onClose}
+                className="w-full py-2.5 px-4 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

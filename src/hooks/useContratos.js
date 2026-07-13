@@ -162,7 +162,7 @@ export function useCreateContrato() {
       };
 
       if (isConfigured()) {
-        // Optimistic update: add to UI instantly
+        // 1. Optimistic update: UI sees the contract instantly
         queryClient.setQueryData(['contratos'], (old = []) => [item, ...old]);
 
         const payload = toSnake({
@@ -192,42 +192,45 @@ export function useCreateContrato() {
           telefoneEntrega: newCt.telefoneEntrega || '',
           itens: newCt.itens || [],
           observacao: newCt.observacao || '',
-          tipoDocumento: newCt.tipoDocumento || 'entrega',
-          condicoesDevolucao: newCt.condicoesDevolucao || null,
         });
 
-        // Background: sync with Supabase (no blocking)
-        supabase.from('contratos').insert(payload).then(({ error }) => {
-          if (error) {
-            console.error('[contrato sync]', error);
+        // 2. Background: insert contract in Supabase (non-blocking, with rollback on failure)
+        supabase.from('contratos').insert(payload).select().single().then(({ data: insertedCt, error: ctError }) => {
+          if (ctError) {
+            console.error('[contrato] Insert failed:', ctError);
             queryClient.setQueryData(['contratos'], (old = []) => old.filter(c => c.id !== item.id));
+            return;
           }
-        }).catch(() => {});
+          // Update optimistic cache with real server data (e.g. server-generated defaults)
+          const ctSaved = toCamel(insertedCt);
+          queryClient.setQueryData(['contratos'], (old = []) => old.map(c => c.id === item.id ? ctSaved : c));
 
-        const ctSaved = item;
+          // === SECONDARY: comprovante, OS, equipamentos, email ===
+          const retryOp = async (fn, name, retries = 3) => {
+            for (let i = 0; i <= retries; i++) {
+              try { return await fn(); } catch (e) {
+                console.error(`[contrato ${name}] attempt ${i + 1} failed:`, e.message);
+                if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+              }
+            }
+          };
 
-        // Fire-and-forget: comprovante + email + OS + equipamentos
-        const compPayload = toSnake({
-          contratoId: ctSaved.id, contrato: ctSaved.id,
-          atendente: ctSaved.atendente || '',
-          data: ctSaved.dataContrato || formatDateTime(now),
-          hora: ctSaved.horaContrato || formatTime(now),
-          locatario: ctSaved.cliente, cpf: ctSaved.cnpj, contato: ctSaved.contato,
-          rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
-          endereco: ctSaved.endereco, numero: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
-          cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
-          localEntrega: ctSaved.localEntrega, telefoneEntrega: ctSaved.telefoneEntrega,
-          itens: ctSaved.itens || [], total: ctSaved.valorTotal || 0,
-          observacao: ctSaved.observacao, status: 'pendente', assinado: false,
-          tipoDocumento: newCt.tipoDocumento || 'entrega',
-          condicoesDevolucao: newCt.condicoesDevolucao || null,
-        });
+          const compPayload = toSnake({
+            contratoId: ctSaved.id, contrato: ctSaved.id,
+            atendente: ctSaved.atendente || '',
+            data: ctSaved.dataContrato || formatDateTime(now),
+            hora: ctSaved.horaContrato || formatTime(now),
+            locatario: ctSaved.cliente, cpf: ctSaved.cnpj, contato: ctSaved.contato,
+            rg: ctSaved.rg || '', telefone: ctSaved.telefone || '',
+            endereco: ctSaved.endereco, numero: ctSaved.numeroEndereco, bairro: ctSaved.bairro,
+            cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep,
+            localEntrega: ctSaved.localEntrega, telefoneEntrega: ctSaved.telefoneEntrega,
+            itens: ctSaved.itens || [], total: ctSaved.valorTotal || 0,
+            observacao: ctSaved.observacao, status: 'pendente', assinado: false,
+          });
 
-        const osTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao' : 'entrega';
-
-        // All background tasks - no await
-        Promise.allSettled([
-          supabase.from('comprovantes_entrega').insert(compPayload).then(() => {
+          retryOp(() => supabase.from('comprovantes_entrega').insert(compPayload), 'comprovante').then(() => {
+            queryClient.invalidateQueries({ queryKey: ['comprovantes'] });
             const emailTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao_registrada' : 'contrato_criado';
             const contratoEmail = { id: ctSaved.id, numero: ctSaved.numero, cliente: ctSaved.cliente, cnpj: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', equipamentos: ctSaved.equipamentos, inicio: ctSaved.inicio, fim: ctSaved.fim, valorMensal: ctSaved.valorMensal, valorTotal: ctSaved.valorTotal, atendente: ctSaved.atendente, localEntrega: ctSaved.localEntrega, endereco: ctSaved.endereco, numero_endereco: ctSaved.numeroEndereco, bairro: ctSaved.bairro, cidade: ctSaved.cidade, estado: ctSaved.estado, cep: ctSaved.cep, contato: ctSaved.contato };
             const comprovanteEmail = { id: null, locatario: ctSaved.cliente, cpf: ctSaved.cnpj, rg: ctSaved.rg || '', telefone: ctSaved.telefone || '', endereco: ctSaved.endereco, cidade: ctSaved.cidade, total: ctSaved.valorTotal, itens: ctSaved.itens, localEntrega: ctSaved.localEntrega };
@@ -235,19 +238,30 @@ export function useCreateContrato() {
               ? { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: null, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail, devolucao: { numero: ctSaved.numero || ctSaved.id, contratoId: ctSaved.id, locatario: ctSaved.cliente, data: ctSaved.dataContrato, hora: ctSaved.horaContrato, localObra: ctSaved.localEntrega || ctSaved.endereco, telefone: ctSaved.telefoneEntrega || ctSaved.telefone, cidade: ctSaved.cidade, estado: ctSaved.estado, itens: ctSaved.itens || [], condicoes: ctSaved.condicoesDevolucao || {} } }
               : { tipo: emailTipo, contrato_id: ctSaved.id, comprovante_id: null, destinatario: '', contrato: contratoEmail, comprovante: comprovanteEmail };
             fetch('/api/email/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(emailBody) }).catch(() => {});
-          }),
-          supabase.from('ordens_servico').insert(toSnake({ cliente: ctSaved.cliente, equipamento: (ctSaved.equipamentos || []).join(', ') || '-', tipo: osTipo, status: 'pendente', prioridade: 'normal', tecnico: ctSaved.atendente || '', abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0], previsao: ctSaved.fim || null, valor: ctSaved.valorTotal || 0, observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica` })),
-          (async () => {
+          }).catch(() => {});
+
+          const osTipo = newCt.tipoDocumento === 'devolucao' ? 'devolucao' : 'entrega';
+          retryOp(() => supabase.from('ordens_servico').insert(toSnake({ cliente: ctSaved.cliente, equipamento: (ctSaved.equipamentos || []).join(', ') || '-', tipo: osTipo, status: 'pendente', prioridade: 'normal', tecnico: ctSaved.atendente || '', abertura: ctSaved.dataContrato || new Date().toISOString().split('T')[0], previsao: ctSaved.fim || null, valor: ctSaved.valorTotal || 0, observacoes: `Contrato ${ctSaved.id} - ${osTipo} automatica` })), 'os').then(() => {
+            queryClient.invalidateQueries({ queryKey: ['ordensServico'] });
+          }).catch(() => {});
+
+          retryOp(async () => {
             const equipNames = (ctSaved.equipamentos || []).filter(e => e && e.trim());
             if (equipNames.length === 0) return;
             const { data: existing } = await supabase.from('equipamentos').select('nome');
             const existingNames = new Set((existing || []).map(e => (e.nome || '').toLowerCase()));
             const newEquips = equipNames.filter(name => !existingNames.has(name.toLowerCase().trim())).map(name => ({ nome: name.trim(), categoria: 'Geral', status: 'locado', contrato: ctSaved.id, cliente: ctSaved.cliente }));
             if (newEquips.length > 0) await supabase.from('equipamentos').insert(newEquips);
-          })(),
-        ]).catch(() => {});
+          }, 'equipamentos').then(() => {
+            queryClient.invalidateQueries({ queryKey: ['equipamentos'] });
+          }).catch(() => {});
+        }).catch((e) => {
+          console.error('[contrato] Network error:', e);
+          queryClient.setQueryData(['contratos'], (old = []) => old.filter(c => c.id !== item.id));
+        });
 
-        return ctSaved;
+        // 3. Return instantly — UI is already updated via optimistic update
+        return item;
       } else {
         saveToLocal(item);
 

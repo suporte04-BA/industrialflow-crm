@@ -39,27 +39,30 @@ function DetailRow({ label, value }) {
 }
 
 function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF, onOpenPage }) {
-  if (!isOpen || !item) return null;
-
-  const Icon = tipoIcons[item.tipo] || FileText;
-  const tipoLabel = item.tipo === 'os' ? 'Ordem de Servico' : item.tipo === 'contrato' ? 'Contrato' : item.tipo === 'comprovante' ? 'Comprovante' : item.tipo === 'assinatura' ? 'Assinatura' : item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1);
+  const Icon = item ? (tipoIcons[item.tipo] || FileText) : FileText;
+  const tipoLabel = item?.tipo === 'os' ? 'Ordem de Servico' : item?.tipo === 'contrato' ? 'Contrato' : item?.tipo === 'comprovante' ? 'Comprovante' : item?.tipo === 'assinatura' ? 'Assinatura' : item?.tipo ? item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1) : '';
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-3 sm:p-4"
-        onClick={onClose}
-      >
+      {isOpen && item && (
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 10 }}
-          className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[88vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
+          key="historico-modal-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-3 sm:p-4"
+          onClick={onClose}
         >
+          <motion.div
+            key="historico-modal-content"
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[88vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
           <div className="flex items-center justify-between p-4 sm:p-5 border-b shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tipoColors[item.tipo]} shadow-sm`}>
@@ -140,8 +143,9 @@ function HistoricoDetailModal({ item, isOpen, onClose, onDownloadPDF, onOpenPage
               Fechar
             </button>
           </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ArrowLeft, Printer, Edit3, Save, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,7 +25,7 @@ export default function OSDetailPage() {
   const { data: osList, isLoading } = useOrdensServico();
   const updateOS = useUpdateOS();
 
-  const os = useCallback(() => (osList || []).find((o) => String(o.id) === String(id)), [osList, id])();
+  const os = (osList || []).find((o) => String(o.id) === String(id));
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {

@@ -77,6 +77,22 @@ function compressBase64Image(rawBase64, maxBytes = MAX_INLINE_IMAGE_BYTES) {
   return reduced;
 }
 
+// Build "EquipName (Pat: 12345)" string by matching equipamentos with itens patrimonio
+function buildEquipamentosComPatrimonio(contrato, itens) {
+  const equipamentos = Array.isArray(contrato?.equipamentos) ? contrato.equipamentos : [];
+  const its = Array.isArray(itens) ? itens : (Array.isArray(contrato?.itens) ? contrato.itens : []);
+  if (equipamentos.length === 0) {
+    // fallback: derive from itens
+    return its.filter(it => it && (it.descricao || it.nome))
+      .map(it => it.patrimonio ? `${it.descricao || it.nome} (Pat: ${it.patrimonio})` : (it.descricao || it.nome))
+      .join(' | ');
+  }
+  return equipamentos.map(eqName => {
+    const match = its.find(it => (it.descricao || it.nome || '') === eqName);
+    return match?.patrimonio ? `${eqName} (Pat: ${match.patrimonio})` : eqName;
+  }).join(' | ');
+}
+
 // Anti-spam: rate limiting via in-memory token bucket per domain
 const rateLimits = new Map();
 function checkRateLimit(domain, limit = 10, windowMs = 60000) {
@@ -192,7 +208,8 @@ async function supabaseAuthAdminRequest(env, method, path, body = null, authHead
   return { status: res.status, data };
 }
 
-async function generatePdfBase64(title, sections, signatureImgB64) {
+async function generatePdfBase64(title, sections, signatureImgB64, options = {}) {
+  const { fotosEntrega = [], fotosRetirada = [], itens = [] } = options;
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -228,6 +245,23 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
     if (currentLine) lines.push(currentLine);
     return lines.length > 0 ? lines : ['-'];
   }
+  function sanitize(str) {
+    // pdf-lib StandardFonts (WinAnsi) can't encode chars outside CP1252; normalize common ones, strip the rest
+    return String(str == null ? '' : str)
+      .replace(/[\u2013\u2014]/g, '-')       // en/em dash -> hyphen
+      .replace(/[\u2018\u2019]/g, "'")        // curly single quotes
+      .replace(/[\u201C\u201D]/g, '"')        // curly double quotes
+      .replace(/\u2026/g, '...')               // ellipsis
+      .replace(/[\u2022\u00b7]/g, '-')         // bullets
+      .replace(/[^\x00-\xFF]/g, '');           // strip remaining non-Latin1
+  }
+  async function embedPhoto(dataUrl) {
+    try {
+      const raw = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      const bytes = Uint8Array.from(atob(raw.replace(/\s/g, '')), c => c.charCodeAt(0));
+      try { return await pdfDoc.embedJpg(bytes); } catch { return await pdfDoc.embedPng(bytes); }
+    } catch { return null; }
+  }
 
   try {
     if (LOGO_BASE64) {
@@ -248,7 +282,7 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
   page.drawRectangle({ x: ML, y: y - 1, width: CW, height: 3, color: rgb(0.92, 0.70, 0.06) });
   y -= 22;
 
-  page.drawText((title || '').toUpperCase(), { x: ML, y, size: 14, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
+  page.drawText(sanitize((title || '').toUpperCase()), { x: ML, y, size: 14, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
   y -= 8;
   page.drawRectangle({ x: ML, y: y - 1, width: 60, height: 2, color: rgb(0.92, 0.70, 0.06) });
   y -= 24;
@@ -257,14 +291,14 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
     checkPage(40);
     if (sec.title) {
       page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
-      page.drawText(sec.title.toUpperCase(), { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
+      page.drawText(sanitize(sec.title.toUpperCase()), { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
       y -= 28;
     }
     const items = (sec.items || []).filter(Boolean);
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      const label = (item.label || '') + ':';
-      const valueStr = String(item.value || '-');
+      const label = sanitize((item.label || '') + ':');
+      const valueStr = sanitize(String(item.value || '-'));
       const valueLines = wrapText(valueStr, helvetica, 9.5, CW - LABEL_W - 20);
       const neededH = Math.max(22, valueLines.length * 13 + 8);
       checkPage(neededH);
@@ -281,6 +315,53 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
     y -= 10;
   }
 
+  // ITEMS TABLE with patrimonio
+  const validItens = (itens || []).filter(it => it && (it.descricao || it.nome));
+  if (validItens.length > 0) {
+    checkPage(50);
+    page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
+    page.drawText('ITENS LOCADOS', { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
+    y -= 28;
+
+    // Column layout: Qtd | Descrição | Patrimônio | Valor
+    const cQtd = ML + 4, cDesc = ML + 40, cPat = ML + CW - 150, cVal = ML + CW - 60;
+    const rowH = 18;
+    // header
+    page.drawRectangle({ x: ML, y: y - rowH + 4, width: CW, height: rowH, color: rgb(0.93, 0.93, 0.93) });
+    page.drawText('Qtd', { x: cQtd, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('Descrição', { x: cDesc, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('Patrimônio', { x: cPat, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('Valor', { x: cVal, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    y -= rowH;
+
+    let total = 0;
+    for (const it of validItens) {
+      checkPage(rowH + 4);
+      const qtd = it.quantidade || 1;
+      const desc = sanitize(it.descricao || it.nome || '-');
+      const pat = sanitize(it.patrimonio || '-');
+      const val = Number(it.valorUnitario || 0);
+      total += qtd * val;
+      const descLines = wrapText(desc, helvetica, 8, cPat - cDesc - 8);
+      const thisRowH = Math.max(rowH, descLines.length * 11 + 6);
+      // subtle row separator
+      page.drawRectangle({ x: ML, y: y - thisRowH + 4, width: CW, height: 0.5, color: rgb(0.88, 0.88, 0.88) });
+      page.drawText(String(qtd), { x: cQtd, y: y - 8, size: 8, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
+      descLines.forEach((ln, li) => {
+        page.drawText(ln, { x: cDesc, y: y - 8 - li * 11, size: 8, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
+      });
+      page.drawText(pat, { x: cPat, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.05, 0.35, 0.7) });
+      page.drawText(`R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { x: cVal, y: y - 8, size: 8, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
+      y -= thisRowH;
+    }
+    // total row
+    checkPage(rowH);
+    page.drawRectangle({ x: ML, y: y - rowH + 4, width: CW, height: rowH, color: rgb(0.07, 0.09, 0.15) });
+    page.drawText('TOTAL', { x: cPat - 40, y: y - 8, size: 8.5, font: helveticaBold, color: rgb(1, 1, 1) });
+    page.drawText(`R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { x: cVal, y: y - 8, size: 9, font: helveticaBold, color: rgb(0.92, 0.70, 0.06) });
+    y -= rowH + 12;
+  }
+
   if (signatureImgB64) {
     try {
       checkPage(120); y -= 6;
@@ -293,12 +374,71 @@ async function generatePdfBase64(title, sections, signatureImgB64) {
       } else {
         pngBytes = Uint8Array.from(atob(signatureImgB64), c => c.charCodeAt(0));
       }
-      const sigImage = await pdfDoc.embedPng(pngBytes);
+      let sigImage;
+      try { sigImage = await pdfDoc.embedPng(pngBytes); } catch { sigImage = await pdfDoc.embedJpg(pngBytes); }
       const displayW = 220, finalH = Math.min((sigImage.height / sigImage.width) * displayW, 80);
       page.drawRectangle({ x: ML + 2, y: y - finalH - 6, width: displayW + 8, height: finalH + 8, borderWidth: 1.5, borderColor: rgb(0.75, 0.75, 0.75), color: rgb(1, 1, 1), borderRadius: 4 });
       page.drawImage(sigImage, { x: ML + 6, y: y - finalH - 2, width: displayW, height: finalH });
       y -= finalH + 20;
     } catch (e) { console.error('[PDF] Signature embed failed:', e.message); }
+  }
+
+  // PHOTOS PAGE (registro fotografico) - each photo has burned-in timestamp
+  const allPhotos = [
+    ...fotosEntrega.filter(Boolean).map((f, idx) => ({ src: f, label: `Entrega ${idx + 1}` })),
+    ...fotosRetirada.filter(Boolean).map((f, idx) => ({ src: f, label: `Retirada ${idx + 1}` })),
+  ];
+  if (allPhotos.length > 0) {
+    // Start photos on a fresh page for a clean professional layout
+    drawFooter(page, pageCount);
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    pageCount++;
+    y = TOP_MARGIN;
+
+    page.drawText('REGISTRO FOTOGRÁFICO', { x: ML, y, size: 14, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
+    y -= 8;
+    page.drawRectangle({ x: ML, y: y - 1, width: 60, height: 2, color: rgb(0.92, 0.70, 0.06) });
+    y -= 8;
+    page.drawText('Fotos com data e hora registradas no momento da captura', { x: ML, y: y - 6, size: 8, font: helvetica, color: rgb(0.5, 0.5, 0.5) });
+    y -= 24;
+
+    const gap = 12;
+    const photoW = (CW - gap) / 2;
+    const photoH = photoW * 0.75;
+    let col = 0;
+    let rowStartY = y;
+
+    for (let i = 0; i < allPhotos.length; i++) {
+      const { src, label } = allPhotos[i];
+      const img = await embedPhoto(src);
+      if (col === 0) {
+        checkPage(photoH + 26);
+        rowStartY = y;
+      }
+      const x = ML + col * (photoW + gap);
+      const drawY = rowStartY;
+      // label above
+      page.drawText(sanitize(label), { x, y: drawY - 2, size: 8, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
+      // frame
+      page.drawRectangle({ x, y: drawY - photoH - 12, width: photoW, height: photoH, borderWidth: 1, borderColor: rgb(0.8, 0.8, 0.8), color: rgb(0.97, 0.97, 0.97) });
+      if (img) {
+        // fit contain
+        const ratio = Math.min(photoW / img.width, photoH / img.height);
+        const dw = img.width * ratio, dh = img.height * ratio;
+        const dx = x + (photoW - dw) / 2, dyy = drawY - photoH - 12 + (photoH - dh) / 2;
+        page.drawImage(img, { x: dx, y: dyy, width: dw, height: dh });
+      } else {
+        page.drawText('Foto indisponível', { x: x + 10, y: drawY - photoH / 2 - 12, size: 8, font: helvetica, color: rgb(0.6, 0.6, 0.6) });
+      }
+      col++;
+      if (col >= 2) {
+        col = 0;
+        y = rowStartY - photoH - 26;
+      }
+    }
+    if (col === 1) {
+      y = rowStartY - photoH - 26;
+    }
   }
 
   drawFooter(page, pageCount);
@@ -765,8 +905,9 @@ async function sendEmailViaGoogleScript(env, data) {
           contrato.atendente ? { label: 'Atendente', value: contrato.atendente } : null,
           contrato.telefone ? { label: 'Telefone', value: contrato.telefone } : null,
         ].filter(Boolean) });
+        const pdfItens = Array.isArray(comprovante?.itens) && comprovante.itens.length > 0 ? comprovante.itens : (Array.isArray(contrato.itens) ? contrato.itens : []);
         const equipItems = [
-          { label: 'Equipamentos', value: Array.isArray(contrato.equipamentos) ? contrato.equipamentos.join(', ') : '' },
+          { label: 'Equipamentos', value: buildEquipamentosComPatrimonio(contrato, pdfItens) },
           contrato.inicio ? { label: 'Período', value: `${contrato.inicio} a ${contrato.fim}` } : null,
           contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}/mês` } : null,
           contrato.valorTotal ? { label: 'Valor Total', value: `R$ ${Number(contrato.valorTotal).toFixed(2)}` } : null,
@@ -824,7 +965,12 @@ async function sendEmailViaGoogleScript(env, data) {
       const pdfTitle = tipo === 'contrato_assinado' ? 'Comprovante de Entrega Assinado' :
                         tipo === 'contrato_renovado' ? 'Contrato Renovado' :
                         tipo === 'devolucao_registrada' ? 'Devolução de Equipamento' : 'Novo Contrato';
-      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || (comprovante?._devolucao?.assinaturaImagem));
+      const pdfItensForTable = Array.isArray(comprovante?.itens) && comprovante.itens.length > 0 ? comprovante.itens : (Array.isArray(contrato?.itens) ? contrato.itens : []);
+      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || (comprovante?._devolucao?.assinaturaImagem), {
+        fotosEntrega,
+        fotosRetirada,
+        itens: pdfItensForTable,
+      });
       const pdfName = tipo === 'contrato_assinado' ? `comprovante-entrega-${contrato?.numero || 'doc'}.pdf` :
                       tipo === 'contrato_renovado' ? `contrato-renovado-${contrato?.numero || 'doc'}.pdf` :
                       tipo === 'devolucao_registrada' ? `devolucao-${contrato?.numero || comprovante?.contrato || 'doc'}.pdf` :
@@ -1102,7 +1248,7 @@ async function sendEmailWithFallback(env, data) {
         contrato.telefone ? { label: 'Telefone', value: contrato.telefone } : null,
       ].filter(Boolean) });
       const equipItems = [
-        { label: 'Equipamentos', value: Array.isArray(contrato.equipamentos) ? contrato.equipamentos.join(', ') : '' },
+        { label: 'Equipamentos', value: buildEquipamentosComPatrimonio(contrato, Array.isArray(comprovante?.itens) && comprovante.itens.length > 0 ? comprovante.itens : contrato.itens) },
         contrato.inicio ? { label: 'Período', value: `${contrato.inicio} a ${contrato.fim}` } : null,
         contrato.valorMensal ? { label: 'Valor Mensal', value: `R$ ${Number(contrato.valorMensal).toFixed(2)}/mês` } : null,
         contrato.valorTotal ? { label: 'Valor Total', value: `R$ ${Number(contrato.valorTotal).toFixed(2)}` } : null,
@@ -1141,7 +1287,12 @@ async function sendEmailWithFallback(env, data) {
       const pdfTitle = tipo === 'contrato_assinado' ? 'Comprovante de Entrega Assinado' :
                         tipo === 'contrato_renovado' ? 'Contrato Renovado' :
                         tipo === 'devolucao_registrada' ? 'Devolução de Equipamento' : 'Novo Contrato';
-      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || comprovante?._devolucao?.assinaturaImagem);
+      const mPdfItens = Array.isArray(comprovante?.itens) && comprovante.itens.length > 0 ? comprovante.itens : (Array.isArray(contrato?.itens) ? contrato.itens : []);
+      const pdfB64 = await generatePdfBase64(pdfTitle, pdfSections, signatario?.assinaturaImagem || comprovante?._devolucao?.assinaturaImagem, {
+        fotosEntrega: mFotosEntrega,
+        fotosRetirada: mFotosRetirada,
+        itens: mPdfItens,
+      });
       const pdfName = tipo === 'contrato_assinado' ? `comprovante-entrega-${contrato?.numero || 'doc'}.pdf` :
                       tipo === 'contrato_renovado' ? `contrato-renovado-${contrato?.numero || 'doc'}.pdf` :
                       tipo === 'devolucao_registrada' ? `devolucao-${contrato?.numero || comprovante?.contrato || 'doc'}.pdf` :

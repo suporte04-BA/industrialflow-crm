@@ -10,25 +10,54 @@ function isMobileDevice() {
   return isMobile || isTouch;
 }
 
-function compressImage(file, maxSize = 600, quality = 0.5) {
+// Burns a professional timestamp + watermark onto the photo (like a security camera)
+function burnTimestamp(ctx, width, height, timestamp) {
+  if (!timestamp) return;
+  const barH = Math.max(18, Math.round(height * 0.075));
+  const fontSize = Math.max(9, Math.round(barH * 0.5));
+  // Semi-transparent black bar at bottom
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+  ctx.fillRect(0, height - barH, width, barH);
+  // Yellow accent line on top of bar
+  ctx.fillStyle = '#EAB308';
+  ctx.fillRect(0, height - barH, width, 2);
+  // Timestamp text (left)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText(timestamp, 6, height - barH / 2 + 1);
+  // Watermark (right)
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#EAB308';
+  ctx.fillText('TRANSOBRA', width - 6, height - barH / 2 + 1);
+}
+
+function drawScaled(img, maxSize) {
+  const canvas = document.createElement('canvas');
+  let { width, height } = img;
+  if (width > height) {
+    if (width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
+  } else {
+    if (height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
+  }
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+  return { canvas, ctx, width, height };
+}
+
+function compressImage(file, maxSize = 600, quality = 0.5, timestamp = null) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-        if (width > height) {
-          if (width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
-        } else {
-          if (height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
+        const { canvas, ctx, width, height } = drawScaled(img, maxSize);
+        burnTimestamp(ctx, width, height, timestamp);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.onerror = () => reject(new Error('Erro ao carregar imagem'));
@@ -39,23 +68,12 @@ function compressImage(file, maxSize = 600, quality = 0.5) {
   });
 }
 
-function compressDataUrl(dataUrl, maxSize = 600, quality = 0.5) {
+function compressDataUrl(dataUrl, maxSize = 600, quality = 0.5, timestamp = null) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let { width, height } = img;
-      if (width > height) {
-        if (width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
-      } else {
-        if (height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
+      const { canvas, ctx, width, height } = drawScaled(img, maxSize);
+      burnTimestamp(ctx, width, height, timestamp);
       resolve(canvas.toDataURL('image/jpeg', quality));
     };
     img.onerror = () => resolve(dataUrl);
@@ -148,10 +166,11 @@ function CameraOverlay({ onCapture, onClose, slotLabel, isMobile: isMob }) {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
     stopCamera();
-    compressDataUrl(dataUrl, 600, 0.5).then((compressed) => {
-      onCapture(compressed, getTimestamp());
+    const ts = getTimestamp();
+    compressDataUrl(dataUrl, 600, 0.5, ts).then((compressed) => {
+      onCapture(compressed, ts);
     });
   }, [onCapture, stopCamera]);
 
@@ -323,9 +342,10 @@ export default function CameraCapture({ onCapture, label, slotLabel, disabled = 
     }
     setCapturing(true);
     try {
-      const compressed = await compressImage(file);
+      const ts = getTimestamp();
+      const compressed = await compressImage(file, 600, 0.5, ts);
       setPreview(compressed);
-      setTimestamp(getTimestamp());
+      setTimestamp(ts);
     } catch {
       setError('Erro ao processar imagem');
     } finally {

@@ -94,14 +94,14 @@ function buildFooter(tipo) {
 
 function buildSectionTitle(titulo) {
   return `
-    <div style="margin:8px 0 4px 0;padding:4px 8px;border-bottom:1px solid ${BRAND.cinzaBorda};">
+    <div style="margin:8px 0 4px 0;padding:3px 0;border-bottom:1px solid ${BRAND.cinzaBorda};">
       <span style="font-size:9px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;text-transform:uppercase;">${esc(titulo)}</span>
     </div>`;
 }
 
 function buildInfoGrid(pairs) {
   return pairs.filter(Boolean).map(([label, value]) =>
-    `<tr><td style="padding:2px 0;font-size:9px;color:${BRAND.cinzaTexto};width:110px;vertical-align:top;">${esc(label)}</td><td style="padding:2px 0;font-size:9px;color:${BRAND.preto};font-weight:500;">${esc(value)}</td></tr>`
+    `<tr><td style="padding:1px 0;font-size:9px;color:${BRAND.cinzaTexto};width:110px;vertical-align:top;">${esc(label)}</td><td style="padding:1px 0;font-size:9px;color:${BRAND.preto};font-weight:500;">${esc(value)}</td></tr>`
   ).join('');
 }
 
@@ -252,8 +252,8 @@ export async function generateEntregaPDF(comprovante) {
         </tr>
       </table>
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;padding:6px;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:9px;line-height:1.5;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid ${BRAND.cinzaBorda};">
+        <tr><td style="font-size:9px;line-height:1.5;padding:6px;">
           <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(c.locatario || '')} | <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(c.cidade || '')}<br/>
           <strong style="color:${BRAND.preto};">Local da entrega:</strong> ${esc(c.localEntrega || '')}
         </td></tr>
@@ -357,8 +357,8 @@ export async function generateDevolucaoPDF(devolucao) {
         </tr>
       </table>
 
-      <table width="100%" cellpadding="6" cellspacing="0" style="margin:6px 0;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:9px;line-height:1.5;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid ${BRAND.cinzaBorda};">
+        <tr><td style="font-size:9px;line-height:1.5;padding:6px;">
           <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(d.locatario || '')}<br/>
           <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(d.cidade || '')}<br/>
           <strong style="color:${BRAND.preto};">Local da Obra:</strong> ${esc(d.localObra || d.localEntrega || '')}
@@ -445,8 +445,8 @@ export async function generateContratoPDF(contrato) {
         </tr>
       </table>
 
-      <table width="100%" cellpadding="6" cellspacing="0" style="margin:6px 0;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:9px;line-height:1.5;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid ${BRAND.cinzaBorda};">
+        <tr><td style="font-size:9px;line-height:1.5;padding:6px;">
           <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(contrato.cliente || '')}<br/>
           <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(contrato.cidade || '')}<br/>
           <strong style="color:${BRAND.preto};">Local da entrega:</strong> ${esc(contrato.localEntrega || '')}
@@ -472,8 +472,8 @@ export async function generateContratoPDF(contrato) {
       </table>
 
       ${equipamentos.length > 0 ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;padding:6px;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:9px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;border:1px solid ${BRAND.cinzaBorda};">
+        <tr><td style="font-size:9px;padding:6px;">
           <strong style="color:${BRAND.preto};">Equipamentos:</strong> ${esc(equipamentos.join(', ') || '-')}
         </td></tr>
       </table>` : ''}
@@ -548,8 +548,8 @@ export async function generateFallbackEmailPDF(emailData) {
       </table>` : ''}
 
       ${(contrato.cliente || comprovante.locatario || devolucao.locatario) ? `
-      <table width="100%" cellpadding="6" cellspacing="0" style="margin:6px 0;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:9px;line-height:1.5;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;border:1px solid ${BRAND.cinzaBorda};">
+        <tr><td style="font-size:9px;line-height:1.5;padding:6px;">
           ${contrato.cliente || comprovante.locatario || devolucao.locatario ? `<strong style="color:${BRAND.preto};">Cliente/Locatario:</strong> ${esc(contrato.cliente || comprovante.locatario || devolucao.locatario)}<br/>` : ''}
           ${contrato.cidade || comprovante.cidade ? `<strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(contrato.cidade || comprovante.cidade)}<br/>` : ''}
           ${contrato.localEntrega || comprovante.localEntrega || devolucao.localObra ? `<strong style="color:${BRAND.preto};">Local:</strong> ${esc(contrato.localEntrega || comprovante.localEntrega || devolucao.localObra)}` : ''}
@@ -565,8 +565,8 @@ export async function generateFallbackEmailPDF(emailData) {
       ${itensTableHtml}
 
       ${contrato.inicio ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;padding:6px;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:9px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;border:1px solid ${BRAND.cinzaBorda};">
+        <tr><td style="font-size:9px;padding:6px;">
           <strong style="color:${BRAND.preto};">Periodo:</strong> ${esc(contrato.inicio)} a ${esc(contrato.fim || '-')}<br/>
           <strong style="color:${BRAND.preto};">Valor Mensal:</strong> R$ ${formatMoney(contrato.valorMensal)}
         </td></tr>
@@ -583,7 +583,7 @@ export async function generateFallbackEmailPDF(emailData) {
       </div>` : ''}
 
       ${signatario.nome ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;padding:6px;background:${BRAND.cinzaFundo};border:1px solid ${BRAND.cinzaBorda};">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;padding:6px;border:1px solid ${BRAND.cinzaBorda};">
         <tr><td style="font-size:9px;">
           <strong style="color:${BRAND.preto};">Signatario:</strong> ${esc(signatario.nome)}
           ${signatario.cpf ? `<br/><strong style="color:${BRAND.preto};">CPF:</strong> ${esc(signatario.cpf)}` : ''}

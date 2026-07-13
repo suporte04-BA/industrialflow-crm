@@ -230,6 +230,8 @@ export default function AssinaturaDigital() {
     if (!hasSignature) { toast.error('Faca a assinatura de quem recebeu o equipamento'); return; }
     const fotosEntregaCount = fotosEntrega.filter(Boolean).length;
     if (fotosEntregaCount < 3) { toast.error('Capture as 3 fotos de entrega obrigatorias'); return; }
+    const fotosRetiradaCount = fotosRetirada.filter(Boolean).length;
+    if (fotosRetiradaCount < 3) { toast.error('Capture as 3 fotos de retirada obrigatorias'); return; }
     setSaving(true);
     try {
       const imagem = compressCanvas(canvasRef.current);
@@ -434,9 +436,9 @@ export default function AssinaturaDigital() {
             <div className="bg-orange-50 rounded-lg border border-orange-200 p-3">
               <div className="flex items-center gap-2 mb-2">
                 <Image className="w-4 h-4 text-orange-600" />
-                <span className="text-sm font-semibold text-orange-800">Fotos da Retirada (3)</span>
+                <span className="text-sm font-semibold text-orange-800">Fotos Obrigatórias da Retirada (3)</span>
               </div>
-              <p className="text-xs text-orange-600 mb-3">Tire fotos do equipamento no momento da retirada (opcional)</p>
+              <p className="text-xs text-orange-600 mb-3">Tire fotos do equipamento no momento da retirada</p>
               <div className="grid grid-cols-3 gap-2">
                 {[0, 1, 2].map((i) => (
                   <div key={`retirada-${i}`}>
@@ -464,6 +466,7 @@ export default function AssinaturaDigital() {
                   </div>
                 ))}
               </div>
+              {fotosRetirada.filter(Boolean).length >= 3 && <p className="text-xs text-green-600 mt-2 font-medium">3 fotos capturadas</p>}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">

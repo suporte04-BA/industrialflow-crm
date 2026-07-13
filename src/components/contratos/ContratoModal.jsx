@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, CheckCircle, ArrowLeft, AlertTriangle, Calendar, MapPin, User, FileText, Package, Wrench, DollarSign, Search } from 'lucide-react';
+import { X, Save, Loader2, Plus, Trash2, FileUp, FileDown, CheckCircle, ArrowLeft, AlertTriangle, Calendar, MapPin, User, FileText, Package, Wrench, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '../ui/Button';
 import PdfImportButton from '../common/PdfImportButton';
 import { isValidCPF, isValidCNPJ, formatCPFCNPJ, detectDocumentType, isValidCEP, formatCEP } from '../../lib/validation';
-import { supabase, isConfigured } from '../../lib/supabase';
 
 const emptyItem = { quantidade: 1, descricao: '', patrimonio: '', dataLocacao: '', dataDevolucao: '', valorUnitario: 0 };
 const emptyCondicoes = { danificado: false, extraviado: false, testarEmpresa: false };
@@ -82,9 +81,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
   const [form, setForm] = useState(() => getInitialForm(contrato, isRenew));
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingData, setPendingData] = useState(null);
-  const [equipmentList, setEquipmentList] = useState([]);
-  const [showPatrimonioModal, setShowPatrimonioModal] = useState(false);
-  const [patrimonioTargetIdx, setPatrimonioTargetIdx] = useState(null);
   const prevContratoIdRef = useRef(contrato?.id || (isRenew ? 'renew' : contrato ? 'edit' : 'new'));
 
   useEffect(() => {
@@ -95,35 +91,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contrato?.id, isRenew]);
-
-  useEffect(() => {
-    if (isConfigured()) {
-      supabase.from('equipamentos').select('nome, patrimonio, id, categoria, status')
-        .then(({ data }) => {
-          if (data) setEquipmentList(data);
-        }).catch(() => {});
-    }
-  }, []);
-
-  const lookupPatrimonio = (descricao) => {
-    if (!descricao || !equipmentList.length) return '';
-    const match = equipmentList.find(eq =>
-      eq.nome && eq.nome.toLowerCase().trim() === descricao.toLowerCase().trim()
-    );
-    return match?.patrimonio || '';
-  };
-
-  const propagatePatrimonio = (idx) => {
-    const pat = form.itens[idx]?.patrimonio;
-    if (!pat) return;
-    setForm(prev => ({
-      ...prev,
-      itens: prev.itens.map((it, i) =>
-        i !== idx && it.descricao.trim() ? { ...it, patrimonio: pat } : it
-      )
-    }));
-    toast.success(`Patrimônio ${pat} propagado para todos os itens`);
-  };
 
   const addEquipamento = () => setForm(prev => ({ ...prev, equipamentos: [...prev.equipamentos, ''] }));
   const removeEquipamento = (idx) => setForm(prev => ({ ...prev, equipamentos: prev.equipamentos.filter((_, i) => i !== idx) }));
@@ -141,12 +108,6 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
     setForm(prev => {
       const updated = [...prev.itens];
       updated[idx] = { ...updated[idx], [field]: val };
-      if (field === 'descricao' && val.trim()) {
-        const autoPat = lookupPatrimonio(val);
-        if (autoPat && !updated[idx].patrimonio) {
-          updated[idx] = { ...updated[idx], patrimonio: autoPat };
-        }
-      }
       return { ...prev, itens: updated };
     });
   };
@@ -724,23 +685,11 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
                             onChange={(e) => updateItem(idx, 'descricao', e.target.value)}
                             className="input-base text-xs" placeholder="Descrição do item" />
                         </div>
-                         <div className="relative">
+                         <div>
                            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patrimônio</label>
-                           <div className="flex gap-1">
-                             <input type="text" value={item.patrimonio}
-                               onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
-                               className="input-base text-xs flex-1" placeholder="PAT-000" />
-                             {item.patrimonio && (
-                               <button type="button" onClick={() => propagatePatrimonio(idx)}
-                                 title="Propagar patrimônio para todos os itens"
-                                 className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded">
-                                 <Search className="w-3 h-3" />
-                               </button>
-                             )}
-                           </div>
-                           {item.patrimonio && (
-                             <div className="text-[9px] text-green-600 mt-0.5 font-medium">Auto-preenchido</div>
-                           )}
+                           <input type="text" value={item.patrimonio}
+                             onChange={(e) => updateItem(idx, 'patrimonio', e.target.value)}
+                             className="input-base text-xs" placeholder="PAT-000" />
                          </div>
                          {form.tipoDocumento === 'entrega' && (
                            <>

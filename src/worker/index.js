@@ -305,10 +305,9 @@ function buildAssunto(tipo, contrato, comprovante) {
 }
 
 function emailWrapper(content) {
-  const footer = `<tr><td style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:20px 30px;text-align:center;">
-<p style="font-size:11px;color:#6B7280;margin:0 0 6px 0;">TransObra - Locação de Equipamentos</p>
-<p style="font-size:10px;color:#9CA3AF;margin:0 0 4px 0;">Endereço: Av. Taruma, 1605 - Manaus/AM - Brasil | Tel.: (92) 99386-7171</p>
-<p style="font-size:10px;color:#9CA3AF;margin:0;">Este é um email transacional enviado pelo sistema TransObra CRM.</p>
+  const footer = `<tr><td style="border-top:1px solid #E5E7EB;padding:16px 30px;text-align:center;">
+<p style="font-size:10px;color:#6B7280;margin:0 0 4px 0;">TransObra - Locação de Equipamentos | Av. Taruma, 1605 — Manaus/AM — (92) 99386-7171</p>
+<p style="font-size:9px;color:#9CA3AF;margin:0;">Este é um email automático do sistema TransObra CRM.</p>
 </td></tr>`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:#111827;font-family:'Segoe UI',Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#111827;"><tr><td align="center" style="padding:32px 16px;">
@@ -333,9 +332,9 @@ ${logoImg}
 }
 
 function sectionBlock(title, headerColor, borderColor, rows) {
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-left:4px solid ${borderColor};margin-bottom:20px;">
-<tr><td style="padding:12px 20px;background:#f9fafb;border:1px solid #e5e7eb;border-left:none;">
-<div style="font-size:11px;font-weight:800;color:${headerColor};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid ${borderColor};">${title}</div>
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-left:4px solid ${borderColor};margin-bottom:16px;">
+<tr><td style="padding:10px 16px;border:1px solid #e5e7eb;border-left:none;">
+<div style="font-size:10px;font-weight:800;color:${headerColor};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e5e7eb;">${title}</div>
 <table width="100%" cellpadding="0" cellspacing="0">${rows}</table>
 </td></tr></table>`;
 }
@@ -381,8 +380,8 @@ function buildItemsTableHtml(itens, borderColor = '#EAB308') {
     <tbody>${rows}</tbody>
     <tfoot>
       <tr>
-        <td colspan="5" style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:700;background:#f9fafb;">TOTAL</td>
-        <td style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:800;color:#16a34a;background:#f9fafb;">R$ ${totalFormatted}</td>
+        <td colspan="5" style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:700;">TOTAL</td>
+        <td style="padding:6px;border:1px solid #e5e7eb;text-align:right;font-size:13px;font-weight:800;color:#16a34a;">R$ ${totalFormatted}</td>
       </tr>
     </tfoot>
   </table>`;
@@ -480,7 +479,7 @@ function buildContratoAssinadoHtml(contrato, comprovante, signatario) {
 
   let assinaturaHtml = '';
   if (s.nome) {
-    const sigImgTag = s.assinaturaImagem ? `<img src="cid:assinatura" style="max-width:280px;height:auto;border:2px solid #22c55e;background:#fff;padding:8px;" alt="Assinatura" />` : '';
+    const sigImgTag = s.assinaturaImagem ? `<img src="cid:assinatura" style="max-width:280px;height:auto;border:1px solid #e5e7eb;padding:4px;" alt="Assinatura" />` : '';
     assinaturaHtml = sectionBlock('Assinatura Digital do Recebedor', '#166534', '#22c55e', [
       row('Nome', fmt(s.nome), { bold: true }),
       row('CPF', fmt(s.cpf)),

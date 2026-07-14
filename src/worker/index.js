@@ -213,9 +213,9 @@ async function generatePdfBase64(title, sections, signatureImgB64, options = {})
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const PAGE_W = 595, PAGE_H = 842, ML = 45, MR = 45;
-  const CW = PAGE_W - ML - MR, TOP_MARGIN = PAGE_H - 40, BOTTOM_MARGIN = 55;
-  const LABEL_W = 130;
+  const PAGE_W = 595, PAGE_H = 842, ML = 42, MR = 42;
+  const CW = PAGE_W - ML - MR, TOP_MARGIN = PAGE_H - 36, BOTTOM_MARGIN = 50;
+  const LABEL_W = 108;
   let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   let y = TOP_MARGIN;
   let pageCount = 1;
@@ -268,106 +268,88 @@ async function generatePdfBase64(title, sections, signatureImgB64, options = {})
       const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
       let logoImage;
       try { logoImage = await pdfDoc.embedJpg(logoBytes); } catch { logoImage = await pdfDoc.embedPng(logoBytes); }
-      const logoW = 120, logoH = (logoImage.height / logoImage.width) * logoW;
-      page.drawImage(logoImage, { x: ML, y: y - logoH + 8, width: logoW, height: logoH });
-      y -= logoH + 12;
+      const logoW = 92, logoH = (logoImage.height / logoImage.width) * logoW;
+      page.drawImage(logoImage, { x: ML, y: y - logoH + 6, width: logoW, height: logoH });
+      y -= logoH + 8;
     }
   } catch {
     page.drawText('TRANSOBRA — LOCAÇÃO DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: rgb(0, 0, 0) });
     y -= 16;
   }
 
-  page.drawText('Av. Taruma, 1605 — Manaus/AM — (92) 99386-7171', { x: ML, y, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText(sanitize((title || '').toUpperCase()), { x: ML, y, size: 12.5, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
   y -= 6;
-  page.drawRectangle({ x: ML, y: y - 1, width: CW, height: 3, color: rgb(0.92, 0.70, 0.06) });
-  y -= 22;
+  page.drawRectangle({ x: ML, y: y - 1.5, width: 55, height: 2, color: rgb(0.92, 0.70, 0.06) });
+  y -= 14;
 
-  page.drawText(sanitize((title || '').toUpperCase()), { x: ML, y, size: 14, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
-  y -= 8;
-  page.drawRectangle({ x: ML, y: y - 1, width: 60, height: 2, color: rgb(0.92, 0.70, 0.06) });
-  y -= 24;
-
+  const lh = 9.5;
   for (const sec of sections) {
-    checkPage(40);
     if (sec.title) {
-      page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
-      page.drawText(sanitize(sec.title.toUpperCase()), { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
-      y -= 28;
+      page.drawRectangle({ x: ML, y: y - 3, width: CW, height: 16, color: rgb(0.07, 0.09, 0.15), borderRadius: 2 });
+      page.drawText(sanitize(sec.title.toUpperCase()), { x: ML + 8, y: y, size: 8, font: helveticaBold, color: rgb(1, 1, 1) });
+      y -= 19;
     }
-    const items = (sec.items || []).filter(Boolean);
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    const its = (sec.items || []).filter(Boolean);
+    for (const item of its) {
       const label = sanitize((item.label || '') + ':');
       const valueStr = sanitize(String(item.value || '-'));
-      const valueLines = wrapText(valueStr, helvetica, 9.5, CW - LABEL_W - 20);
-      const neededH = Math.max(22, valueLines.length * 13 + 8);
-      checkPage(neededH);
-
-      page.drawRectangle({ x: ML, y: y - neededH + 4, width: CW, height: neededH, color: rgb(1, 1, 1), borderWidth: 0 });
-
-      page.drawText(label, { x: ML + 8, y: y - 1, size: 9, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
-
-      for (let li = 0; li < valueLines.length; li++) {
-        page.drawText(valueLines[li], { x: ML + LABEL_W + 10, y: y - 1 - li * 13, size: 9.5, font: helvetica, color: rgb(0.22, 0.22, 0.22) });
-      }
-      y -= neededH;
+      const valueLines = wrapText(valueStr, helvetica, 8.5, CW - LABEL_W - 14);
+      const h = Math.max(12, valueLines.length * lh + 2);
+      page.drawText(label, { x: ML + 4, y: y - 1, size: 8.5, font: helveticaBold, color: rgb(0.07, 0.09, 0.15) });
+      valueLines.forEach((ln, li) => {
+        page.drawText(ln, { x: ML + LABEL_W, y: y - 1 - li * lh, size: 8.5, font: helvetica, color: rgb(0.22, 0.22, 0.22) });
+      });
+      y -= h;
     }
-    y -= 10;
+    y -= 4;
   }
 
   // ITEMS TABLE with patrimonio
   const validItens = (itens || []).filter(it => it && (it.descricao || it.nome));
   if (validItens.length > 0) {
-    checkPage(50);
-    page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
-    page.drawText('ITENS LOCADOS', { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
-    y -= 28;
+    page.drawRectangle({ x: ML, y: y - 3, width: CW, height: 16, color: rgb(0.07, 0.09, 0.15), borderRadius: 2 });
+    page.drawText('ITENS LOCADOS', { x: ML + 8, y: y, size: 8, font: helveticaBold, color: rgb(1, 1, 1) });
+    y -= 20;
 
-    // Column layout: Qtd | Descrição | Patrimônio | Valor
-    const cQtd = ML + 4, cDesc = ML + 40, cPat = ML + CW - 150, cVal = ML + CW - 60;
-    const rowH = 18;
-    // header
-    page.drawRectangle({ x: ML, y: y - rowH + 4, width: CW, height: rowH, color: rgb(0.93, 0.93, 0.93) });
-    page.drawText('Qtd', { x: cQtd, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText('Descrição', { x: cDesc, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText('Patrimônio', { x: cPat, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText('Valor', { x: cVal, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    const cQtd = ML + 4, cDesc = ML + 30, cPat = ML + CW - 140, cVal = ML + CW - 55;
+    const rowH = 12;
+    page.drawRectangle({ x: ML, y: y - rowH + 3, width: CW, height: rowH, color: rgb(0.93, 0.93, 0.93) });
+    page.drawText('Qtd', { x: cQtd, y: y - 6, size: 7, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('Descrição', { x: cDesc, y: y - 6, size: 7, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('Patrimônio', { x: cPat, y: y - 6, size: 7, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('Valor', { x: cVal, y: y - 6, size: 7, font: helveticaBold, color: rgb(0.1, 0.1, 0.1) });
     y -= rowH;
 
     let total = 0;
     for (const it of validItens) {
-      checkPage(rowH + 4);
       const qtd = it.quantidade || 1;
       const desc = sanitize(it.descricao || it.nome || '-');
       const pat = sanitize(it.patrimonio || '-');
       const val = Number(it.valorUnitario || 0);
       total += qtd * val;
-      const descLines = wrapText(desc, helvetica, 8, cPat - cDesc - 8);
-      const thisRowH = Math.max(rowH, descLines.length * 11 + 6);
-      // subtle row separator
-      page.drawRectangle({ x: ML, y: y - thisRowH + 4, width: CW, height: 0.5, color: rgb(0.88, 0.88, 0.88) });
-      page.drawText(String(qtd), { x: cQtd, y: y - 8, size: 8, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
+      const descLines = wrapText(desc, helvetica, 7, cPat - cDesc - 6);
+      const thisRowH = Math.max(rowH, descLines.length * 9 + 4);
+      page.drawRectangle({ x: ML, y: y - thisRowH + 3, width: CW, height: 0.5, color: rgb(0.88, 0.88, 0.88) });
+      page.drawText(String(qtd), { x: cQtd, y: y - 6, size: 7, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
       descLines.forEach((ln, li) => {
-        page.drawText(ln, { x: cDesc, y: y - 8 - li * 11, size: 8, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
+        page.drawText(ln, { x: cDesc, y: y - 6 - li * 9, size: 7, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
       });
-      page.drawText(pat, { x: cPat, y: y - 8, size: 8, font: helveticaBold, color: rgb(0.05, 0.35, 0.7) });
-      page.drawText(`R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { x: cVal, y: y - 8, size: 8, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
+      page.drawText(pat, { x: cPat, y: y - 6, size: 7, font: helveticaBold, color: rgb(0.05, 0.35, 0.7) });
+      page.drawText(`R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { x: cVal, y: y - 6, size: 7, font: helvetica, color: rgb(0.2, 0.2, 0.2) });
       y -= thisRowH;
     }
-    // total row
-    checkPage(rowH);
-    page.drawRectangle({ x: ML, y: y - rowH + 4, width: CW, height: rowH, color: rgb(0.07, 0.09, 0.15) });
-    page.drawText('TOTAL', { x: cPat - 40, y: y - 8, size: 8.5, font: helveticaBold, color: rgb(1, 1, 1) });
-    page.drawText(`R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { x: cVal, y: y - 8, size: 9, font: helveticaBold, color: rgb(0.92, 0.70, 0.06) });
-    y -= rowH + 12;
+    page.drawRectangle({ x: ML, y: y - rowH + 3, width: CW, height: rowH, color: rgb(0.07, 0.09, 0.15) });
+    page.drawText('TOTAL', { x: cPat - 30, y: y - 6, size: 7.5, font: helveticaBold, color: rgb(1, 1, 1) });
+    page.drawText(`R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { x: cVal, y: y - 6, size: 8, font: helveticaBold, color: rgb(0.92, 0.70, 0.06) });
+    y -= rowH + 8;
   }
 
   if (signatureImgB64) {
     try {
-      checkPage(120); y -= 6;
-      page.drawRectangle({ x: ML, y: y - 4, width: CW, height: 22, color: rgb(0.07, 0.09, 0.15), borderRadius: 3 });
-      page.drawText('ASSINATURA DIGITAL', { x: ML + 10, y: y + 1, size: 9, font: helveticaBold, color: rgb(1, 1, 1) });
-      y -= 30;
+      y -= 4;
+      page.drawRectangle({ x: ML, y: y - 3, width: CW, height: 16, color: rgb(0.07, 0.09, 0.15), borderRadius: 2 });
+      page.drawText('ASSINATURA DIGITAL', { x: ML + 8, y: y, size: 8, font: helveticaBold, color: rgb(1, 1, 1) });
+      y -= 20;
       let pngBytes;
       if (signatureImgB64.startsWith('data:image')) {
         pngBytes = Uint8Array.from(atob(signatureImgB64.split(',')[1]), c => c.charCodeAt(0));
@@ -376,10 +358,10 @@ async function generatePdfBase64(title, sections, signatureImgB64, options = {})
       }
       let sigImage;
       try { sigImage = await pdfDoc.embedPng(pngBytes); } catch { sigImage = await pdfDoc.embedJpg(pngBytes); }
-      const displayW = 220, finalH = Math.min((sigImage.height / sigImage.width) * displayW, 80);
-      page.drawRectangle({ x: ML + 2, y: y - finalH - 6, width: displayW + 8, height: finalH + 8, borderWidth: 1.5, borderColor: rgb(0.75, 0.75, 0.75), color: rgb(1, 1, 1), borderRadius: 4 });
-      page.drawImage(sigImage, { x: ML + 6, y: y - finalH - 2, width: displayW, height: finalH });
-      y -= finalH + 20;
+      const displayW = 190, finalH = Math.min((sigImage.height / sigImage.width) * displayW, 48);
+      page.drawRectangle({ x: ML + 2, y: y - finalH - 4, width: displayW + 6, height: finalH + 6, borderWidth: 1, borderColor: rgb(0.75, 0.75, 0.75), color: rgb(1, 1, 1), borderRadius: 3 });
+      page.drawImage(sigImage, { x: ML + 5, y: y - finalH - 1, width: displayW, height: finalH });
+      y -= finalH + 12;
     } catch (e) { console.error('[PDF] Signature embed failed:', e.message); }
   }
 
@@ -539,6 +521,30 @@ function buildItemsTableHtml(itens, borderColor = '#EAB308') {
       </tr>
     </tfoot>
   </table>`;
+}
+
+function buildPhotoAttachments(fotosEntrega = [], fotosRetirada = [], signatureImg = null) {
+  const atts = [];
+  fotosEntrega.filter(Boolean).forEach((foto, i) => {
+    const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '');
+    if (raw && raw.length > 100) {
+      atts.push({ filename: `foto_entrega_${i + 1}.jpg`, content: raw, mimeType: 'image/jpeg' });
+    }
+  });
+  fotosRetirada.filter(Boolean).forEach((foto, i) => {
+    const raw = (foto.includes(',') ? foto.split(',')[1] : foto).replace(/\s/g, '');
+    if (raw && raw.length > 100) {
+      atts.push({ filename: `foto_retirada_${i + 1}.jpg`, content: raw, mimeType: 'image/jpeg' });
+    }
+  });
+  if (signatureImg) {
+    const raw = (signatureImg.includes(',') ? signatureImg.split(',')[1] : signatureImg).replace(/\s/g, '');
+    if (raw && raw.length > 100) {
+      const isPng = signatureImg.includes('image/png');
+      atts.push({ filename: `assinatura.${isPng ? 'png' : 'jpg'}`, content: raw, mimeType: isPng ? 'image/png' : 'image/jpeg' });
+    }
+  }
+  return atts;
 }
 
 function buildContratoCriadoHtml(contrato) {
@@ -976,6 +982,8 @@ async function sendEmailViaGoogleScript(env, data) {
                       tipo === 'devolucao_registrada' ? `devolucao-${contrato?.numero || comprovante?.contrato || 'doc'}.pdf` :
                       `contrato-${contrato?.numero || 'doc'}.pdf`;
       attachments.push({ filename: pdfName, content: pdfB64, mimeType: 'application/pdf' });
+      const photoAtts = buildPhotoAttachments(fotosEntrega, fotosRetirada, signatario?.assinaturaImagem || comprovante?._devolucao?.assinaturaImagem);
+      photoAtts.forEach(a => attachments.push(a));
     } catch (e) { console.error('[EMAIL] PDF attachment failed:', e.message); }
   }
 
@@ -1070,7 +1078,7 @@ async function sendEmailViaResend(env, subject, html, destinatario) {
   }
 }
 
-async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImages = {}, pdfAttachment = null) {
+async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImages = {}, pdfAttachment = null, extraAttachments = []) {
   const apiKey = env.MAILEROO_API_KEY;
   if (!apiKey) return { success: false, error: 'MAILEROO_API_KEY not configured' };
 
@@ -1115,6 +1123,16 @@ async function sendEmailViaMaileroo(env, subject, html, destinatario, inlineImag
       content_type: 'application/pdf',
       content: pdfAttachment.content,
       inline: false,
+    });
+  }
+  if (Array.isArray(extraAttachments)) {
+    extraAttachments.forEach(a => {
+      attachments.push({
+        file_name: a.filename,
+        content_type: a.mimeType || 'application/octet-stream',
+        content: a.content,
+        inline: false,
+      });
     });
   }
 
@@ -1304,7 +1322,7 @@ async function sendEmailWithFallback(env, data) {
   // 2nd: Maileroo (custom domain with DKIM, inline images via cid:)
   if (env.MAILEROO_API_KEY) {
     console.log(`[EMAIL] GAS failed, attempting Maileroo for ${tipo} to ${destinatario}`);
-    const result = await sendEmailViaMaileroo(env, assunto, mailerooHtml, destinatario, mailerooInlineImages, mailerooPdfAttachment);
+    const result = await sendEmailViaMaileroo(env, assunto, mailerooHtml, destinatario, mailerooInlineImages, mailerooPdfAttachment, buildPhotoAttachments(mFotosEntrega, mFotosRetirada, signatario?.assinaturaImagem || devolucao?.assinaturaImagem));
     console.log(`[EMAIL] Maileroo result: success=${result.success} error=${result.error || 'none'} provider=${result.provider || 'maileroo'}`);
     if (result.success) {
       markSent(idempotencyKey);

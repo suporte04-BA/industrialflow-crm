@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo } from 'react';
-import { Plus, Search, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X } from 'lucide-react';
+import { Plus, Search, Trash2, RotateCcw, FileText, Download, ClipboardCheck, Calendar, MapPin, Wrench, DollarSign, X, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { detectDocumentType } from '../lib/validation';
 import { useContratos, useCreateContrato, useUpdateContrato, useDeleteContrato } from '../hooks/useContratos';
@@ -14,6 +14,7 @@ import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
 import { generateContratoPDF } from '../lib/pdfExport';
 import { useAssinaturas } from '../hooks/useAssinaturas';
+import { formatDateBR } from '../lib/dates';
 
 export default function Contratos() {
   const [filters, setFilters] = useState({ status: 'all', search: '' });
@@ -302,6 +303,33 @@ export default function Contratos() {
                     </div>
                   )}
                 </div>
+
+                {(() => {
+                  const comp = (comprovantes || []).find(c => (c.contratoId || c.contrato_id) === ct.id);
+                  const assinatura = comp ? (allAssinaturas || []).find(a => (a.comprovanteId || a.comprovante_id) === comp.id) : null;
+                  if (!assinatura) return null;
+                  return (
+                    <div className="mt-3 pt-3 border-t bg-green-50 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-green-800">Assinado Digitalmente</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-500">Recebedor:</span>
+                          <span className="font-medium block truncate">{assinatura.nomeSignatario || assinatura.nome_signatario}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">CPF/CNPJ:</span>
+                          <span className="font-medium block" translate="no">{assinatura.cpfSignatario || assinatura.cpf_signatario || '-'}</span>
+                        </div>
+                      </div>
+                      {assinatura.dataAssinatura && (
+                        <p className="text-xs text-gray-400">{formatDateBR(assinatura.dataAssinatura || assinatura.data_assinatura)}</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex flex-col sm:flex-row gap-1.5 pt-3 border-t border-gray-100">
                   <button onClick={(e) => { e.stopPropagation(); handleExportPDF(ct); }}

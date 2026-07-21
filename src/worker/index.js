@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
+import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers } from './whatsapp.js';
 
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
@@ -1007,7 +1008,7 @@ async function sendEmailViaGoogleScript(env, data) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: requestBody,
-      redirect: 'manual',
+      redirect: 'follow',
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -1015,19 +1016,7 @@ async function sendEmailViaGoogleScript(env, data) {
     let text = await res.text();
     console.log(`[GAS] Response: status=${res.status} body=${text.slice(0, 300)}`);
 
-    if (res.status === 302 || res.status === 307) {
-      const location = res.headers.get('Location');
-      console.log(`[GAS] Got redirect ${res.status} to ${location}`);
-      if (text && text.trim().startsWith('{')) {
-        console.log(`[GAS] Response body contains JSON, using it directly`);
-      } else {
-        const res2 = await fetch(location, { method: 'GET', redirect: 'follow', signal: controller.signal });
-        text = await res2.text();
-        console.log(`[GAS] Follow-up response: status=${res2.status} body=${text.slice(0, 300)}`);
-      }
-    }
-
-    if (res.ok || res.status === 302 || res.status === 307) {
+    if (res.ok) {
       try {
         const result = JSON.parse(text);
         if (result.remainingQuota !== undefined) {
@@ -1877,6 +1866,68 @@ export default {
         }
 
         return json({ results }, 200, corsHeaders);
+      }
+
+      // ============================================
+      // WhatsApp Routes (Evolution API)
+      // ============================================
+
+      if (path === '/api/whatsapp/send' && method === 'POST') {
+        const parsed = await parseBody(request);
+        if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+
+        const { tipo, contrato_id, comprovante_id, contrato, comprovante, signatario, pdfBase64 } = parsed.data;
+        if (!tipo) return json({ error: 'tipo required' }, 400, corsHeaders);
+
+        try {
+          const result = await sendWhatsAppWithFallback(env, {
+            tipo,
+            contrato_id,
+            comprovante_id,
+            contrato,
+            comprovante,
+            signatario,
+            pdfBase64,
+          });
+          return json(result, result.success ? 200 : 207, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/status' && method === 'GET') {
+        try {
+          const status = await checkConnectionStatus(env);
+          return json(status, 200, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/test' && method === 'POST') {
+        const parsed = await parseBody(request);
+        if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+
+        const { phone, message } = parsed.data;
+        if (!phone) return json({ error: 'phone required' }, 400, corsHeaders);
+
+        try {
+          const result = await sendTextViaEvolution(env, phone, message || 'Teste TransObra WhatsApp');
+          return json(result, 200, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/logs' && method === 'GET') {
+        try {
+          const urlObj = new URL(request.url);
+          const limit = parseInt(urlObj.searchParams.get('limit') || '50');
+          const result = await supabaseRequest(env, 'GET', `/whatsapp_logs?order=created_at.desc&limit=${limit}`);
+          return json(result.data, result.status, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
       }
 
       return json({ error: 'API route not found' }, 404, corsHeaders);

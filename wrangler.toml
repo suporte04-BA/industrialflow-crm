@@ -10,6 +10,7 @@ account_id = "3b8a5aa418a5d7ae254ba675291f540c"
 # 2. Maileroo (secondary) - custom domain DKIM
 # 3. Resend (tertiary) - SPF/DKIM/DMARC, no inline images
 # ============================================
+# WhatsApp: Evolution API (parallel to email)
 
 [vars]
 EMAIL_RECIPIENT = "suporte04@baeletrica.com.br"
@@ -19,6 +20,14 @@ GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxpzc8tXrltNXg-dZSj
 GOOGLE_SCRIPT_API_KEY = "transobra-email-key-2026"
 SUPABASE_URL = "https://mbcdbclosomqpfboyffj.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iY2RiY2xvc29tcXBmYm95ZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDcxMTksImV4cCI6MjA5NzE4MzExOX0.iNh0wpvpblUGCAo3wOkNxelMTlLUe7RBoFlqPLjxXxE"
+
+# WhatsApp Evolution API (local Docker + cloudflared tunnel)
+EVOLUTION_API_URL = "https://speak-washington-orleans-invention.trycloudflare.com"
+EVOLUTION_INSTANCE = "transobras"
+WHATSAPP_ENABLED = "true"
+
+# Secrets needed (set via: wrangler secret put EVOLUTION_API_KEY)
+# EVOLUTION_API_KEY = ""
 
 [assets]
 directory = "dist"

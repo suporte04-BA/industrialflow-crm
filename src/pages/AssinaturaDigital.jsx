@@ -270,6 +270,44 @@ export default function AssinaturaDigital() {
         const funcionarioNome = profile?.fullName || profile?.full_name || '';
         sendEmailNotification(contrato, comp, nomeSignatario, imagem, funcionarioNome).catch(() => {});
         generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem, fotosEntrega, fotosRetirada }).catch(() => {});
+
+        // WhatsApp fire-and-forget (parallel to email)
+        fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: 'contrato_assinado',
+            contrato_id: contrato?.id || null,
+            comprovante_id: comp?.id || null,
+            contrato: {
+              telefoneEntrega: contrato?.telefoneEntrega || '',
+              numero: contrato?.numero || '',
+              cliente: contrato?.cliente || comp?.locatario || '',
+              cnpj: contrato?.cnpj || '',
+              atendente: contrato?.atendente || '',
+              inicio: contrato?.inicio || '',
+              fim: contrato?.fim || '',
+              valorMensal: contrato?.valorMensal || 0,
+              equipamentos: contrato?.equipamentos || [],
+              cidade: contrato?.cidade || '',
+            },
+            comprovante: {
+              locatario: comp?.locatario || '',
+              cpf: comp?.cpf || '',
+              total: comp?.total || 0,
+              tipoDocumento: comp?.tipoDocumento || 'entrega',
+              endereco: comp?.endereco || '',
+              cidade: comp?.cidade || '',
+              itens: comp?.itens || [],
+            },
+            signatario: {
+              nome: nomeSignatario || '',
+              cpf: cpfSignatario || '',
+              data: new Date().toISOString(),
+              assinaturaImagem: imagem || null,
+            },
+          }),
+        }).catch(() => {});
       } else {
         toast.success('Assinatura registrada com sucesso!');
         clearCanvas();

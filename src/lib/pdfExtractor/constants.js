@@ -68,14 +68,15 @@ export const JUNK_PATTERNS = new RegExp(
   'TOTAL|SUBTOTAL|DECLAR|CONTRATO|Atendente|Locat[áa]rio|Cidade\\s*:|Estado\\s*:|CEP\\s*:|Fone\\s*:|Endere[çc]o\\s*:|CNPJ\\s*:|Bairro\\s*:|Telefone\\s*:|' +
   'Contato\\s*:|Data\\s*:|Hora|Refer[êe]ncia|EQUILOC|TRANS\\s*OBRA|TARUMA|COMPROVANTE|Observa[çc]|Patrim|NOME|RG\\s*:|' +
   'LOCADORA|CIENTE|ASSINATURA|RESPONSÁVEL|CPF\\s+DO|VALOR\\s+TOTAL|ORÇAMENTO|ORCAMENTO|' +
-  'Locadora\\s+entrega|MANAUS,?\\s+\\d|_{5,}|-{5,}',
+  'Local(?:\\s+da)?\\s+(?:entrega|obra)|MANAUS,?\\s+\\d|_{5,}|-{5,}',
   'i'
 );
 
 export const ITEM_JUNK_PATTERNS = new RegExp(
   'CONTRATO|Atendente|Locat[áa]rio|Cidade\\s*:|Estado\\s*:|CEP\\s*:|Fone\\s*:|Endere[çc]o\\s*:|CNPJ\\s*:|Bairro\\s*:|Telefone\\s*:|' +
   'Contato\\s*:|Data\\s*:|Hora|Refer[êe]ncia|MANAUS|LOCADORA|CIENTE|DANIFICADO|EXTRAVIADO|TESTADO|' +
-  'COMPROVANTE|EQUILOC|TRANS\\s*OBRA|TARUMA|DECLAR|Observa[çc]|Patrim|NOME|RG\\s*:',
+  'COMPROVANTE|EQUILOC|TRANS\\s*OBRA|TARUMA|DECLAR|Observa[çc]|Patrim|NOME|RG\\s*:|' +
+  'Local(?:\\s+da)?\\s+(?:entrega|obra)',
   'i'
 );
 
@@ -96,6 +97,7 @@ export const SKIP_LINE_PATTERNS = [
   /MANAUS,?\s+\d/i,
   /ORÇAMENTO|ORCAMENTO/i,
   /Locadora\s+entrega/i,
+  /Local\s+(?:da\s+)?(?:entrega|obra)/i,
   /^\d{2}\/\d{2}\/\d{4}/,
   /CONTRATO\s*N/i,
   /\(\s*\)\s*\d+\s*[-–]/,

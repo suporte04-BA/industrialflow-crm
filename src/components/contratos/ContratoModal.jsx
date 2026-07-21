@@ -130,7 +130,14 @@ export default function ContratoModal({ isOpen, onClose, onSave, contrato = null
 
   const handlePdfImport = (fields) => {
     const importedItems = Array.isArray(fields.itens) && fields.itens.length > 0
-      ? fields.itens.map(it => ({
+      ? fields.itens.filter(it => {
+          const lower = (it.descricao || '').toLowerCase();
+          if (lower.includes('local da entrega') || lower.includes('local de entrega')) return false;
+          if (lower.includes('local da obra')) return false;
+          if (/^(?:rua|av\.|avenida|alameda|travessa)\s/i.test(lower)) return false;
+          if (lower.includes('manaus') && lower.includes('-')) return false;
+          return true;
+        }).map(it => ({
           quantidade: it.quantidade || 1,
           descricao: it.descricao || '',
           patrimonio: it.patrimonio || '',

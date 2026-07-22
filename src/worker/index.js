@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
-import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState, deleteInstance, createInstance, resetAndConnect, resetAndGetPairingCode } from './whatsapp.js';
+import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, formatWhatsAppMessage, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState, deleteInstance, createInstance, resetAndConnect, resetAndGetPairingCode } from './whatsapp.js';
 
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
@@ -1880,6 +1880,31 @@ export default {
         if (!tipo) return json({ error: 'tipo required' }, 400, corsHeaders);
 
         try {
+          // Check if WhatsApp is connected
+          const connectionStatus = await checkConnectionStatus(env);
+
+          if (!connectionStatus.connected) {
+            // Queue message for later delivery
+            const message = formatWhatsAppMessage(tipo, contrato, comprovante, signatario);
+            const queueResult = await supabaseRequest(env, 'POST', '/whatsapp_queue', {
+              contrato_id: contrato_id || null,
+              comprovante_id: comprovante_id || null,
+              tipo,
+              mensagem: message,
+              contrato_data: contrato || {},
+              comprovante_data: comprovante || {},
+              signatario_data: signatario || {},
+              pdf_base64: pdfBase64 || null,
+              status: 'pendente',
+            });
+            return json({
+              success: false,
+              queued: true,
+              message: 'WhatsApp desconectado. Mensagem armazenada na fila.',
+              queueId: queueResult?.data?.id || null,
+            }, 200, corsHeaders);
+          }
+
           const result = await sendWhatsAppWithFallback(env, {
             tipo,
             contrato_id,
@@ -2027,6 +2052,90 @@ export default {
         try {
           const result = await resetAndGetPairingCode(env, number);
           return json(result, result.success ? 200 : 500, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      // ============================================
+      // WhatsApp Queue Routes
+      // ============================================
+
+      if (path === '/api/whatsapp/queue/count' && method === 'GET') {
+        try {
+          const result = await supabaseRequest(env, 'GET', '/whatsapp_queue?status=eq.pendente&select=id');
+          const count = Array.isArray(result?.data) ? result.data.length : 0;
+          return json({ count }, 200, corsHeaders);
+        } catch (e) {
+          return json({ count: 0, error: e.message }, 200, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/process-queue' && method === 'POST') {
+        try {
+          // Check connection first
+          const status = await checkConnectionStatus(env);
+          if (!status.connected) {
+            return json({ processed: 0, message: 'WhatsApp still disconnected' }, 200, corsHeaders);
+          }
+
+          // Get pending messages
+          const pending = await supabaseRequest(env, 'GET', '/whatsapp_queue?status=eq.pendente&order=created_at.asc&limit=5');
+          const messages = Array.isArray(pending?.data) ? pending.data : [];
+
+          if (messages.length === 0) {
+            return json({ processed: 0, message: 'No pending messages' }, 200, corsHeaders);
+          }
+
+          let processed = 0;
+          let errors = 0;
+
+          for (const msg of messages) {
+            try {
+              const result = await sendWhatsAppWithFallback(env, {
+                tipo: msg.tipo,
+                contrato_id: msg.contrato_id,
+                comprovante_id: msg.comprovante_id,
+                contrato: msg.contrato_data || {},
+                comprovante: msg.comprovante_data || {},
+                signatario: msg.signatario_data || {},
+                pdfBase64: msg.pdf_base64 || null,
+              });
+
+              if (result.success) {
+                await supabaseRequest(env, 'PATCH', `/whatsapp_queue?id=eq.${msg.id}`, {
+                  status: 'enviado',
+                  updated_at: new Date().toISOString(),
+                });
+                processed++;
+              } else {
+                const newAttempts = (msg.tentativas || 0) + 1;
+                await supabaseRequest(env, 'PATCH', `/whatsapp_queue?id=eq.${msg.id}`, {
+                  tentativas: newAttempts,
+                  erro_msg: result.error || 'Send failed',
+                  status: newAttempts >= (msg.max_tentativas || 3) ? 'erro' : 'pendente',
+                  updated_at: new Date().toISOString(),
+                });
+                errors++;
+              }
+            } catch (e) {
+              const newAttempts = (msg.tentativas || 0) + 1;
+              await supabaseRequest(env, 'PATCH', `/whatsapp_queue?id=eq.${msg.id}`, {
+                tentativas: newAttempts,
+                erro_msg: e.message,
+                status: newAttempts >= (msg.max_tentativas || 3) ? 'erro' : 'pendente',
+                updated_at: new Date().toISOString(),
+              });
+              errors++;
+            }
+
+            // Anti-ban delay between messages
+            if (messages.indexOf(msg) < messages.length - 1) {
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+
+          return json({ processed, errors, remaining: Math.max(0, messages.length - processed - errors) }, 200, corsHeaders);
         } catch (e) {
           return json({ error: e.message }, 500, corsHeaders);
         }

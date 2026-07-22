@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import MobileBottomNav from './MobileBottomNav';
+import WhatsAppBanner from '../whatsapp/WhatsAppBanner';
 
 const pageTitles = {
   '/': { title: 'Dashboard', subtitle: 'Visao geral do sistema' },
@@ -24,6 +25,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <WhatsAppBanner />
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       <div className="lg:ml-60">
         <Header title={pageInfo.title} subtitle={pageInfo.subtitle} setMobileOpen={setMobileOpen} />

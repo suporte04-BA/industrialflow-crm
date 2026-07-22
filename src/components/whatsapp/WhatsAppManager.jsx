@@ -165,7 +165,8 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         setQrImage(null);
         setPairingCode(null);
         setConfirmDelete(false);
-        fetchInstance();
+        setView('main');
+        connectLockRef.current = false;
       } else {
         toast.error('Erro ao remover');
       }
@@ -174,7 +175,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     } finally {
       setActionLoading(null);
     }
-  }, [fetchInstance]);
+  }, []);
 
   // Manual QR refresh
   const handleRefreshQR = useCallback(() => {

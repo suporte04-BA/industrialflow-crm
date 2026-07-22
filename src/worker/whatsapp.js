@@ -800,3 +800,25 @@ export async function getInstanceState(env) {
     return { connected: false, state: 'error' };
   }
 }
+
+export async function deleteInstance(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { success: false, error: 'Evolution API not configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+    const res = await fetch(`${apiUrl}/instance/delete/${instance}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return { success: res.ok, state: data?.instance?.status || 'unknown' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}

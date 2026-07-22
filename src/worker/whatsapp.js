@@ -600,3 +600,203 @@ async function generateWhatsAppPdf(contrato, comprovante, signatario) {
 
   return await pdfDoc.saveAsBase64();
 }
+
+// ============================================
+// EVOLUTION API: INSTANCE MANAGEMENT
+// ============================================
+
+async function evolutionFetch(env, path, options = {}) {
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) throw new Error('Evolution API not configured');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${apiUrl}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey,
+        ...options.headers,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return { ok: res.ok, status: res.status, data: await res.json() };
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
+}
+
+export async function getInstanceInfo(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+
+  if (!apiUrl || !apiKey) return null;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+
+    const res = await fetch(`${apiUrl}/instance/fetchInstances`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const data = await res.json();
+    const list = data?.value || data || [];
+    const arr = Array.isArray(list) ? list : [];
+    const inst = arr.find(i => i.name === instance || i.id === instance);
+    if (!inst) return null;
+
+    return {
+      name: inst.name,
+      id: inst.id,
+      status: inst.connectionStatus,
+      ownerJid: inst.ownerJid || '',
+      profileName: inst.profileName || '',
+      profilePicUrl: inst.profilePicUrl || '',
+      integration: inst.integration || '',
+      messages: inst._count?.Message || 0,
+      contacts: inst._count?.Contact || 0,
+      chats: inst._count?.Chat || 0,
+      createdAt: inst.createdAt,
+      updatedAt: inst.updatedAt,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function getConnectionQR(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { state: 'error', error: 'Evolution API not configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+    const res = await fetch(`${apiUrl}/instance/connect/${instance}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return {
+      state: data?.instance?.state || data?.state || 'unknown',
+      base64: data?.base64 || null,
+      pairingCode: data?.pairingCode || null,
+      code: data?.code || null,
+      count: data?.count || 0,
+    };
+  } catch (e) {
+    return { state: 'error', error: e.message };
+  }
+}
+
+export async function getPairingCode(env, number) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { error: 'Evolution API not configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+    const res = await fetch(`${apiUrl}/instance/connect/${instance}?number=${number}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return {
+      state: data?.instance?.state || data?.state || 'unknown',
+      pairingCode: data?.pairingCode || null,
+      base64: data?.base64 || null,
+      code: data?.code || null,
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+export async function disconnectInstance(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { success: false, error: 'Evolution API not configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+    const res = await fetch(`${apiUrl}/instance/logout/${instance}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return { success: res.ok, state: data?.instance?.status || 'unknown' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+export async function restartInstance(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { success: false, error: 'Evolution API not configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+    const res = await fetch(`${apiUrl}/instance/restart/${instance}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return { success: res.ok, state: data?.instance?.status || 'unknown' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+export async function getInstanceState(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { connected: false, state: 'unknown' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
+    const res = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return {
+      connected: data?.instance?.state === 'open',
+      state: data?.instance?.state || 'unknown',
+    };
+  } catch (e) {
+    return { connected: false, state: 'error' };
+  }
+}

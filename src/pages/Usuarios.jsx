@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Plus, Trash2, Shield, UserCheck, Loader2, Search, AlertTriangle, X, Mail, MailX } from 'lucide-react';
+import { Users, Plus, Trash2, Shield, UserCheck, Loader2, Search, AlertTriangle, X, Mail, MailX, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUsuarios, useCreateUsuario, useUpdateUsuarioRole, useUpdateUsuario, useUpdateUsuarioPassword, useDeleteUsuario } from '../hooks/useUsuarios';
 import { useAuth } from '../lib/AuthContext';
@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import ErrorDisplay from '../components/common/ErrorDisplay';
 import EmptyState from '../components/ui/EmptyState';
+import WhatsAppManager from '../components/whatsapp/WhatsAppManager';
 
 const roleLabels = { admin: 'Admin', gestor: 'Gestor', funcionario: 'Funcionário' };
 const roleColors = {
@@ -26,6 +27,7 @@ export default function Usuarios() {
   const [creating, setCreating] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ fullName: '', email: '', password: '', role: 'funcionario', temEmail: true });
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
 
   const handleSearch = () => setSearchTerm(searchInput);
   const clearSearch = () => { setSearchInput(''); setSearchTerm(''); };
@@ -172,9 +174,15 @@ export default function Usuarios() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Gestão de Usuários</h2>
           <p className="text-xs sm:text-sm text-gray-500">{usuarios.length} usuários cadastrados | {adminGestorCount} gestor(es)</p>
         </div>
-        <Button icon={Plus} onClick={() => setShowCreate(!showCreate)} className="w-full sm:w-auto">
-          {showCreate ? 'Fechar' : 'Novo Usuario'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button icon={Plus} onClick={() => setShowCreate(!showCreate)} className="flex-1 sm:flex-none">
+            {showCreate ? 'Fechar' : 'Novo Usuario'}
+          </Button>
+          <button onClick={() => setShowWhatsApp(true)}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm">
+            <Smartphone className="w-4 h-4" /> WhatsApp
+          </button>
+        </div>
       </div>
 
       {adminGestorCount <= 1 && (
@@ -445,6 +453,8 @@ export default function Usuarios() {
           </div>
         </div>
       )}
+
+      <WhatsAppManager isOpen={showWhatsApp} onClose={() => setShowWhatsApp(false)} />
     </div>
   );
 }

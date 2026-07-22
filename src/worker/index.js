@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
-import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers } from './whatsapp.js';
+import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState } from './whatsapp.js';
 
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
@@ -1925,6 +1925,68 @@ export default {
           const limit = parseInt(urlObj.searchParams.get('limit') || '50');
           const result = await supabaseRequest(env, 'GET', `/whatsapp_logs?order=created_at.desc&limit=${limit}`);
           return json(result.data, result.status, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      // ============================================
+      // WhatsApp Instance Management Routes
+      // ============================================
+
+      if (path === '/api/whatsapp/instance' && method === 'GET') {
+        try {
+          const info = await getInstanceInfo(env);
+          return json(info || { error: 'Instance not found' }, info ? 200 : 404, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/qr' && method === 'GET') {
+        try {
+          const qr = await getConnectionQR(env);
+          return json(qr, 200, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/qr/pairing' && method === 'POST') {
+        const parsed = await parseBody(request);
+        if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+        const { number } = parsed.data;
+        if (!number) return json({ error: 'number required' }, 400, corsHeaders);
+        try {
+          const result = await getPairingCode(env, number);
+          return json(result, 200, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/disconnect' && method === 'POST') {
+        try {
+          const result = await disconnectInstance(env);
+          return json(result, result.success ? 200 : 500, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/restart' && method === 'POST') {
+        try {
+          const result = await restartInstance(env);
+          return json(result, result.success ? 200 : 500, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/connection-state' && method === 'GET') {
+        try {
+          const state = await getInstanceState(env);
+          return json(state, 200, corsHeaders);
         } catch (e) {
           return json({ error: e.message }, 500, corsHeaders);
         }

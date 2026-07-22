@@ -855,3 +855,128 @@ export async function createInstance(env) {
     return { success: false, error: e.message };
   }
 }
+
+// ============================================
+// RESET AND CONNECT: Delete stale + Create fresh + Return QR
+// This is the main entry point for the frontend
+// ============================================
+
+export async function resetAndConnect(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { success: false, error: 'Evolution API not configured' };
+
+  try {
+    // 1. Check current state
+    try {
+      const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
+        method: 'GET',
+        headers: { 'apikey': apiKey },
+      });
+      const stateData = await stateRes.json();
+      if (stateData?.instance?.state === 'open') {
+        return { success: true, state: 'open', message: 'Already connected' };
+      }
+    } catch {}
+
+    // 2. Delete existing instance (ignore errors — might not exist)
+    try {
+      await fetch(`${apiUrl}/instance/delete/${instance}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      });
+    } catch {}
+
+    // 3. Wait for cleanup
+    await new Promise(r => setTimeout(r, 1500));
+
+    // 4. Create fresh instance with QR code
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    const res = await fetch(`${apiUrl}/instance/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      body: JSON.stringify({
+        instanceName: instance,
+        qrcode: true,
+        integration: 'WHATSAPP-BAILEYS',
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+
+    return {
+      success: res.ok,
+      state: data?.instance?.status || 'connecting',
+      qrcode: data?.qrcode?.base64 || null,
+      pairingCode: data?.qrcode?.pairingCode || null,
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ============================================
+// RESET AND PAIRING CODE: Delete stale + Create fresh + Get pairing code
+// ============================================
+
+export async function resetAndGetPairingCode(env, number) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { success: false, error: 'Evolution API not configured' };
+
+  try {
+    // 1. Delete existing instance
+    try {
+      await fetch(`${apiUrl}/instance/delete/${instance}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      });
+    } catch {}
+
+    // 2. Wait for cleanup
+    await new Promise(r => setTimeout(r, 1500));
+
+    // 3. Create fresh instance WITHOUT QR (pairing code needs this)
+    const createRes = await fetch(`${apiUrl}/instance/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      body: JSON.stringify({
+        instanceName: instance,
+        qrcode: false,
+        integration: 'WHATSAPP-BAILEYS',
+      }),
+    });
+    const createData = await createRes.json();
+
+    if (!createRes.ok) {
+      return { success: false, error: 'Failed to create instance' };
+    }
+
+    // 4. Wait for instance to be ready
+    await new Promise(r => setTimeout(r, 2000));
+
+    // 5. Request pairing code via connect endpoint
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const connectRes = await fetch(`${apiUrl}/instance/connect/${instance}?number=${number}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const connectData = await connectRes.json();
+
+    return {
+      success: true,
+      pairingCode: connectData?.pairingCode || null,
+      base64: connectData?.base64 || null,
+      state: connectData?.instance?.state || connectData?.state || 'connecting',
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}

@@ -7,7 +7,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
   const [status, setStatus] = useState('loading');
   const [qrImage, setQrImage] = useState(null);
   const [pairingCode, setPairingCode] = useState(null);
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(60);
   const [actionLoading, setActionLoading] = useState(null);
   const [mode, setMode] = useState('qr');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -17,13 +17,14 @@ export default function WhatsAppManager({ isOpen, onClose }) {
 
   const pollRef = useRef(null);
   const countdownRef = useRef(null);
-  const qrFetchedRef = useRef(false);
+  const connectLockRef = useRef(false);
   const statusRef = useRef('loading');
 
   const isConnected = status === 'open';
   const isConnecting = status === 'connecting';
   const hasInstance = !!instance;
 
+  // Fetch instance info
   const fetchInstance = useCallback(async () => {
     try {
       const res = await fetch('/api/whatsapp/instance');
@@ -44,46 +45,39 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, []);
 
-  const fetchQR = useCallback(async () => {
+  // Main connect flow: delete stale → create fresh → return QR
+  const handleConnect = useCallback(async () => {
+    if (connectLockRef.current) return;
+    connectLockRef.current = true;
+    setActionLoading('connect');
     try {
-      const res = await fetch('/api/whatsapp/qr');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.base64) setQrImage(data.base64);
-        if (data.pairingCode) setPairingCode(data.pairingCode);
-        if (data.state) {
-          setStatus(data.state);
-          statusRef.current = data.state;
-          if (data.state === 'open') {
-            toast.success('WhatsApp conectado!');
-            fetchInstance();
-          }
-        }
-      }
-    } catch { /* ignore */ }
-  }, [fetchInstance]);
+      const res = await fetch('/api/whatsapp/connect');
+      const data = await res.json();
 
-  const handleCreateInstance = useCallback(async () => {
-    setActionLoading('create');
-    try {
-      const res = await fetch('/api/whatsapp/create', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.qrcode) setQrImage(data.qrcode);
-        toast.success('Instancia criada! Escaneie o QR Code');
+      if (data.state === 'open') {
+        toast.success('WhatsApp ja esta conectado!');
+        setStatus('open');
+        statusRef.current = 'open';
+        setQrImage(null);
         fetchInstance();
-        setView('main');
+      } else if (data.qrcode) {
+        setQrImage(data.qrcode);
+        setCountdown(60);
+        setStatus('connecting');
+        statusRef.current = 'connecting';
       } else {
-        toast.error('Erro ao criar instancia');
+        toast.error('Nao foi possivel gerar QR Code');
       }
     } catch {
-      toast.error('Erro ao criar instancia');
+      toast.error('Erro ao conectar');
     } finally {
       setActionLoading(null);
+      connectLockRef.current = false;
     }
   }, [fetchInstance]);
 
-  const fetchPairingCode = useCallback(async () => {
+  // Pairing code flow
+  const handlePairingCode = useCallback(async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
       toast.error('Digite um numero valido com DDD');
       return;
@@ -92,24 +86,22 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     try {
       const clean = phoneNumber.replace(/\D/g, '');
       const number = clean.startsWith('55') ? clean : '55' + clean;
-      const res = await fetch('/api/whatsapp/qr/pairing', {
+      const res = await fetch('/api/whatsapp/pairing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ number }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.pairingCode) {
-          setPairingCode(data.pairingCode);
-          setQrImage(null);
-          setCountdown(30);
-          toast.success('Codigo gerado!');
-        } else if (data.state === 'open') {
-          toast.success('Ja conectado!');
-          fetchInstance();
-        } else {
-          toast.error('Nao foi possivel gerar o codigo');
-        }
+      const data = await res.json();
+      if (data.pairingCode) {
+        setPairingCode(data.pairingCode);
+        setQrImage(null);
+        setCountdown(60);
+        toast.success('Codigo gerado!');
+      } else if (data.state === 'open') {
+        toast.success('Ja conectado!');
+        fetchInstance();
+      } else {
+        toast.error('Nao foi possivel gerar o codigo. Tente o QR Code.');
       }
     } catch {
       toast.error('Erro ao gerar codigo');
@@ -118,6 +110,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [phoneNumber, fetchInstance]);
 
+  // Disconnect
   const handleDisconnect = useCallback(async () => {
     setActionLoading('disconnect');
     try {
@@ -128,7 +121,6 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         statusRef.current = 'close';
         setQrImage(null);
         setPairingCode(null);
-        qrFetchedRef.current = false;
         fetchInstance();
       } else {
         toast.error('Erro ao desconectar');
@@ -140,6 +132,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [fetchInstance]);
 
+  // Restart
   const handleRestart = useCallback(async () => {
     setActionLoading('restart');
     try {
@@ -148,7 +141,6 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         toast.success('Reiniciado!');
         setStatus('connecting');
         statusRef.current = 'connecting';
-        qrFetchedRef.current = false;
         setTimeout(fetchInstance, 3000);
       } else {
         toast.error('Erro ao reiniciar');
@@ -160,6 +152,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [fetchInstance]);
 
+  // Delete instance
   const handleDelete = useCallback(async () => {
     setActionLoading('delete');
     try {
@@ -172,7 +165,6 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         setQrImage(null);
         setPairingCode(null);
         setConfirmDelete(false);
-        qrFetchedRef.current = false;
         fetchInstance();
       } else {
         toast.error('Erro ao remover');
@@ -184,14 +176,15 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [fetchInstance]);
 
+  // Manual QR refresh
   const handleRefreshQR = useCallback(() => {
     setQrImage(null);
     setPairingCode(null);
-    setCountdown(30);
-    qrFetchedRef.current = false;
-    fetchQR();
-  }, [fetchQR]);
+    connectLockRef.current = false;
+    handleConnect();
+  }, [handleConnect]);
 
+  // Copy pairing code
   const copyPairingCode = useCallback(() => {
     if (pairingCode) {
       navigator.clipboard.writeText(pairingCode);
@@ -200,14 +193,26 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [pairingCode]);
 
+  // On modal open: fetch instance + auto-connect if disconnected
   useEffect(() => {
     if (!isOpen) return;
-    fetchInstance();
-    qrFetchedRef.current = false;
     setConfirmDelete(false);
     setView('main');
-  }, [isOpen, fetchInstance]);
+    setPairingCode(null);
+    setPhoneNumber('');
+    setCopied(false);
 
+    fetchInstance().then(() => {
+      // After fetching instance, if not connected, auto-connect
+      setTimeout(() => {
+        if (statusRef.current !== 'open') {
+          handleConnect();
+        }
+      }, 500);
+    });
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll connection state every 5s
   useEffect(() => {
     if (!isOpen) { clearInterval(pollRef.current); return; }
     pollRef.current = setInterval(async () => {
@@ -223,33 +228,32 @@ export default function WhatsAppManager({ isOpen, onClose }) {
           setStatus(newState);
           statusRef.current = newState;
         }
-      } catch { /* ignore */ }
+      } catch {}
     }, 5000);
     return () => clearInterval(pollRef.current);
   }, [isOpen, fetchInstance]);
 
+  // QR countdown: 60s, auto-refresh
   useEffect(() => {
     if (!isOpen || isConnected || view !== 'main') {
       clearInterval(countdownRef.current);
       return;
     }
-    setCountdown(30);
+    setCountdown(60);
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) { fetchQR(); return 30; }
+        if (prev <= 1) {
+          connectLockRef.current = false;
+          handleConnect();
+          return 60;
+        }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(countdownRef.current);
-  }, [isOpen, isConnected, fetchQR, view]);
+  }, [isOpen, isConnected, handleConnect, view]);
 
-  useEffect(() => {
-    if (isOpen && !isConnected && view === 'main' && !qrFetchedRef.current) {
-      qrFetchedRef.current = true;
-      fetchQR();
-    }
-  }, [isOpen, isConnected, fetchQR, view]);
-
+  // Reset state on close
   useEffect(() => {
     if (!isOpen) {
       setQrImage(null);
@@ -259,7 +263,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
       setCopied(false);
       setConfirmDelete(false);
       setView('main');
-      qrFetchedRef.current = false;
+      connectLockRef.current = false;
     }
   }, [isOpen]);
 
@@ -277,7 +281,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {view !== 'main' && (
-                <button onClick={() => { setView('main'); qrFetchedRef.current = false; }}
+                <button onClick={() => { setView('main'); connectLockRef.current = false; }}
                   className="p-2 hover:bg-white/20 rounded-xl transition-colors -ml-2">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -344,7 +348,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
               </div>
             </div>
           ) : !hasInstance ? (
-            /* No Instance: Create */
+            /* No Instance: Auto-connect will trigger, show loading */
             <div className="text-center py-8 space-y-5">
               <div className="w-20 h-20 mx-auto bg-gray-100 rounded-3xl flex items-center justify-center">
                 <Smartphone className="w-10 h-10 text-gray-300" />
@@ -353,10 +357,10 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Nenhuma instancia WhatsApp</h3>
                 <p className="text-sm text-gray-500">Crie uma instancia para comecar a enviar mensagens</p>
               </div>
-              <button onClick={handleCreateInstance} disabled={actionLoading === 'create'}
+              <button onClick={handleConnect} disabled={actionLoading === 'connect'}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 transition-all disabled:opacity-50">
-                {actionLoading === 'create' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                Criar Instancia
+                {actionLoading === 'connect' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                Criar e Conectar
               </button>
             </div>
           ) : (
@@ -435,13 +439,13 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                 /* Disconnected: QR / Pairing */
                 <div className="space-y-5">
                   <div className="flex bg-gray-100 rounded-2xl p-1.5">
-                    <button onClick={() => { setMode('qr'); setPairingCode(null); }}
+                    <button onClick={() => { setMode('qr'); setPairingCode(null); connectLockRef.current = false; }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                         mode === 'qr' ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700'
                       }`}>
                       <QrCode className="w-4 h-4" /> QR Code
                     </button>
-                    <button onClick={() => { setMode('pairing'); setQrImage(null); qrFetchedRef.current = false; }}
+                    <button onClick={() => { setMode('pairing'); setQrImage(null); connectLockRef.current = false; }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                         mode === 'pairing' ? 'bg-white text-gray-900 shadow-md' : 'text-gray-500 hover:text-gray-700'
                       }`}>
@@ -471,9 +475,9 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                       <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
                         Abra o WhatsApp, va em <strong>Dispositivos conectados</strong> e escaneie
                       </p>
-                      <button onClick={handleRefreshQR}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-sm font-semibold border border-gray-200">
-                        <RefreshCw className="w-4 h-4" /> Renovar QR
+                      <button onClick={handleRefreshQR} disabled={actionLoading === 'connect'}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-sm font-semibold border border-gray-200 disabled:opacity-50">
+                        {actionLoading === 'connect' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Renovar QR
                       </button>
                     </div>
                   ) : (
@@ -482,10 +486,10 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Numero do celular</label>
                         <input type="tel" placeholder="(92) 99999-9999" value={phoneNumber}
                           onChange={e => setPhoneNumber(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && fetchPairingCode()}
+                          onKeyDown={e => e.key === 'Enter' && handlePairingCode()}
                           className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent bg-gray-50 placeholder-gray-400" />
                       </div>
-                      <button onClick={fetchPairingCode} disabled={actionLoading === 'pairing' || !phoneNumber}
+                      <button onClick={handlePairingCode} disabled={actionLoading === 'pairing' || !phoneNumber}
                         className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-2xl hover:shadow-lg hover:shadow-green-500/25 transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                         {actionLoading === 'pairing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />}
                         Gerar Codigo de Pareamento

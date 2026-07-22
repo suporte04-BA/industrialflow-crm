@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
-import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState, deleteInstance, createInstance } from './whatsapp.js';
+import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState, deleteInstance, createInstance, resetAndConnect, resetAndGetPairingCode } from './whatsapp.js';
 
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
@@ -2004,6 +2004,28 @@ export default {
       if (path === '/api/whatsapp/create' && method === 'POST') {
         try {
           const result = await createInstance(env);
+          return json(result, result.success ? 200 : 500, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/connect' && method === 'GET') {
+        try {
+          const result = await resetAndConnect(env);
+          return json(result, result.success ? 200 : 500, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/pairing' && method === 'POST') {
+        const parsed = await parseBody(request);
+        if (parsed.error) return json({ error: parsed.error }, 400, corsHeaders);
+        const { number } = parsed.data;
+        if (!number) return json({ error: 'number required' }, 400, corsHeaders);
+        try {
+          const result = await resetAndGetPairingCode(env, number);
           return json(result, result.success ? 200 : 500, corsHeaders);
         } catch (e) {
           return json({ error: e.message }, 500, corsHeaders);

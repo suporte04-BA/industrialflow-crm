@@ -822,3 +822,36 @@ export async function deleteInstance(env) {
     return { success: false, error: e.message };
   }
 }
+
+export async function createInstance(env) {
+  const instance = env.EVOLUTION_INSTANCE;
+  const apiUrl = env.EVOLUTION_API_URL;
+  const apiKey = env.EVOLUTION_API_KEY;
+  if (!apiUrl || !apiKey) return { success: false, error: 'Evolution API not configured' };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    const res = await fetch(`${apiUrl}/instance/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      body: JSON.stringify({
+        instanceName: instance,
+        qrcode: true,
+        integration: 'WHATSAPP-BAILEYS',
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    return {
+      success: res.ok,
+      instanceId: data?.instance?.instanceId || null,
+      status: data?.instance?.status || 'unknown',
+      qrcode: data?.qrcode?.base64 || null,
+      pairingCode: data?.qrcode?.pairingCode || null,
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, RefreshCw, Wifi, Loader2, Smartphone, MessageSquare, Users, Clock, Unplug, RotateCcw, Copy, Check, Trash2, QrCode, Link2, AlertTriangle, Shield } from 'lucide-react';
+import { X, RefreshCw, Wifi, Loader2, Smartphone, MessageSquare, Users, Clock, Unplug, RotateCcw, Copy, Check, Trash2, QrCode, Link2, AlertTriangle, Shield, Plus, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function WhatsAppManager({ isOpen, onClose }) {
@@ -13,6 +13,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [view, setView] = useState('main');
 
   const pollRef = useRef(null);
   const countdownRef = useRef(null);
@@ -21,6 +22,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
 
   const isConnected = status === 'open';
   const isConnecting = status === 'connecting';
+  const hasInstance = !!instance;
 
   const fetchInstance = useCallback(async () => {
     try {
@@ -28,7 +30,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
       if (res.ok) {
         const data = await res.json();
         setInstance(data);
-        const newStatus = data.status === 'open' ? 'open' : 'close';
+        const newStatus = data.status === 'open' ? 'open' : data.status === 'connecting' ? 'connecting' : 'close';
         setStatus(newStatus);
         statusRef.current = newStatus;
       } else {
@@ -49,18 +51,36 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         const data = await res.json();
         if (data.base64) setQrImage(data.base64);
         if (data.pairingCode) setPairingCode(data.pairingCode);
-        if (data.state && data.state !== 'open') {
+        if (data.state) {
           setStatus(data.state);
           statusRef.current = data.state;
-        }
-        if (data.state === 'open') {
-          setStatus('open');
-          statusRef.current = 'open';
-          toast.success('WhatsApp conectado!');
-          fetchInstance();
+          if (data.state === 'open') {
+            toast.success('WhatsApp conectado!');
+            fetchInstance();
+          }
         }
       }
     } catch { /* ignore */ }
+  }, [fetchInstance]);
+
+  const handleCreateInstance = useCallback(async () => {
+    setActionLoading('create');
+    try {
+      const res = await fetch('/api/whatsapp/create', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.qrcode) setQrImage(data.qrcode);
+        toast.success('Instancia criada! Escaneie o QR Code');
+        fetchInstance();
+        setView('main');
+      } else {
+        toast.error('Erro ao criar instancia');
+      }
+    } catch {
+      toast.error('Erro ao criar instancia');
+    } finally {
+      setActionLoading(null);
+    }
   }, [fetchInstance]);
 
   const fetchPairingCode = useCallback(async () => {
@@ -83,7 +103,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
           setPairingCode(data.pairingCode);
           setQrImage(null);
           setCountdown(30);
-          toast.success('Codigo de pareamento gerado!');
+          toast.success('Codigo gerado!');
         } else if (data.state === 'open') {
           toast.success('Ja conectado!');
           fetchInstance();
@@ -103,7 +123,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     try {
       const res = await fetch('/api/whatsapp/disconnect', { method: 'POST' });
       if (res.ok) {
-        toast.success('WhatsApp desconectado!');
+        toast.success('Desconectado!');
         setStatus('close');
         statusRef.current = 'close';
         setQrImage(null);
@@ -111,8 +131,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         qrFetchedRef.current = false;
         fetchInstance();
       } else {
-        const err = await res.json();
-        toast.error(err.error || 'Erro ao desconectar');
+        toast.error('Erro ao desconectar');
       }
     } catch {
       toast.error('Erro ao desconectar');
@@ -126,7 +145,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     try {
       const res = await fetch('/api/whatsapp/restart', { method: 'POST' });
       if (res.ok) {
-        toast.success('Instancia reiniciada!');
+        toast.success('Reiniciado!');
         setStatus('connecting');
         statusRef.current = 'connecting';
         qrFetchedRef.current = false;
@@ -156,10 +175,10 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         qrFetchedRef.current = false;
         fetchInstance();
       } else {
-        toast.error('Erro ao remover instancia');
+        toast.error('Erro ao remover');
       }
     } catch {
-      toast.error('Erro ao remover instancia');
+      toast.error('Erro ao remover');
     } finally {
       setActionLoading(null);
     }
@@ -181,15 +200,14 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [pairingCode]);
 
-  // Open: fetch instance data
   useEffect(() => {
     if (!isOpen) return;
     fetchInstance();
     qrFetchedRef.current = false;
     setConfirmDelete(false);
+    setView('main');
   }, [isOpen, fetchInstance]);
 
-  // Poll connection state every 5s
   useEffect(() => {
     if (!isOpen) { clearInterval(pollRef.current); return; }
     pollRef.current = setInterval(async () => {
@@ -210,34 +228,28 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     return () => clearInterval(pollRef.current);
   }, [isOpen, fetchInstance]);
 
-  // QR auto-refresh countdown (only when disconnected)
   useEffect(() => {
-    if (!isOpen || isConnected) {
+    if (!isOpen || isConnected || view !== 'main') {
       clearInterval(countdownRef.current);
       return;
     }
     setCountdown(30);
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) {
-          fetchQR();
-          return 30;
-        }
+        if (prev <= 1) { fetchQR(); return 30; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(countdownRef.current);
-  }, [isOpen, isConnected, fetchQR]);
+  }, [isOpen, isConnected, fetchQR, view]);
 
-  // Initial QR fetch when disconnected
   useEffect(() => {
-    if (isOpen && !isConnected && !qrFetchedRef.current) {
+    if (isOpen && !isConnected && view === 'main' && !qrFetchedRef.current) {
       qrFetchedRef.current = true;
       fetchQR();
     }
-  }, [isOpen, isConnected, fetchQR]);
+  }, [isOpen, isConnected, fetchQR, view]);
 
-  // Reset on close
   useEffect(() => {
     if (!isOpen) {
       setQrImage(null);
@@ -246,6 +258,7 @@ export default function WhatsAppManager({ isOpen, onClose }) {
       setPhoneNumber('');
       setCopied(false);
       setConfirmDelete(false);
+      setView('main');
       qrFetchedRef.current = false;
     }
   }, [isOpen]);
@@ -255,138 +268,172 @@ export default function WhatsAppManager({ isOpen, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-hidden border border-gray-100"
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden border border-gray-100"
         onClick={e => e.stopPropagation()}
         style={{ animation: 'slideUp 0.3s ease-out' }}
       >
-        {/* Header */}
-        <div className={`relative px-6 py-5 flex items-center justify-between ${
-          isConnected ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
-          isConnecting ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
-          'bg-gradient-to-r from-gray-500 to-gray-600'
-        } text-white`}>
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-              <Smartphone className="w-6 h-6" />
+        {/* Header WhatsApp Style */}
+        <div className="relative bg-gradient-to-r from-[#075E54] via-[#128C7E] to-[#25D366] text-white px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {view !== 'main' && (
+                <button onClick={() => { setView('main'); qrFetchedRef.current = false; }}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-colors -ml-2">
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg tracking-tight">WhatsApp TransObra</h3>
+                <p className="text-sm opacity-90">
+                  {!hasInstance ? 'Nenhuma instancia' : isConnected ? 'Conectado' : isConnecting ? 'Conectando...' : 'Desconectado'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-lg tracking-tight">WhatsApp — TransObra</h3>
-              <p className="text-sm opacity-90">
-                {isConnected ? 'Conectado e funcionando' : isConnecting ? 'Conectando...' : 'Desconectado'}
-              </p>
+            <div className="flex items-center gap-3">
+              {isConnected && (
+                <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  <span className="text-xs font-medium">Online</span>
+                </div>
+              )}
+              <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-          {isConnected && (
-            <div className="absolute top-5 right-14 w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
-          )}
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(92vh-80px)]">
           {status === 'loading' ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <Loader2 className="w-10 h-10 animate-spin text-green-500" />
+              <Loader2 className="w-10 h-10 animate-spin text-[#25D366]" />
               <p className="text-sm text-gray-400">Carregando...</p>
+            </div>
+          ) : view === 'manage' ? (
+            /* Manage View: Delete Instance */
+            <div className="space-y-5">
+              <div className="p-5 bg-red-50 rounded-2xl border border-red-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-red-800">Remover Instancia</p>
+                    <p className="text-sm text-red-600">Acao irreversivel</p>
+                  </div>
+                </div>
+                <p className="text-sm text-red-700 mb-4">
+                  Isso vai apagar a instancia <strong>transobras</strong> permanentemente.
+                  Todas as configuracoes e historico de conexao serao perdidos.
+                  Sera necessario criar uma nova instancia e reconectar com QR code.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setView('main')}
+                    className="flex-1 py-3 text-sm font-semibold text-gray-600 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={handleDelete} disabled={actionLoading === 'delete'}
+                    className="flex-1 py-3 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
+                    {actionLoading === 'delete' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Confirmar exclusao
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : !hasInstance ? (
+            /* No Instance: Create */
+            <div className="text-center py-8 space-y-5">
+              <div className="w-20 h-20 mx-auto bg-gray-100 rounded-3xl flex items-center justify-center">
+                <Smartphone className="w-10 h-10 text-gray-300" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Nenhuma instancia WhatsApp</h3>
+                <p className="text-sm text-gray-500">Crie uma instancia para comecar a enviar mensagens</p>
+              </div>
+              <button onClick={handleCreateInstance} disabled={actionLoading === 'create'}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 transition-all disabled:opacity-50">
+                {actionLoading === 'create' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                Criar Instancia
+              </button>
             </div>
           ) : (
             <>
               {/* Instance Info Card */}
-              {instance && (
-                <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-5 border border-gray-200/60">
-                  <div className="flex items-center gap-4 mb-4">
-                    {instance.profilePicUrl ? (
-                      <img src={instance.profilePicUrl} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-                        {instance.profileName?.[0] || 'T'}
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-lg truncate">{instance.profileName || 'TransObra'}</p>
-                      <p className="text-sm text-gray-500 font-mono">{instance.ownerJid?.replace('@s.whatsapp.net', '') || 'N/A'}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-300'}`} />
-                        <span className="text-xs text-gray-500">{isConnected ? 'Online' : 'Offline'}</span>
-                      </div>
+              <div className="mb-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl p-5 border border-gray-200/60 shadow-sm">
+                <div className="flex items-center gap-4 mb-4">
+                  {instance.profilePicUrl ? (
+                    <img src={instance.profilePicUrl} alt="" className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#25D366] to-[#075E54] flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                      {instance.profileName?.[0] || 'T'}
                     </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 text-lg truncate">{instance.profileName || 'TransObra'}</p>
+                    <p className="text-sm text-gray-500 font-mono">{instance.ownerJid?.replace('@s.whatsapp.net', '') || 'N/A'}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
-                      <MessageSquare className="w-5 h-5 mx-auto text-blue-500 mb-1.5" />
-                      <p className="text-lg font-bold text-gray-900">{instance.messages?.toLocaleString() || '0'}</p>
-                      <p className="text-[11px] text-gray-500 font-medium">Mensagens</p>
-                    </div>
-                    <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
-                      <Users className="w-5 h-5 mx-auto text-purple-500 mb-1.5" />
-                      <p className="text-lg font-bold text-gray-900">{instance.contacts || '0'}</p>
-                      <p className="text-[11px] text-gray-500 font-medium">Contatos</p>
-                    </div>
-                    <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
-                      <Clock className="w-5 h-5 mx-auto text-amber-500 mb-1.5" />
-                      <p className="text-lg font-bold text-gray-900">{instance.chats || '0'}</p>
-                      <p className="text-[11px] text-gray-500 font-medium">Conversas</p>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      isConnected ? 'bg-green-100 text-green-700' : isConnecting ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {isConnected ? 'Online' : isConnecting ? 'Conectando' : 'Offline'}
                     </div>
                   </div>
                 </div>
-              )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
+                    <MessageSquare className="w-5 h-5 mx-auto text-[#25D366] mb-1.5" />
+                    <p className="text-lg font-bold text-gray-900">{instance.messages?.toLocaleString() || '0'}</p>
+                    <p className="text-[11px] text-gray-500 font-medium">Mensagens</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
+                    <Users className="w-5 h-5 mx-auto text-[#128C7E] mb-1.5" />
+                    <p className="text-lg font-bold text-gray-900">{instance.contacts || '0'}</p>
+                    <p className="text-[11px] text-gray-500 font-medium">Contatos</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
+                    <Clock className="w-5 h-5 mx-auto text-[#075E54] mb-1.5" />
+                    <p className="text-lg font-bold text-gray-900">{instance.chats || '0'}</p>
+                    <p className="text-[11px] text-gray-500 font-medium">Conversas</p>
+                  </div>
+                </div>
+              </div>
 
-              {/* Connected */}
+              {/* Connected Actions */}
               {isConnected ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-200">
                     <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                      <Wifi className="w-5 h-5 text-green-600" />
+                      <Wifi className="w-5 h-5 text-[#25D366]" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-green-800">Conexao ativa</p>
-                      <p className="text-xs text-green-600">Mensagens sendo enviadas normalmente</p>
+                      <p className="text-xs text-green-600">Pronto para enviar mensagens</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={handleRestart} disabled={actionLoading === 'restart'}
-                      className="flex items-center justify-center gap-2 py-3 px-4 bg-blue-50 text-blue-700 rounded-2xl hover:bg-blue-100 transition-all text-sm font-semibold disabled:opacity-50 border border-blue-100">
+                      className="flex items-center justify-center gap-2 py-3.5 px-4 bg-blue-50 text-blue-700 rounded-2xl hover:bg-blue-100 transition-all text-sm font-semibold disabled:opacity-50 border border-blue-100">
                       {actionLoading === 'restart' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                       Reiniciar
                     </button>
                     <button onClick={handleDisconnect} disabled={actionLoading === 'disconnect'}
-                      className="flex items-center justify-center gap-2 py-3 px-4 bg-red-50 text-red-700 rounded-2xl hover:bg-red-100 transition-all text-sm font-semibold disabled:opacity-50 border border-red-100">
+                      className="flex items-center justify-center gap-2 py-3.5 px-4 bg-red-50 text-red-700 rounded-2xl hover:bg-red-100 transition-all text-sm font-semibold disabled:opacity-50 border border-red-100">
                       {actionLoading === 'disconnect' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unplug className="w-4 h-4" />}
                       Desconectar
                     </button>
                   </div>
-                  {/* Delete Instance */}
-                  {!confirmDelete ? (
-                    <button onClick={() => setConfirmDelete(true)}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 text-gray-400 hover:text-red-500 transition-colors text-xs">
-                      <Trash2 className="w-3.5 h-3.5" /> Remover instancia
-                    </button>
-                  ) : (
-                    <div className="p-4 bg-red-50 rounded-2xl border border-red-200 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-red-600" />
-                        <p className="text-sm font-semibold text-red-800">Tem certeza?</p>
-                      </div>
-                      <p className="text-xs text-red-600">Isso vai remover a instancia permanentemente. Sera necessario reconectar com QR code.</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => setConfirmDelete(false)}
-                          className="flex-1 py-2 text-xs font-medium text-gray-600 bg-white rounded-xl border border-gray-200 hover:bg-gray-50">
-                          Cancelar
-                        </button>
-                        <button onClick={handleDelete} disabled={actionLoading === 'delete'}
-                          className="flex-1 py-2 text-xs font-medium text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-1">
-                          {actionLoading === 'delete' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                          Remover
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <button onClick={() => setView('manage')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-gray-400 hover:text-red-500 transition-colors text-xs font-medium">
+                    <Trash2 className="w-3.5 h-3.5" /> Gerenciar instancia
+                  </button>
                 </div>
               ) : (
                 /* Disconnected: QR / Pairing */
                 <div className="space-y-5">
-                  {/* Mode Tabs */}
                   <div className="flex bg-gray-100 rounded-2xl p-1.5">
                     <button onClick={() => { setMode('qr'); setPairingCode(null); }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -406,12 +453,12 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                     <div className="text-center space-y-4">
                       {qrImage ? (
                         <div className="relative inline-block">
-                          <div className="p-3 bg-white rounded-3xl shadow-lg border border-gray-200 inline-block">
-                            <img src={qrImage} alt="QR Code WhatsApp" className="w-72 h-72 rounded-2xl" />
+                          <div className="p-4 bg-white rounded-3xl shadow-lg border border-gray-200 inline-block">
+                            <img src={qrImage} alt="QR Code" className="w-72 h-72 rounded-2xl" />
                           </div>
                           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white px-4 py-1.5 rounded-full border border-gray-200 shadow-md">
                             <span className="text-xs text-gray-500 flex items-center gap-1.5 font-medium">
-                              <RefreshCw className="w-3.5 h-3.5" /> Atualiza em {countdown}s
+                              <RefreshCw className="w-3.5 h-3.5" /> {countdown}s
                             </span>
                           </div>
                         </div>
@@ -421,8 +468,8 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                           <p className="text-xs text-gray-400">Gerando QR Code...</p>
                         </div>
                       )}
-                      <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed">
-                        Abra o WhatsApp no celular, va em <strong>Dispositivos conectados</strong> e escaneie o codigo
+                      <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
+                        Abra o WhatsApp, va em <strong>Dispositivos conectados</strong> e escaneie
                       </p>
                       <button onClick={handleRefreshQR}
                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all text-sm font-semibold border border-gray-200">
@@ -436,17 +483,17 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                         <input type="tel" placeholder="(92) 99999-9999" value={phoneNumber}
                           onChange={e => setPhoneNumber(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && fetchPairingCode()}
-                          className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 placeholder-gray-400" />
+                          className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent bg-gray-50 placeholder-gray-400" />
                       </div>
                       <button onClick={fetchPairingCode} disabled={actionLoading === 'pairing' || !phoneNumber}
-                        className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl hover:from-green-600 hover:to-emerald-700 transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/25">
+                        className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-2xl hover:shadow-lg hover:shadow-green-500/25 transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                         {actionLoading === 'pairing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />}
                         Gerar Codigo de Pareamento
                       </button>
                       {pairingCode && (
                         <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200">
                           <div className="flex items-center justify-center gap-2 mb-3">
-                            <Shield className="w-4 h-4 text-green-600" />
+                            <Shield className="w-4 h-4 text-[#25D366]" />
                             <p className="text-sm font-semibold text-green-800">Codigo de pareamento</p>
                           </div>
                           <p className="text-4xl font-mono font-black text-green-900 tracking-[0.3em] mb-4">{pairingCode}</p>

@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
-import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState, deleteInstance } from './whatsapp.js';
+import { sendWhatsAppWithFallback, checkConnectionStatus, sendTextViaEvolution, parsePhoneNumbers, getInstanceInfo, getConnectionQR, getPairingCode, disconnectInstance, restartInstance, getInstanceState, deleteInstance, createInstance } from './whatsapp.js';
 
 const ALLOWED_ORIGINS = [
   'https://transobras.suporte04.workers.dev',
@@ -1995,6 +1995,15 @@ export default {
       if (path === '/api/whatsapp/delete' && method === 'POST') {
         try {
           const result = await deleteInstance(env);
+          return json(result, result.success ? 200 : 500, corsHeaders);
+        } catch (e) {
+          return json({ error: e.message }, 500, corsHeaders);
+        }
+      }
+
+      if (path === '/api/whatsapp/create' && method === 'POST') {
+        try {
+          const result = await createInstance(env);
           return json(result, result.success ? 200 : 500, corsHeaders);
         } catch (e) {
           return json({ error: e.message }, 500, corsHeaders);

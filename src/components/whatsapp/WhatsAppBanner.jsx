@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Smartphone, RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2, WifiOff } from 'lucide-react';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function WhatsAppBanner() {
+  const { isGestor } = useAuth();
   const [connected, setConnected] = useState(true);
   const [queueCount, setQueueCount] = useState(0);
   const [processing, setProcessing] = useState(false);
@@ -51,39 +53,24 @@ export default function WhatsAppBanner() {
     setProcessing(false);
   };
 
-  if (connected) return null;
+  if (connected || !isGestor) return null;
 
   return (
-    <div className="bg-gradient-to-r from-red-600 to-red-500 text-white px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg relative z-50">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-          <Smartphone className="w-4 h-4" />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-sm">WhatsApp Desconectado</span>
-          <span className="text-red-200 text-xs">|</span>
-          <span className="text-xs text-red-100">
-            Mensagens serao armazenadas ate reconectar
-          </span>
-        </div>
-      </div>
+    <div className="bg-red-500 text-white px-3 py-1.5 flex items-center justify-center gap-2 text-xs font-medium shadow-sm relative z-50">
+      <WifiOff className="w-3.5 h-3.5" />
+      <span>WhatsApp Desconectado</span>
       {queueCount > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs bg-white/20 px-2 py-1 rounded-full font-medium">
-            {queueCount} na fila
-          </span>
+        <>
+          <span className="text-red-200">|</span>
+          <span className="text-red-100">{queueCount} mensagem(ns) na fila</span>
           <button
             onClick={processQueue}
-            disabled={processing || !connected}
-            className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors disabled:opacity-50"
+            disabled={processing}
+            className="ml-1 p-1 bg-white/20 hover:bg-white/30 rounded transition-colors disabled:opacity-50"
           >
-            {processing ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5" />
-            )}
+            {processing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
           </button>
-        </div>
+        </>
       )}
     </div>
   );

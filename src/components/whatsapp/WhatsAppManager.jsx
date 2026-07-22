@@ -59,20 +59,24 @@ export default function WhatsAppManager({ isOpen, onClose }) {
         setStatus('open');
         statusRef.current = 'open';
         setQrImage(null);
+        // Fetch instance info in background
         fetchInstance();
       } else if (data.qrcode) {
         setQrImage(data.qrcode);
         setCountdown(60);
         setStatus('connecting');
         statusRef.current = 'connecting';
+        // Fetch instance info in background (don't block QR display)
+        fetchInstance();
       } else {
         toast.error('Nao foi possivel gerar QR Code');
+        connectLockRef.current = false;
       }
     } catch {
       toast.error('Erro ao conectar');
+      connectLockRef.current = false;
     } finally {
       setActionLoading(null);
-      connectLockRef.current = false;
     }
   }, [fetchInstance]);
 
@@ -152,28 +156,28 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     }
   }, [fetchInstance]);
 
-  // Delete instance
+  // Delete instance - instant UI update
   const handleDelete = useCallback(async () => {
-    setActionLoading('delete');
+    // Update UI immediately
+    setInstance(null);
+    setStatus('close');
+    statusRef.current = 'close';
+    setQrImage(null);
+    setPairingCode(null);
+    setConfirmDelete(false);
+    setView('main');
+    connectLockRef.current = false;
+
+    // Fire API in background
     try {
       const res = await fetch('/api/whatsapp/delete', { method: 'POST' });
       if (res.ok) {
         toast.success('Instancia removida!');
-        setInstance(null);
-        setStatus('close');
-        statusRef.current = 'close';
-        setQrImage(null);
-        setPairingCode(null);
-        setConfirmDelete(false);
-        setView('main');
-        connectLockRef.current = false;
       } else {
-        toast.error('Erro ao remover');
+        toast.error('Erro ao remover instancia');
       }
     } catch {
-      toast.error('Erro ao remover');
-    } finally {
-      setActionLoading(null);
+      toast.error('Erro ao remover instancia');
     }
   }, []);
 
@@ -202,15 +206,15 @@ export default function WhatsAppManager({ isOpen, onClose }) {
     setPairingCode(null);
     setPhoneNumber('');
     setCopied(false);
+    connectLockRef.current = false;
 
-    fetchInstance().then(() => {
-      // After fetching instance, if not connected, auto-connect
-      setTimeout(() => {
-        if (statusRef.current !== 'open') {
-          handleConnect();
-        }
-      }, 500);
-    });
+    const init = async () => {
+      await fetchInstance();
+      if (statusRef.current !== 'open') {
+        handleConnect();
+      }
+    };
+    init();
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll connection state every 5s
@@ -351,18 +355,32 @@ export default function WhatsAppManager({ isOpen, onClose }) {
           ) : !hasInstance ? (
             /* No Instance: Auto-connect will trigger, show loading */
             <div className="text-center py-8 space-y-5">
-              <div className="w-20 h-20 mx-auto bg-gray-100 rounded-3xl flex items-center justify-center">
-                <Smartphone className="w-10 h-10 text-gray-300" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Nenhuma instancia WhatsApp</h3>
-                <p className="text-sm text-gray-500">Crie uma instancia para comecar a enviar mensagens</p>
-              </div>
-              <button onClick={handleConnect} disabled={actionLoading === 'connect'}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 transition-all disabled:opacity-50">
-                {actionLoading === 'connect' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                Criar e Conectar
-              </button>
+              {actionLoading === 'connect' ? (
+                <>
+                  <div className="w-20 h-20 mx-auto bg-gray-100 rounded-3xl flex items-center justify-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-[#25D366]" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Preparando WhatsApp...</h3>
+                    <p className="text-sm text-gray-500">Criando instancia e gerando QR Code</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-20 h-20 mx-auto bg-gray-100 rounded-3xl flex items-center justify-center">
+                    <Smartphone className="w-10 h-10 text-gray-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Nenhuma instancia WhatsApp</h3>
+                    <p className="text-sm text-gray-500">Crie uma instancia para comecar a enviar mensagens</p>
+                  </div>
+                  <button onClick={handleConnect}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 transition-all">
+                    <Plus className="w-5 h-5" />
+                    Criar e Conectar
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -469,8 +487,11 @@ export default function WhatsAppManager({ isOpen, onClose }) {
                         </div>
                       ) : (
                         <div className="w-72 h-72 mx-auto bg-gray-100 rounded-3xl flex flex-col items-center justify-center gap-3 border border-gray-200">
-                          <Loader2 className="w-10 h-10 animate-spin text-gray-300" />
-                          <p className="text-xs text-gray-400">Gerando QR Code...</p>
+                          <Loader2 className="w-10 h-10 animate-spin text-[#25D366]" />
+                          <p className="text-xs text-gray-500 font-medium">
+                            {actionLoading === 'connect' ? 'Preparando instancia...' : 'Gerando QR Code...'}
+                          </p>
+                          <p className="text-[10px] text-gray-400">Isso pode levar alguns segundos</p>
                         </div>
                       )}
                       <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">

@@ -180,20 +180,23 @@ function buildItemsTableDevolucao(itens) {
 
 function buildSignatureSection(signatarioNome, cpfSignatario, signatureImg, label = 'LOCATARIO') {
   const sigImgTag = signatureImg
-    ? `<div style="text-align:center;margin-top:4px;"><img src="${signatureImg}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></div>`
-    : `<div style="border-top:1px solid #111827;height:35px;margin-top:8px;"></div>`;
+    ? `<div style="text-align:center;margin:8px 0;padding:12px;background:#f0fdf4;border:2px solid #22c55e;border-radius:8px;">
+        <div style="font-size:8px;color:#166534;font-weight:700;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;">Assinatura Digital Verificada</div>
+        <img src="${signatureImg}" style="max-height:80px;max-width:280px;border:1px solid #bbf7d0;padding:6px;border-radius:6px;background:#fff;" />
+       </div>`
+    : `<div style="border-top:2px solid #111827;height:50px;margin:12px 0;"></div>`;
 
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
     <tr>
       <td width="45%" style="text-align:center;vertical-align:top;">
-        <div style="border-top:1px solid #111827;height:35px;"></div>
-        <div style="font-size:8px;color:#6b7280;margin-top:3px;letter-spacing:1px;font-weight:600;">LOCADORA</div>
+        <div style="border-top:2px solid #111827;height:50px;"></div>
+        <div style="font-size:9px;color:#6b7280;margin-top:4px;letter-spacing:1.5px;font-weight:700;">LOCADORA</div>
       </td>
       <td width="10%"></td>
       <td width="45%" style="text-align:center;vertical-align:top;">
         ${sigImgTag}
-        <div style="font-size:8px;color:#6b7280;margin-top:3px;letter-spacing:1px;font-weight:600;">${label}: ${esc(signatarioNome || '___________________')}</div>
-        ${cpfSignatario ? `<div style="font-size:8px;color:#6b7280;margin-top:1px;">CPF/CNPJ: ${esc(cpfSignatario)}</div>` : ''}
+        <div style="font-size:9px;color:#166534;margin-top:4px;letter-spacing:1px;font-weight:700;">${label}: ${esc(signatarioNome || '___________________')}</div>
+        ${cpfSignatario ? `<div style="font-size:9px;color:#6b7280;margin-top:2px;">CPF/CNPJ: ${esc(cpfSignatario)}</div>` : ''}
       </td>
     </tr>
   </table>`;
@@ -207,13 +210,13 @@ function buildPhotoSection(fotosEntrega, fotosRetirada, tsEntrega, tsRetirada, c
     const padded = [...fotos];
     while (padded.length < 3) padded.push(null);
     return `
-      <tr><td colspan="2" style="padding-top:8px;">
-        <div style="font-size:10px;font-weight:700;color:#111827;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Fotos da ${label}</div>
-        <table width="100%" cellpadding="2" cellspacing="0"><tr>
+      <tr><td colspan="2" style="padding-top:10px;">
+        <div style="font-size:11px;font-weight:700;color:#111827;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid ${color};padding-bottom:4px;">Fotos da ${label}</div>
+        <table width="100%" cellpadding="4" cellspacing="0"><tr>
           ${padded.slice(0, 3).map((foto, i) => `
             <td width="33%" style="text-align:center;vertical-align:top;">
-              ${foto ? `<div style="position:relative;display:inline-block;width:100%;"><img src="${foto}" style="width:100%;max-height:120px;object-fit:cover;border:1px solid #e5e7eb;border-radius:4px;" />${ts && ts[i] ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:7px;padding:2px 4px;text-align:center;font-family:monospace;border-radius:0 0 4px 4px;">${esc(ts[i])}</div>` : ''}</div>` : `<div style="width:100%;height:100px;border:1px dashed #e5e7eb;border-radius:4px;font-size:8px;color:#9ca3af;display:flex;align-items:center;justify-content:center;">Sem foto</div>`}
-              <div style="font-size:8px;color:#6b7280;margin-top:2px;">Foto ${i + 1}</div>
+              ${foto ? `<div style="position:relative;display:inline-block;width:100%;"><img src="${foto}" style="width:100%;max-height:180px;object-fit:cover;border:2px solid #e5e7eb;border-radius:6px;" />${ts && ts[i] ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);color:#fff;font-size:8px;padding:3px 6px;text-align:center;font-family:monospace;border-radius:0 0 6px 6px;">${esc(ts[i])}</div>` : ''}</div>` : `<div style="width:100%;height:140px;border:2px dashed #e5e7eb;border-radius:6px;font-size:9px;color:#9ca3af;display:flex;align-items:center;justify-content:center;">Sem foto</div>`}
+              <div style="font-size:9px;color:#6b7280;margin-top:3px;font-weight:600;">Foto ${i + 1}</div>
             </td>
           `).join('')}
         </tr></table>
@@ -302,12 +305,7 @@ export async function generateEntregaPDF(comprovante) {
 
   let assinaturaHtml = '';
   if (signatarioNome) {
-    assinaturaHtml = sectionBlock('Assinatura do Recebedor', '#166534', '#22c55e', [
-      row('Nome', esc(signatarioNome), { bold: true }),
-      c.cpfSignatario ? row('CPF', esc(c.cpfSignatario)) : '',
-      row('Data/Hora', c.dataAssinatura ? formatDateBR(c.dataAssinatura) : dataPorExtenso(c.data)),
-      signatureImg ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${signatureImg}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
-    ].filter(Boolean).join(''));
+    assinaturaHtml = buildSignatureSection(signatarioNome, c.cpfSignatario, signatureImg, 'LOCATARIO');
   }
 
   let observacaoHtml = '';
@@ -403,10 +401,7 @@ export async function generateDevolucaoPDF(devolucao) {
 
   let assinaturaHtml = '';
   if (d.signatarioNome) {
-    assinaturaHtml = sectionBlock('Assinatura do Recebedor', '#166534', '#22c55e', [
-      row('Nome', esc(d.signatarioNome), { bold: true }),
-      d.signatureImg || d.assinaturaImagem ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${d.signatureImg || d.assinaturaImagem}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
-    ].filter(Boolean).join(''));
+    assinaturaHtml = buildSignatureSection(d.signatarioNome, null, d.signatureImg || d.assinaturaImagem, 'LOCATARIO');
   }
 
   const html = pdfWrapper(`
@@ -506,11 +501,7 @@ export async function generateContratoPDF(contrato) {
 
   let assinaturaHtml = '';
   if (signatarioNome || signatureImg) {
-    assinaturaHtml = sectionBlock('Assinatura do Locatario', '#166534', '#22c55e', [
-      signatarioNome ? row('Nome', esc(signatarioNome), { bold: true }) : '',
-      dataAssinatura ? row('Data', esc(dataAssinatura)) : '',
-      signatureImg ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${signatureImg}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
-    ].filter(Boolean).join(''));
+    assinaturaHtml = buildSignatureSection(signatarioNome, null, signatureImg, 'LOCATARIO');
   }
 
   const html = pdfWrapper(`
@@ -607,12 +598,7 @@ export async function generateFallbackEmailPDF(emailData) {
 
   let rSignatario = '';
   if (signatario.nome) {
-    rSignatario = sectionBlock('Assinatura Digital', '#166534', '#22c55e', [
-      row('Nome', esc(signatario.nome), { bold: true }),
-      signatario.cpf ? row('CPF', esc(signatario.cpf)) : '',
-      signatario.data ? row('Data', formatDateBR(signatario.data)) : '',
-      signatario.assinaturaImagem ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${signatario.assinaturaImagem}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
-    ].filter(Boolean).join(''));
+    rSignatario = buildSignatureSection(signatario.nome, signatario.cpf, signatario.assinaturaImagem, 'LOCATARIO');
   }
 
   const html = pdfWrapper(`

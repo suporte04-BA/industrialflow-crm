@@ -22,7 +22,7 @@ SUPABASE_URL = "https://mbcdbclosomqpfboyffj.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iY2RiY2xvc29tcXBmYm95ZmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDcxMTksImV4cCI6MjA5NzE4MzExOX0.iNh0wpvpblUGCAo3wOkNxelMTlLUe7RBoFlqPLjxXxE"
 
 # WhatsApp Evolution API (local Docker + cloudflared tunnel)
-EVOLUTION_API_URL = "https://paths-sessions-element-spirits.trycloudflare.com"
+EVOLUTION_API_URL = "https://tsunami-wanna-therefore-utility.trycloudflare.com"
 EVOLUTION_INSTANCE = "transobras"
 WHATSAPP_ENABLED = "true"
 

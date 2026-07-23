@@ -14,6 +14,7 @@ const EMPRESA = {
   cidade: 'MANAUS',
   estado: 'AM',
   telefone: '(92) 99386-7171',
+  cnpj: '00.000.000/0001-00',
 };
 
 const BRAND = {
@@ -25,6 +26,10 @@ const BRAND = {
   cinzaTexto: '#6B7280',
   branco: '#FFFFFF',
   verde: '#16A34A',
+  verdeEscuro: '#166534',
+  azul: '#1E40AF',
+  azulClaro: '#2563EB',
+  laranja: '#F97316',
   vermelho: '#DC2626',
 };
 
@@ -51,188 +56,216 @@ function formatMoney(v) {
   return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 }
 
+function formatDateBR(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch { return dateStr; }
+}
+
+// ============================================
+// PROFESSIONAL LAYOUT HELPERS (email-style)
+// ============================================
+
+function pdfWrapper(content) {
+  return `<div style="font-family:'Segoe UI',Arial,Helvetica,sans-serif;padding:0;max-width:760px;margin:0 auto;font-size:10px;color:#374151;background:#fff;">
+    ${content}
+  </div>`;
+}
+
+function brandHeader(title, subtitle, badgeText, headerBg, badgeBg) {
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
+    <tr><td style="background:${headerBg};padding:0;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:14px 20px 10px;">
+          <div style="font-size:18px;font-weight:900;color:#fff;letter-spacing:1px;">TRANSOBRA</div>
+          <div style="font-size:8px;color:rgba(255,255,255,0.5);margin-top:3px;letter-spacing:2px;text-transform:uppercase;">${subtitle}</div>
+        </td>
+        <td align="right" valign="middle" style="padding:14px 20px 10px;">
+          <div style="background:${badgeBg};color:${headerBg === '#EAB308' ? '#111827' : '#fff'};font-size:9px;font-weight:800;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:1px;">${badgeText}</div>
+        </td></tr>
+        <tr><td colspan="2" style="height:3px;background:#EAB308;"></td></tr>
+      </table>
+    </td></tr>
+  </table>`;
+}
+
+function sectionBlock(title, headerColor, borderColor, rows) {
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="padding:0;">
+      <div style="font-size:9px;font-weight:800;color:${headerColor};text-transform:uppercase;letter-spacing:1.5px;padding:6px 12px;border-bottom:2px solid ${borderColor};margin-bottom:4px;">${title}</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="padding:0 4px;">${rows}</table>
+    </td></tr>
+  </table>`;
+}
+
+function row(label, value, opts = {}) {
+  const { bold, color, w } = opts;
+  return `<tr><td style="padding:3px 0;color:#6b7280;width:${w || '120px'};vertical-align:top;font-size:11px;"><strong>${label}</strong></td><td style="padding:3px 0;color:${color || '#111827'};font-size:12px;${bold ? 'font-weight:600;' : ''}">${value}</td></tr>`;
+}
+
+function buildItemsTable(itens, borderColor = '#EAB308') {
+  if (!itens || itens.length === 0) return '';
+  const rowsHtml = itens.filter(it => it.descricao || it.nome).map(it => {
+    const desc = esc(it.descricao || it.nome || '-');
+    const pat = esc(it.patrimonio || '-');
+    const qtd = esc(String(it.quantidade || 1));
+    const dloc = esc(it.dataLocacao || '-');
+    const ddev = esc(it.dataDevolucao || '-');
+    const val = Number(it.valorUnitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    return `<tr>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${qtd}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;font-size:11px;">${desc}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;font-weight:700;color:#111827;">${pat}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:10px;">${dloc}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:10px;">${ddev}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:right;font-size:11px;">R$ ${val}</td>
+    </tr>`;
+  }).join('');
+
+  const total = itens.reduce((s, it) => s + (Number(it.quantidade) || 1) * (Number(it.valorUnitario) || 0), 0);
+  const totalFormatted = total.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0;">
+    <thead>
+      <tr>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:left;font-size:9px;font-weight:700;border:1px solid #111827;">Qtde</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:left;font-size:9px;font-weight:700;border:1px solid #111827;">Descricao</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">Patrimonio</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">D.Loc</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">D.Dev</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:right;font-size:9px;font-weight:700;border:1px solid #111827;">Valor</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="padding:5px;border:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:700;">TOTAL</td>
+        <td style="padding:5px;border:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#16a34a;">R$ ${totalFormatted}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+}
+
+function buildItemsTableDevolucao(itens) {
+  if (!itens || itens.length === 0) return '';
+  const rowsHtml = itens.map(it => {
+    const desc = esc(it.descricao || '-');
+    const pat = esc(it.patrimonio || '-');
+    const qtd = esc(String(it.quantidade || 1));
+    const qtdDev = esc(String(it.qtdDevolvida || it.quantidade || 1));
+    const faltante = it.qtdFaltante > 0 ? `<span style="color:#DC2626;font-weight:700;"> FALTANTE: ${it.qtdFaltante}</span>` : '';
+    return `<tr>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${qtd}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;font-size:11px;">${desc}${faltante}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;font-weight:700;color:#111827;">${pat}</td>
+      <td style="padding:4px 5px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">${qtdDev}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0;">
+    <thead>
+      <tr>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:left;font-size:9px;font-weight:700;border:1px solid #111827;">Qtde</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:left;font-size:9px;font-weight:700;border:1px solid #111827;">Descricao</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">Patrimonio</th>
+        <th style="padding:4px 5px;background:#111827;color:#fff;text-align:center;font-size:9px;font-weight:700;border:1px solid #111827;">Qtd Devolvida</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+}
+
+function buildSignatureSection(signatarioNome, cpfSignatario, signatureImg, label = 'LOCATARIO') {
+  const sigImgTag = signatureImg
+    ? `<div style="text-align:center;margin-top:4px;"><img src="${signatureImg}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></div>`
+    : `<div style="border-top:1px solid #111827;height:35px;margin-top:8px;"></div>`;
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+    <tr>
+      <td width="45%" style="text-align:center;vertical-align:top;">
+        <div style="border-top:1px solid #111827;height:35px;"></div>
+        <div style="font-size:8px;color:#6b7280;margin-top:3px;letter-spacing:1px;font-weight:600;">LOCADORA</div>
+      </td>
+      <td width="10%"></td>
+      <td width="45%" style="text-align:center;vertical-align:top;">
+        ${sigImgTag}
+        <div style="font-size:8px;color:#6b7280;margin-top:3px;letter-spacing:1px;font-weight:600;">${label}: ${esc(signatarioNome || '___________________')}</div>
+        ${cpfSignatario ? `<div style="font-size:8px;color:#6b7280;margin-top:1px;">CPF/CNPJ: ${esc(cpfSignatario)}</div>` : ''}
+      </td>
+    </tr>
+  </table>`;
+}
+
+function buildPhotoSection(fotosEntrega, fotosRetirada, tsEntrega, tsRetirada, contrato, data) {
+  if ((!fotosEntrega || fotosEntrega.length === 0) && (!fotosRetirada || fotosRetirada.length === 0)) return '';
+
+  const buildPhotoRow = (fotos, label, color, ts) => {
+    if (!fotos || fotos.length === 0) return '';
+    const padded = [...fotos];
+    while (padded.length < 3) padded.push(null);
+    return `
+      <tr><td colspan="2" style="padding-top:8px;">
+        <div style="font-size:10px;font-weight:700;color:#111827;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Fotos da ${label}</div>
+        <table width="100%" cellpadding="2" cellspacing="0"><tr>
+          ${padded.slice(0, 3).map((foto, i) => `
+            <td width="33%" style="text-align:center;vertical-align:top;">
+              ${foto ? `<div style="position:relative;display:inline-block;width:100%;"><img src="${foto}" style="width:100%;max-height:120px;object-fit:cover;border:1px solid #e5e7eb;border-radius:4px;" />${ts && ts[i] ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:7px;padding:2px 4px;text-align:center;font-family:monospace;border-radius:0 0 4px 4px;">${esc(ts[i])}</div>` : ''}</div>` : `<div style="width:100%;height:100px;border:1px dashed #e5e7eb;border-radius:4px;font-size:8px;color:#9ca3af;display:flex;align-items:center;justify-content:center;">Sem foto</div>`}
+              <div style="font-size:8px;color:#6b7280;margin-top:2px;">Foto ${i + 1}</div>
+            </td>
+          `).join('')}
+        </tr></table>
+      </td></tr>`;
+  };
+
+  return `
+    <div style="page-break-before:always;padding-top:0;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+        <tr><td style="background:#111827;padding:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:12px 20px;">
+              <div style="font-size:14px;font-weight:900;color:#fff;letter-spacing:0.5px;">REGISTRO FOTOGRAFICO</div>
+              <div style="font-size:8px;color:rgba(255,255,255,0.5);margin-top:2px;letter-spacing:1px;">Contrato: ${esc(contrato || '')} | Data: ${esc(data || new Date().toLocaleDateString('pt-BR'))}</div>
+            </td></tr>
+            <tr><td style="height:3px;background:#EAB308;"></td></tr>
+          </table>
+        </td></tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${buildPhotoRow(fotosEntrega, 'Entrega', '#2563eb', tsEntrega)}
+        ${buildPhotoRow(fotosRetirada, 'Retirada', '#f97316', tsRetirada)}
+      </table>
+    </div>`;
+}
+
+function pdfFooter(tipo) {
+  const now = new Date();
+  const dataGeracao = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;border-top:1px solid #E5E7EB;">
+    <tr><td style="padding:10px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="font-size:8px;color:#9CA3AF;">TRANSOBRA CRM</td>
+        <td style="font-size:8px;color:#9CA3AF;text-align:right;">${esc(tipo)} | Gerado em ${dataGeracao}</td>
+      </tr></table>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+    <tr><td style="padding:8px 0;background:#111827;text-align:center;border-radius:6px;">
+      <div style="font-size:8px;color:rgba(255,255,255,0.4);letter-spacing:1px;">TRANSOBRA — LOCACAO DE EQUIPAMENTOS | ${EMPRESA.endereco} | TEL: ${EMPRESA.telefone}</div>
+    </td></tr>
+  </table>`;
+}
+
 function checkbox(checked) {
   return checked
     ? '<span style="display:inline-block;width:12px;height:12px;border:1px solid #374151;text-align:center;line-height:11px;font-size:10px;font-weight:bold;color:#111827;">X</span>'
     : '<span style="display:inline-block;width:12px;height:12px;border:1px solid #D1D5DB;">&nbsp;</span>';
 }
 
-function buildHeader() {
-  return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
-      <tr>
-        <td style="padding:0 0 6px 0;border-bottom:2px solid ${BRAND.amarelo};">
-          <table width="100%" cellpadding="0" cellspacing="0"><tr>
-            <td style="text-align:left;vertical-align:bottom;">
-              <div style="font-size:13px;font-weight:800;color:${BRAND.preto};letter-spacing:0.5px;">TRANSOBRA</div>
-              <div style="font-size:6px;color:${BRAND.cinzaTexto};letter-spacing:1.5px;margin-top:1px;">LOCACAO DE EQUIPAMENTOS</div>
-            </td>
-            <td style="text-align:right;vertical-align:bottom;">
-              <div style="font-size:6px;color:${BRAND.cinzaTexto};">${esc(EMPRESA.endereco)}</div>
-              <div style="font-size:6px;color:${BRAND.cinzaTexto};">${esc(EMPRESA.cidade)} - ${esc(EMPRESA.estado)} | CEP: ${esc(EMPRESA.cep)}</div>
-              <div style="font-size:6px;color:${BRAND.amarelo};font-weight:600;">TEL: ${esc(EMPRESA.telefone)}</div>
-            </td>
-          </tr></table>
-        </td>
-      </tr>
-    </table>`;
-}
-
-function buildFooter(tipo) {
-  const now = new Date();
-  const dataGeracao = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;border-top:1px solid ${BRAND.cinzaBorda};">
-      <tr><td style="padding:6px 0;">
-        <table width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td style="font-size:6px;color:${BRAND.cinzaTexto};">TRANSOBRA CRM</td>
-          <td style="font-size:6px;color:${BRAND.cinzaTexto};text-align:right;">${esc(tipo)} | ${dataGeracao}</td>
-        </tr></table>
-      </td></tr>
-    </table>`;
-}
-
-function buildSectionTitle(titulo) {
-  return `
-    <div style="margin:6px 0 3px 0;padding:2px 0;border-bottom:1px solid ${BRAND.cinzaBorda};">
-      <span style="font-size:8px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;text-transform:uppercase;">${esc(titulo)}</span>
-    </div>`;
-}
-
-function buildInfoGrid(pairs) {
-  return pairs.filter(Boolean).map(([label, value]) =>
-    `<tr><td style="padding:1px 0;font-size:8px;color:${BRAND.cinzaTexto};width:100px;vertical-align:top;">${esc(label)}</td><td style="padding:1px 0;font-size:8px;color:${BRAND.preto};font-weight:500;">${esc(value)}</td></tr>`
-  ).join('');
-}
-
-function buildLocatarioBlock(d) {
-  const isCnpj = (d.cnpjLocatario || d.cpf || '').replace(/\D/g, '').length > 11;
-  const docLabel = isCnpj ? 'CNPJ' : 'CPF';
-  const docValue = d.cnpjLocatario || d.cpf || '';
-  return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;">
-      ${buildInfoGrid([
-        ['Estado', d.estado || EMPRESA.estado],
-        ['CEP', d.cep || EMPRESA.cep],
-        ['Telefone', d.telefone || ''],
-        ['Endereco', `${d.endereco || ''}${d.numero ? `, ${d.numero}` : ''}${d.bairro ? ` - ${d.bairro}` : ''}`],
-        ['Bairro', d.bairro || ''],
-        ['Contato', d.contato || ''],
-        [docLabel, docValue],
-        d.rg ? ['RG', d.rg] : null,
-      ])}
-    </table>`;
-}
-
-function buildContractInfoBlock(c) {
-  return `
-    <div style="border:1px solid ${BRAND.cinzaBorda};padding:4px;margin:4px 0;">
-      <div style="text-align:center;font-weight:700;font-size:8px;margin-bottom:3px;color:${BRAND.preto};padding-bottom:2px;border-bottom:1px solid ${BRAND.cinzaBorda};">
-        DADOS DO CONTRATO
-      </div>
-      <table width="100%" cellpadding="0" cellspacing="0">
-        ${buildInfoGrid([
-          ['Inicio', c.inicio || '-'],
-          ['Fim', c.fim || '-'],
-          ['Valor Mensal', 'R$ ' + formatMoney(c.valorMensal) + '/mes'],
-          ['Valor Total', 'R$ ' + formatMoney(c.valorTotal)],
-          ['Status', (c.status || '-').toUpperCase()],
-          c.assinado ? ['Assinatura', 'CONTRATO ASSINADO'] : null,
-        ])}
-      </table>
-    </div>`;
-}
-
-function buildItemsTableEntrega(itens) {
-  if (!itens || itens.length === 0) return '';
-  const rows = itens.map((it) => `
-    <tr>
-      <td style="padding:2px 3px;border:1px solid ${BRAND.cinzaBorda};text-align:center;font-size:8px;">${esc(it.quantidade || 1)}</td>
-      <td style="padding:2px 3px;border:1px solid ${BRAND.cinzaBorda};font-size:8px;">${esc(it.descricao || '-')}</td>
-      <td style="padding:2px 3px;border:1px solid ${BRAND.cinzaBorda};text-align:center;font-size:8px;font-weight:700;">${esc(it.patrimonio || '-')}</td>
-      <td style="padding:2px 3px;border:1px solid ${BRAND.cinzaBorda};text-align:center;font-size:8px;">${esc(it.dataLocacao || '-')}</td>
-      <td style="padding:2px 3px;border:1px solid ${BRAND.cinzaBorda};text-align:center;font-size:8px;">${esc(it.dataDevolucao || '-')}</td>
-      <td style="padding:2px 3px;border:1px solid ${BRAND.cinzaBorda};text-align:right;font-size:8px;">R$ ${formatMoney(it.valorUnitario)}</td>
-    </tr>`).join('');
-
-  return `
-    <table style="width:100%;border-collapse:collapse;margin:3px 0;">
-      <thead>
-        <tr>
-          <th style="padding:2px 3px;border:1px solid ${BRAND.preto};text-align:left;color:${BRAND.branco};font-size:7px;font-weight:700;background:${BRAND.preto};">Qtde</th>
-          <th style="padding:2px 3px;border:1px solid ${BRAND.preto};text-align:left;color:${BRAND.branco};font-size:7px;font-weight:700;background:${BRAND.preto};">Descricao</th>
-          <th style="padding:2px 3px;border:1px solid ${BRAND.preto};text-align:left;color:${BRAND.branco};font-size:7px;font-weight:700;background:${BRAND.preto};">Patrimonio</th>
-          <th style="padding:2px 3px;border:1px solid ${BRAND.preto};text-align:left;color:${BRAND.branco};font-size:7px;font-weight:700;background:${BRAND.preto};">DLoc</th>
-          <th style="padding:2px 3px;border:1px solid ${BRAND.preto};text-align:left;color:${BRAND.branco};font-size:7px;font-weight:700;background:${BRAND.preto};">D.Dev</th>
-          <th style="padding:2px 3px;border:1px solid ${BRAND.preto};text-align:right;color:${BRAND.branco};font-size:7px;font-weight:700;background:${BRAND.preto};">Valor</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
-
-function buildSignatureBlock(signatarioNome, signatureImg) {
-  const sigImgTag = signatureImg
-    ? `<img src="${signatureImg}" style="max-height:40px;max-width:150px;display:block;margin:0 auto 2px auto;" />`
-    : `<div style="border-top:1px solid ${BRAND.preto};height:30px;"></div>`;
-
-  return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
-      <tr>
-        <td width="45%" style="text-align:center;vertical-align:top;">
-          <div style="border-top:1px solid ${BRAND.preto};height:30px;"></div>
-          <div style="font-size:6px;color:${BRAND.cinzaTexto};margin-top:2px;letter-spacing:0.5px;">LOCADORA</div>
-        </td>
-        <td width="10%"></td>
-        <td width="45%" style="text-align:center;vertical-align:top;">
-          ${sigImgTag}
-          <div style="font-size:6px;color:${BRAND.cinzaTexto};margin-top:2px;letter-spacing:0.5px;">LOCATARIO: ${esc(signatarioNome || '___________________')}</div>
-        </td>
-      </tr>
-    </table>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px;">
-      <tr>
-        <td style="font-size:7px;color:#374151;">RG: _________________________</td>
-        <td style="font-size:7px;color:#374151;">FONE: _________________________</td>
-      </tr>
-    </table>`;
-}
-
-function buildPhotoGrid(fotos, tipo, timestamps) {
-  if (!fotos || fotos.length === 0) return '';
-  const padded = [...fotos];
-  while (padded.length < 3) padded.push(null);
-  const ts = Array.isArray(timestamps) ? timestamps : [];
-  return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;">
-      <tr><td style="font-size:8px;font-weight:700;color:${BRAND.preto};padding:3px 0;border-bottom:1px solid ${BRAND.cinzaBorda};">${esc(tipo)}</td></tr>
-    </table>
-    <table width="100%" cellpadding="2" cellspacing="0">
-      <tr>
-        ${padded.slice(0, 3).map((foto, i) => `
-          <td width="33%" style="text-align:center;vertical-align:top;">
-            ${foto
-              ? `<div style="position:relative;display:inline-block;width:100%;">
-                  <img src="${foto}" style="width:100%;max-height:110px;object-fit:cover;border:1px solid ${BRAND.cinzaBorda};" />
-                  ${ts[i] ? `<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:5px;padding:1px 2px;text-align:center;font-family:monospace;">${esc(ts[i])}</div>` : ''}
-                </div>`
-              : `<div style="width:100%;height:90px;border:1px dashed ${BRAND.cinzaBorda};display:flex;align-items:center;justify-content:center;font-size:7px;color:${BRAND.cinzaTexto};">Sem foto</div>`
-            }
-            <div style="font-size:6px;color:${BRAND.cinzaTexto};margin-top:1px;">Foto ${i + 1}</div>
-          </td>
-        `).join('')}
-      </tr>
-    </table>`;
-}
-
-function getMetodoEntregaText(metodo) {
-  if (metodo === 'cliente_retirada') return 'Cliente retira e devolve na locadora';
-  if (metodo === 'locadora_entrega') return 'Locadora entrega e retira na obra';
-  return '';
-}
-
 // ============================================
-// PDF: Comprovante de Entrega
+// PDF: Comprovante de Entrega (Professional)
 // ============================================
 export async function generateEntregaPDF(comprovante) {
   const c = comprovante;
@@ -243,86 +276,79 @@ export async function generateEntregaPDF(comprovante) {
   const tsEntrega = (Array.isArray(c.fotosEntregaTimestamps) ? c.fotosEntregaTimestamps : (Array.isArray(c.fotos_entrega_timestamps) ? c.fotos_entrega_timestamps : []));
   const tsRetirada = (Array.isArray(c.fotosRetiradaTimestamps) ? c.fotosRetiradaTimestamps : (Array.isArray(c.fotos_retirada_timestamps) ? c.fotos_retirada_timestamps : []));
 
-  const html = `
-    <div style="font-family:Arial,sans-serif;padding:0;max-width:760px;margin:0 auto;font-size:8px;color:#374151;">
-      ${buildHeader()}
+  const rContrato = [
+    row('Numero', `<span style="font-size:14px;font-weight:900;color:#EAB308;">${esc(c.numero || c.contrato || '-')}</span>`),
+    row('Cliente', esc(c.locatario || '-'), { bold: true }),
+    c.cpf ? row('CPF/CNPJ', esc(c.cpf)) : '',
+    c.telefoneEntrega ? row('Telefone', esc(c.telefoneEntrega)) : '',
+    c.cidade ? row('Cidade', `${esc(c.cidade)}${c.estado ? `/${esc(c.estado)}` : ''}`) : '',
+    c.endereco ? row('Endereco', `${esc(c.endereco)}${c.numero ? `, ${esc(c.numero)}` : ''}${c.bairro ? ` - ${esc(c.bairro)}` : ''}`) : '',
+  ].filter(Boolean).join('');
 
-      <div style="text-align:center;margin:4px 0 8px 0;">
-        <span style="font-size:11px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">COMPROVANTE DE ENTREGA</span>
-      </div>
+  const rEntrega = [
+    c.localEntrega ? row('Local da Entrega', esc(c.localEntrega)) : '',
+    c.contato ? row('Contato', esc(c.contato)) : '',
+    c.referencia ? row('Referencia', esc(c.referencia)) : '',
+    row('Total', `R$ ${formatMoney(total)}`, { bold: true, color: '#16a34a' }),
+  ].filter(Boolean).join('');
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;">
-        <tr>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">CONTRATO:</strong> ${esc(c.numero || c.contrato || '')}</td>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};text-align:right;"><strong style="color:${BRAND.preto};">ATENDENTE:</strong> ${esc(c.atendente || '')}</td>
-        </tr>
-      </table>
+  let itensHtml = '';
+  if (itens.length > 0) {
+    itensHtml = sectionBlock('Itens Locados', '#111827', '#EAB308', `<tr><td style="padding:0;">${buildItemsTable(itens)}</td></tr>`);
+  }
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;line-height:1.4;padding:4px;">
-          <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(c.locatario || '')} | <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(c.cidade || '')}<br/>
-          <strong style="color:${BRAND.preto};">Local da entrega:</strong> ${esc(c.localEntrega || '')}
-        </td></tr>
-      </table>
+  const signatarioNome = c.signatarioNome || c.nomeSignatario;
+  const signatureImg = c.signatureImg || c.assinaturaImagem || c.assinaturaImg;
 
-      <p style="text-align:justify;margin:4px 0;font-size:8px;color:#374151;line-height:1.2;">
+  let assinaturaHtml = '';
+  if (signatarioNome) {
+    assinaturaHtml = sectionBlock('Assinatura do Recebedor', '#166534', '#22c55e', [
+      row('Nome', esc(signatarioNome), { bold: true }),
+      c.cpfSignatario ? row('CPF', esc(c.cpfSignatario)) : '',
+      row('Data/Hora', c.dataAssinatura ? formatDateBR(c.dataAssinatura) : dataPorExtenso(c.data)),
+      signatureImg ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${signatureImg}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
+    ].filter(Boolean).join(''));
+  }
+
+  let observacaoHtml = '';
+  if (c.observacao) {
+    observacaoHtml = `<div style="margin:8px 0;padding:8px 12px;border-left:3px solid #EAB308;background:#FEF3C7;border-radius:0 4px 4px 0;">
+      <div style="font-size:9px;font-weight:700;color:#111827;margin-bottom:2px;">OBSERVACAO</div>
+      <div style="font-size:10px;color:#374151;">${esc(c.observacao)}</div>
+    </div>`;
+  }
+
+  const html = pdfWrapper(`
+    ${brandHeader('Comprovante de Entrega', 'SISTEMA DE GESTAO DE LOCACAO', 'ENTREGA', '#111827', '#EAB308')}
+    <div style="padding:16px 20px 8px;">
+      <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Comprovante de Entrega</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:14px;">Documento comprovatorio de recebimento de equipamentos.</div>
+
+      ${sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato)}
+
+      ${c.telefoneEntrega || c.endereco ? sectionBlock('Dados da Entrega', '#1e40af', '#2563eb', rEntrega) : ''}
+
+      <p style="text-align:justify;margin:6px 0;font-size:10px;color:#374151;line-height:1.4;">
         DECLARO(AMOS) para os fins e efeito de direito que recebi(emos) o(s) objeto(s) abaixo discriminado(s):
       </p>
 
-      ${buildLocatarioBlock(c)}
+      ${itensHtml}
 
-      ${c.telefoneEntrega ? `<div style="margin:2px 0;font-size:8px;"><strong style="color:${BRAND.preto};">Telefone do local:</strong> ${esc(c.telefoneEntrega)}</div>` : ''}
+      ${observacaoHtml}
 
-      ${c.referencia ? `<div style="margin:2px 0;font-size:8px;"><strong style="color:${BRAND.preto};">Referencia:</strong> ${esc(c.referencia)}</div>` : ''}
+      ${assinaturaHtml}
 
-      ${buildItemsTableEntrega(itens)}
+      ${buildPhotoSection(fotosEntrega, fotosRetirada, tsEntrega, tsRetirada, c.numero || c.contrato, c.data)}
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;">
-        <tr><td style="text-align:right;font-weight:700;font-size:9px;padding:3px 6px;">
-          TOTAL: R$ ${formatMoney(total)}
-        </td></tr>
-      </table>
-
-      <p style="font-size:8px;text-align:justify;margin:3px 0;color:#374151;line-height:1.2;">
-        Declaro que recebi todos os equipamentos acima listados testados e aptos para uso.
-      </p>
-
-      <div style="text-align:right;margin-top:3px;font-size:8px;color:#374151;">
-        ${esc(c.cidade || EMPRESA.cidade)}, ${dataPorExtenso(c.data)}
-      </div>
-
-      ${buildSignatureBlock(c.signatarioNome || c.nomeSignatario, c.signatureImg || c.assinaturaImagem || c.assinaturaImg)}
-
-      ${c.observacao ? `
-      <div style="margin-top:4px;font-size:8px;padding:3px 6px;border-left:3px solid ${BRAND.amarelo};">
-        <strong style="color:${BRAND.preto};">Observacao:</strong> ${esc(c.observacao)}
-      </div>` : ''}
-
-      ${c.metodoEntrega ? `<div style="margin-top:3px;font-size:7px;font-style:italic;color:${BRAND.cinzaTexto};">${esc(getMetodoEntregaText(c.metodoEntrega))}</div>` : ''}
-
-      ${buildFooter('COMPROVANTE DE ENTREGA')}
-
-      ${(fotosEntrega.length > 0 || fotosRetirada.length > 0) ? `
-      <div style="page-break-before:always;padding-top:8px;">
-        <div style="text-align:center;margin:4px 0 8px 0;">
-          <span style="font-size:11px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">REGISTRO FOTOGRAFICO</span>
-        </div>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="font-size:7px;color:${BRAND.cinzaTexto};padding-bottom:3px;">
-            Contrato: ${esc(c.numero || c.contrato || '')} | Data: ${esc(c.data || new Date().toLocaleDateString('pt-BR'))}
-          </td></tr>
-        </table>
-        ${buildPhotoGrid(fotosEntrega, 'ENTREGA', tsEntrega)}
-        ${buildPhotoGrid(fotosRetirada, 'RETIRADA', tsRetirada)}
-        ${buildFooter('REGISTRO FOTOGRAFICO')}
-      </div>` : ''}
-    </div>`;
+      ${pdfFooter('COMPROVANTE DE ENTREGA')}
+    </div>
+  `);
 
   await (await getHtml2pdf())()
     .set({
-      margin: [8, 8, 12, 8],
+      margin: [6, 6, 10, 6],
       filename: `comprovante-entrega-${c.numero || c.contrato || 'doc'}.pdf`,
-      image: { type: 'jpeg', quality: 0.85 },
+      image: { type: 'jpeg', quality: 0.92 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
@@ -332,7 +358,7 @@ export async function generateEntregaPDF(comprovante) {
 }
 
 // ============================================
-// PDF: Comprovante de Devolucao
+// PDF: Comprovante de Devolucao (Professional)
 // ============================================
 export async function generateDevolucaoPDF(devolucao) {
   const d = devolucao;
@@ -343,103 +369,77 @@ export async function generateDevolucaoPDF(devolucao) {
   const tsEntrega = (Array.isArray(d.fotosEntregaTimestamps) ? d.fotosEntregaTimestamps : (Array.isArray(d.fotos_entrega_timestamps) ? d.fotos_entrega_timestamps : []));
   const tsRetirada = (Array.isArray(d.fotosRetiradaTimestamps) ? d.fotosRetiradaTimestamps : (Array.isArray(d.fotos_retirada_timestamps) ? d.fotos_retirada_timestamps : []));
 
-  const itensHtml = itens.length > 0
-    ? itens.map((it) => `
-      <div style="margin:1px 0;font-size:8px;padding:1px 3px;">
-        ${checkbox(it.qtdDevolvida > 0)}&nbsp;&nbsp;${it.quantidade || 1} - ${esc(it.descricao || '')}
-        ${it.patrimonio ? `<strong style="color:${BRAND.preto};"> [Pat: ${esc(it.patrimonio)}]</strong>` : ''}
-        ${it.qtdFaltante > 0 ? `<span style="color:${BRAND.vermelho};margin-left:4px;font-weight:700;">FALTANTE: ${it.qtdFaltante}</span>` : ''}
-      </div>`).join('')
-    : `<p style="font-size:8px;color:${BRAND.cinzaTexto};">Nenhum item informado</p>`;
+  const rContrato = [
+    row('Numero', `<span style="font-size:14px;font-weight:900;color:#f97316;">${esc(d.numero || d.contratoId || '-')}</span>`),
+    row('Cliente', esc(d.locatario || '-'), { bold: true }),
+    d.cpf ? row('CPF/CNPJ', esc(d.cpf)) : '',
+    d.telefone ? row('Telefone', esc(d.telefone)) : '',
+    d.cidade ? row('Cidade', `${esc(d.cidade)}${d.estado ? `/${esc(d.estado)}` : ''}`) : '',
+    d.endereco ? row('Endereco', `${esc(d.endereco)}${d.numero ? `, ${esc(d.numero)}` : ''}${d.bairro ? ` - ${esc(d.bairro)}` : ''}`) : '',
+  ].filter(Boolean).join('');
 
-  const html = `
-    <div style="font-family:Arial,sans-serif;padding:0;max-width:760px;margin:0 auto;font-size:8px;color:#374151;">
-      ${buildHeader()}
+  const rDevolucao = [
+    d.data ? row('Data', esc(d.data)) : '',
+    d.hora ? row('Hora', esc(d.hora)) : '',
+    d.localObra ? row('Local da Obra', esc(d.localObra)) : '',
+    d.signatarioNome ? row('Recebido por', esc(d.signatarioNome), { bold: true }) : '',
+    d.referencia ? row('Referencia', esc(d.referencia)) : '',
+  ].filter(Boolean).join('');
 
-      <div style="text-align:center;margin:4px 0 8px 0;">
-        <span style="font-size:11px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">COMPROVANTE DE DEVOLUCAO</span>
-      </div>
+  const condicoesList = [];
+  if (condicoes.danificado) condicoesList.push('Danificado/Sujo');
+  if (condicoes.extraviado) condicoesList.push('Extraviado');
+  if (condicoes.testarEmpresa) condicoesList.push('Testar na Empresa');
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;">
-        <tr>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">CONTRATO:</strong> ${esc(d.numero || d.contratoId || '')}</td>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};text-align:right;"><strong style="color:${BRAND.preto};">ATENDENTE:</strong> ${esc(d.atendente || '')}</td>
-        </tr>
-      </table>
+  let itensHtml = '';
+  if (itens.length > 0) {
+    itensHtml = sectionBlock('Itens Devolvidos', '#111827', '#f97316', `<tr><td style="padding:0;">${buildItemsTableDevolucao(itens)}</td></tr>`);
+  }
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;line-height:1.4;padding:4px;">
-          <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(d.locatario || '')}<br/>
-          <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(d.cidade || '')}<br/>
-          <strong style="color:${BRAND.preto};">Local da Obra:</strong> ${esc(d.localObra || d.localEntrega || '')}
-        </td></tr>
-      </table>
+  let condicoesHtml = '';
+  if (condicoesList.length > 0) {
+    condicoesHtml = sectionBlock('Condicoes da Devolucao', '#111827', '#f97316', `<tr><td style="padding:4px 0;font-size:11px;color:#374151;">${condicoesList.join(' | ')}</td></tr>`);
+  }
 
-      <p style="text-align:justify;margin:4px 0;font-size:8px;color:#374151;line-height:1.2;">
-        DECLARO(AMOS) para os fins e efeito de direito que recebi(emos) os equipamento(s) abaixo discriminado(s):
+  let assinaturaHtml = '';
+  if (d.signatarioNome) {
+    assinaturaHtml = sectionBlock('Assinatura do Recebedor', '#166534', '#22c55e', [
+      row('Nome', esc(d.signatarioNome), { bold: true }),
+      d.signatureImg || d.assinaturaImagem ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${d.signatureImg || d.assinaturaImagem}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
+    ].filter(Boolean).join(''));
+  }
+
+  const html = pdfWrapper(`
+    ${brandHeader('Comprovante de Devolucao', 'SISTEMA DE GESTAO DE LOCACAO', 'DEVOLUCAO', '#111827', '#f97316')}
+    <div style="padding:16px 20px 8px;">
+      <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Devolucao de Equipamento</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:14px;">Documento comprovatorio de devolucao de equipamentos locados.</div>
+
+      ${sectionBlock('Dados do Contrato', '#111827', '#f97316', rContrato)}
+
+      ${rDevolucao ? sectionBlock('Dados da Devolucao', '#111827', '#f97316', rDevolucao) : ''}
+
+      <p style="text-align:justify;margin:6px 0;font-size:10px;color:#374151;line-height:1.4;">
+        DECLARO(AMOS) para os fins e efeito de direito que devolvo(os) o(s) equipamento(s) abaixo discriminado(s):
       </p>
 
-      ${buildLocatarioBlock(d)}
+      ${itensHtml}
 
-      ${d.telefone ? `<div style="margin:2px 0;font-size:8px;"><strong style="color:${BRAND.preto};">Telefone da obra:</strong> ${esc(d.telefone)}</div>` : ''}
+      ${condicoesHtml}
 
-      <div style="border:1px solid ${BRAND.cinzaBorda};padding:4px;margin:4px 0;">
-        <div style="text-align:center;font-weight:700;font-size:8px;margin-bottom:3px;color:${BRAND.preto};padding-bottom:2px;border-bottom:1px solid ${BRAND.cinzaBorda};">
-          DADOS DA DEVOLUCAO
-        </div>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          ${buildInfoGrid([
-            ['Data', d.data || ''],
-            ['Hora', d.hora || ''],
-            ['Recebido por', d.signatarioNome || ''],
-            ['Referencia', d.referencia || ''],
-          ])}
-        </table>
-      </div>
+      ${assinaturaHtml}
 
-      ${buildSectionTitle('ITENS DEVOLVIDOS')}
-      <div style="margin:3px 0;">${itensHtml}</div>
+      ${buildPhotoSection(fotosEntrega, fotosRetirada, tsEntrega, tsRetirada, d.numero || d.contratoId, d.data)}
 
-      <div style="text-align:right;margin-top:6px;font-size:8px;color:#374151;">
-        ${esc(d.cidade || EMPRESA.cidade)}, ${dataPorExtenso(d.data)}
-      </div>
-
-      ${buildSignatureBlock(d.signatarioNome, d.signatureImg || d.assinaturaImagem || d.assinaturaImg)}
-
-      <div style="margin-top:6px;padding:4px;border:1px solid ${BRAND.cinzaBorda};">
-        <div style="font-size:7px;color:${BRAND.cinzaTexto};margin-bottom:3px;">CONDICOES APLICAVEIS:</div>
-        <div style="display:flex;gap:10px;font-size:8px;">
-          <span>${checkbox(condicoes.danificado)}&nbsp;DANIFICADO/SUJO</span>
-          <span>${checkbox(condicoes.extraviado)}&nbsp;EXTRAVIADO/ROUBADO</span>
-          <span>${checkbox(condicoes.testarEmpresa)}&nbsp;SERÁ TESTADO NA EMPRESA</span>
-        </div>
-      </div>
-
-      ${d.metodoEntrega ? `<div style="margin-top:4px;font-size:7px;font-style:italic;color:${BRAND.cinzaTexto};">${esc(getMetodoEntregaText(d.metodoEntrega))}</div>` : ''}
-
-      ${buildFooter('COMPROVANTE DE DEVOLUCAO')}
-
-      ${(fotosEntrega.length > 0 || fotosRetirada.length > 0) ? `
-      <div style="page-break-before:always;padding-top:8px;">
-        <div style="text-align:center;margin:4px 0 8px 0;">
-          <span style="font-size:11px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">REGISTRO FOTOGRAFICO</span>
-        </div>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="font-size:7px;color:${BRAND.cinzaTexto};padding-bottom:3px;">
-            Contrato: ${esc(d.numero || d.contratoId || '')} | Data: ${esc(d.data || new Date().toLocaleDateString('pt-BR'))}
-          </td></tr>
-        </table>
-        ${buildPhotoGrid(fotosEntrega, 'ENTREGA', tsEntrega)}
-        ${buildPhotoGrid(fotosRetirada, 'RETIRADA', tsRetirada)}
-        ${buildFooter('REGISTRO FOTOGRAFICO - DEVOLUCAO')}
-      </div>` : ''}
-    </div>`;
+      ${pdfFooter('COMPROVANTE DE DEVOLUCAO')}
+    </div>
+  `);
 
   await (await getHtml2pdf())()
     .set({
-      margin: [8, 8, 12, 8],
+      margin: [6, 6, 10, 6],
       filename: `comprovante-devolucao-${d.numero || 'doc'}.pdf`,
-      image: { type: 'jpeg', quality: 0.85 },
+      image: { type: 'jpeg', quality: 0.92 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
@@ -449,7 +449,7 @@ export async function generateDevolucaoPDF(devolucao) {
 }
 
 // ============================================
-// PDF: Contrato
+// PDF: Contrato (Professional)
 // ============================================
 export async function generateContratoPDF(contrato) {
   const itens = Array.isArray(contrato.itens) ? contrato.itens : [];
@@ -465,90 +465,87 @@ export async function generateContratoPDF(contrato) {
   const dataAssinatura = contrato.dataAssinatura || '';
   const hasPhotos = fotosEntrega.length > 0 || fotosRetirada.length > 0 || signatureImg;
 
-  const html = `
-    <div style="font-family:Arial,sans-serif;padding:0;max-width:760px;margin:0 auto;font-size:8px;color:#374151;">
-      ${buildHeader()}
+  const rContrato = [
+    row('Numero', `<span style="font-size:14px;font-weight:900;color:#EAB308;">${esc(contrato.numero || contrato.id)}</span>`),
+    row('Cliente', esc(contrato.cliente || '-'), { bold: true }),
+    contrato.cnpj ? row('CPF/CNPJ', esc(contrato.cnpj)) : '',
+    contrato.rg ? row('RG', esc(contrato.rg)) : '',
+    contrato.atendente ? row('Atendente', esc(contrato.atendente)) : '',
+    contrato.telefone ? row('Telefone', esc(contrato.telefone)) : '',
+    contrato.inicio ? row('Periodo', `${esc(contrato.inicio)} a ${esc(contrato.fim || '-')}`) : '',
+    contrato.valorMensal ? row('Valor Mensal', `R$ ${formatMoney(contrato.valorMensal)}/mes`) : '',
+    contrato.valorTotal ? row('Valor Total', `R$ ${formatMoney(contrato.valorTotal)}`) : '',
+  ].filter(Boolean).join('');
 
-      <div style="text-align:center;margin:4px 0 8px 0;">
-        <span style="font-size:11px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">COMPROVANTE DE ENTREGA DOS BENS LOCADOS</span>
-      </div>
+  const rEntrega = [
+    contrato.cidade ? row('Cidade', `${esc(contrato.cidade)}${contrato.estado ? `/${esc(contrato.estado)}` : ''}`) : '',
+    contrato.endereco ? row('Endereco', `${esc(contrato.endereco)}${contrato.numeroEndereco ? `, ${esc(contrato.numeroEndereco)}` : ''}${contrato.bairro ? ` - ${esc(contrato.bairro)}` : ''}`) : '',
+    contrato.localEntrega ? row('Local da Entrega', esc(contrato.localEntrega)) : '',
+    contrato.telefoneEntrega ? row('Telefone Entrega', esc(contrato.telefoneEntrega)) : '',
+    contrato.contato ? row('Contato', esc(contrato.contato)) : '',
+    contrato.referencia ? row('Referencia', esc(contrato.referencia)) : '',
+  ].filter(Boolean).join('');
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;">
-        <tr>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">CONTRATO:</strong> ${esc(contrato.numero || contrato.id)}</td>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};text-align:right;"><strong style="color:${BRAND.preto};">ATENDENTE:</strong> ${esc(contrato.atendente || '')}</td>
-        </tr>
-      </table>
+  let itensHtml = '';
+  if (itens.length > 0) {
+    itensHtml = sectionBlock('Itens Locados', '#111827', '#EAB308', `<tr><td style="padding:0;">${buildItemsTable(itens)}</td></tr>`);
+  }
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;line-height:1.4;padding:4px;">
-          <strong style="color:${BRAND.preto};">Locatario:</strong> ${esc(contrato.cliente || '')}<br/>
-          <strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(contrato.cidade || '')}<br/>
-          <strong style="color:${BRAND.preto};">Local da entrega:</strong> ${esc(contrato.localEntrega || '')}
-        </td></tr>
-      </table>
+  let equipHtml = '';
+  if (equipsWithPat.length > 0) {
+    equipHtml = sectionBlock('Equipamentos', '#111827', '#EAB308', `<tr><td style="padding:4px 0;font-size:11px;color:#374151;">${esc(equipsWithPat.join(' | '))}</td></tr>`);
+  }
 
-      <p style="text-align:justify;margin:4px 0;font-size:8px;color:#374151;line-height:1.2;">
+  let observacaoHtml = '';
+  if (contrato.observacao) {
+    observacaoHtml = `<div style="margin:8px 0;padding:8px 12px;border-left:3px solid #EAB308;background:#FEF3C7;border-radius:0 4px 4px 0;">
+      <div style="font-size:9px;font-weight:700;color:#111827;margin-bottom:2px;">OBSERVACAO</div>
+      <div style="font-size:10px;color:#374151;">${esc(contrato.observacao)}</div>
+    </div>`;
+  }
+
+  let assinaturaHtml = '';
+  if (signatarioNome || signatureImg) {
+    assinaturaHtml = sectionBlock('Assinatura do Locatario', '#166534', '#22c55e', [
+      signatarioNome ? row('Nome', esc(signatarioNome), { bold: true }) : '',
+      dataAssinatura ? row('Data', esc(dataAssinatura)) : '',
+      signatureImg ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${signatureImg}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
+    ].filter(Boolean).join(''));
+  }
+
+  const html = pdfWrapper(`
+    ${brandHeader('Comprovante de Entrega dos Bens Locados', 'SISTEMA DE GESTAO DE LOCACAO', 'CONTRATO', '#111827', '#EAB308')}
+    <div style="padding:16px 20px 8px;">
+      <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">Comprovante de Entrega dos Bens Locados</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:14px;">Documento comprovatorio de recebimento de equipamentos locados.</div>
+
+      ${sectionBlock('Dados do Contrato', '#111827', '#EAB308', rContrato)}
+
+      ${rEntrega ? sectionBlock('Dados da Entrega', '#1e40af', '#2563eb', rEntrega) : ''}
+
+      ${equipHtml}
+
+      <p style="text-align:justify;margin:6px 0;font-size:10px;color:#374151;line-height:1.4;">
         DECLARO(AMOS) para os fins e efeito de direito que recebi(emos) o(s) objeto(s) abaixo discriminado(s):
       </p>
 
-      ${buildLocatarioBlock(contrato)}
+      ${itensHtml}
 
-      ${contrato.telefoneEntrega ? `<div style="margin:2px 0;font-size:8px;"><strong style="color:${BRAND.preto};">Telefone do local de entrega:</strong> ${esc(contrato.telefoneEntrega)}</div>` : ''}
+      ${observacaoHtml}
 
-      ${contrato.referencia ? `<div style="margin:2px 0;font-size:8px;"><strong style="color:${BRAND.preto};">Referencia:</strong> ${esc(contrato.referencia)}</div>` : ''}
+      ${assinaturaHtml}
 
-      ${buildItemsTableEntrega(itens)}
+      ${buildPhotoSection(fotosEntrega, fotosRetirada, contrato.fotosEntregaTimestamps, contrato.fotosRetiradaTimestamps, contrato.numero || contrato.id, contrato.dataContrato)}
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;">
-        <tr><td style="text-align:right;font-weight:700;font-size:9px;padding:3px 6px;">
-          TOTAL: R$ ${formatMoney(contrato.valorTotal)}
-        </td></tr>
-      </table>
-
-      ${equipamentos.length > 0 ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;padding:4px;">
-          <strong style="color:${BRAND.preto};">Equipamentos:</strong> ${esc(equipsWithPat.join(' | ') || '-')}
-        </td></tr>
-      </table>` : ''}
-
-      ${contrato.observacao ? `
-      <div style="margin:3px 0;font-size:8px;padding:3px 6px;border-left:3px solid ${BRAND.amarelo};">
-        <strong style="color:${BRAND.preto};">Observacao:</strong> ${esc(contrato.observacao)}
-      </div>` : ''}
-
-      ${buildContractInfoBlock(contrato)}
-
-      <div style="text-align:right;margin-top:4px;font-size:8px;color:#374151;">
-        ${esc(contrato.cidade || EMPRESA.cidade)}, ${dataPorExtenso(contrato.dataContrato)}
-      </div>
-
-      ${buildSignatureBlock(contrato.contato, signatureImg)}
-
-      ${contrato.metodoEntrega ? `<div style="margin-top:4px;font-size:7px;font-style:italic;color:${BRAND.cinzaTexto};">${esc(getMetodoEntregaText(contrato.metodoEntrega))}</div>` : ''}
-
-      ${hasPhotos ? `
-      <div style="page-break-before:always;margin-top:10px;">
-        <div style="text-align:center;margin-bottom:6px;">
-          <span style="font-size:9px;font-weight:700;color:${BRAND.preto};letter-spacing:0.5px;">REGISTRO FOTOGRAFICO</span>
-          ${dataAssinatura ? `<div style="font-size:7px;color:${BRAND.cinzaTexto};margin-top:2px;">${esc(dataAssinatura)}</div>` : ''}
-        </div>
-
-        ${buildPhotoGrid(fotosEntrega, 'FOTOS DA ENTREGA', contrato.fotosEntregaTimestamps)}
-        ${buildPhotoGrid(fotosRetirada, 'FOTOS DA RETIRADA', contrato.fotosRetiradaTimestamps)}
-
-        ${signatarioNome ? `<div style="margin-top:6px;font-size:7px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">Signatario:</strong> ${esc(signatarioNome)}${dataAssinatura ? ` | <strong style="color:${BRAND.preto};">Data:</strong> ${esc(dataAssinatura)}` : ''}</div>` : ''}
-      </div>` : ''}
-
-      ${buildFooter('COMPROVANTE DE ENTREGA')}
-    </div>`;
+      ${pdfFooter('COMPROVANTE DE ENTREGA')}
+    </div>
+  `);
 
   await (await getHtml2pdf())()
     .set({
-      margin: [8, 8, 12, 8],
+      margin: [6, 6, 10, 6],
       filename: `contrato-${contrato.numero || contrato.id || 'doc'}.pdf`,
-      image: { type: 'jpeg', quality: 0.85 },
+      image: { type: 'jpeg', quality: 0.92 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
@@ -558,7 +555,7 @@ export async function generateContratoPDF(contrato) {
 }
 
 // ============================================
-// PDF: Fallback Email
+// PDF: Fallback Email (Professional)
 // ============================================
 export async function generateFallbackEmailPDF(emailData) {
   const tipo = emailData.tipo || 'notificacao';
@@ -568,96 +565,84 @@ export async function generateFallbackEmailPDF(emailData) {
   const devolucao = emailData.devolucao || {};
 
   const tipoLabel = {
-    contrato_criado: 'NOTIFICACAO - CONTRATO CRIADO',
-    contrato_assinado: 'NOTIFICACAO - CONTRATO ASSINADO',
-    contrato_renovado: 'NOTIFICACAO - CONTRATO RENOVADO',
-    devolucao_registrada: 'NOTIFICACAO - DEVOLUCAO REGISTRADA',
+    contrato_criado: 'CONTRATO CRIADO',
+    contrato_assinado: 'CONTRATO ASSINADO',
+    contrato_renovado: 'CONTRATO RENOVADO',
+    devolucao_registrada: 'DEVOLUCAO REGISTRADA',
   }[tipo] || 'NOTIFICACAO';
+
+  const tipoColor = {
+    contrato_criado: '#EAB308',
+    contrato_assinado: '#16a34a',
+    contrato_renovado: '#3b82f6',
+    devolucao_registrada: '#f97316',
+  }[tipo] || '#EAB308';
 
   const itens = comprovante.itens || devolucao.itens || contrato.itens || [];
   const itensTableHtml = Array.isArray(itens) && itens.length > 0
-    ? buildItemsTableEntrega(itens.filter(it => typeof it === 'object'))
-    : `<p style="font-size:9px;color:${BRAND.cinzaTexto};">Nenhum item informado</p>`;
+    ? buildItemsTable(itens.filter(it => typeof it === 'object'), tipoColor)
+    : '';
 
-  const html = `
-    <div style="font-family:Arial,sans-serif;padding:0;max-width:760px;margin:0 auto;font-size:8px;color:#374151;">
-      ${buildHeader()}
+  let rContrato = '';
+  if (contrato.numero || contrato.id) {
+    rContrato = sectionBlock('Dados do Contrato', '#111827', tipoColor, [
+      row('Numero', `<span style="font-size:14px;font-weight:900;color:${tipoColor};">${esc(contrato.numero || contrato.id)}</span>`),
+      row('Cliente', esc(contrato.cliente || comprovante.locatario || devolucao.locatario || '-'), { bold: true }),
+      contrato.cnpj ? row('CPF/CNPJ', esc(contrato.cnpj || comprovante.cpf)) : '',
+      contrato.atendente ? row('Atendente', esc(contrato.atendente)) : '',
+      contrato.inicio ? row('Periodo', `${esc(contrato.inicio)} a ${esc(contrato.fim || '-')}`) : '',
+      contrato.valorMensal ? row('Valor Mensal', `R$ ${formatMoney(contrato.valorMensal)}/mes`) : '',
+    ].filter(Boolean).join(''));
+  }
 
-      <div style="text-align:center;margin:4px 0 8px 0;padding:4px;border:2px solid ${BRAND.amarelo};">
-        <span style="font-size:10px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">${esc(tipoLabel)}</span>
+  let rEntrega = '';
+  if (comprovante.locatario || devolucao.locatario) {
+    rEntrega = sectionBlock(`Dados da ${tipo === 'contrato_assinado' ? 'Entrega' : 'Devolucao'}`, '#111827', tipoColor, [
+      row('Locatario', esc(comprovante.locatario || devolucao.locatario || '-'), { bold: true }),
+      comprovante.cpf ? row('CPF', esc(comprovante.cpf)) : '',
+      comprovante.cidade ? row('Cidade', esc(comprovante.cidade)) : '',
+      comprovante.total ? row('Total', `R$ ${formatMoney(comprovante.total)}`, { bold: true, color: '#16a34a' }) : '',
+    ].filter(Boolean).join(''));
+  }
+
+  let rSignatario = '';
+  if (signatario.nome) {
+    rSignatario = sectionBlock('Assinatura Digital', '#166534', '#22c55e', [
+      row('Nome', esc(signatario.nome), { bold: true }),
+      signatario.cpf ? row('CPF', esc(signatario.cpf)) : '',
+      signatario.data ? row('Data', formatDateBR(signatario.data)) : '',
+      signatario.assinaturaImagem ? `<tr><td colspan="2" style="padding-top:6px;"><div style="font-size:9px;color:#166534;font-weight:700;margin-bottom:4px;">ASSINATURA:</div><img src="${signatario.assinaturaImagem}" style="max-height:50px;max-width:160px;border:1px solid #e5e7eb;padding:4px;border-radius:4px;background:#fff;" /></td></tr>` : '',
+    ].filter(Boolean).join(''));
+  }
+
+  const html = pdfWrapper(`
+    ${brandHeader(tipoLabel, 'SISTEMA DE GESTAO DE LOCACAO', tipoLabel.split(' ')[0], '#111827', tipoColor)}
+    <div style="padding:16px 20px 8px;">
+      <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:2px;">${esc(tipoLabel)}</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:14px;">Notificacao automatica do sistema TransObra.</div>
+
+      ${rContrato}
+      ${rEntrega}
+
+      ${itensTableHtml ? sectionBlock('Itens', '#111827', tipoColor, `<tr><td style="padding:0;">${itensTableHtml}</td></tr>`) : ''}
+
+      ${rSignatario}
+
+      <div style="text-align:center;margin:12px 0;padding:8px;border:1px dashed ${tipoColor};border-radius:6px;">
+        <div style="font-size:8px;color:#9CA3AF;letter-spacing:1px;">DOCUMENTO GERADO AUTOMATICAMENTE PELO SISTEMA</div>
       </div>
 
-      ${contrato.id ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;">
-        <tr>
-          <td style="font-size:8px;color:${BRAND.cinzaTexto};"><strong style="color:${BRAND.preto};">CONTRATO:</strong> ${esc(contrato.numero || contrato.id)}</td>
-          ${contrato.atendente ? `<td style="font-size:8px;color:${BRAND.cinzaTexto};text-align:right;"><strong style="color:${BRAND.preto};">ATENDENTE:</strong> ${esc(contrato.atendente)}</td>` : ''}
-        </tr>
-      </table>` : ''}
-
-      ${(contrato.cliente || comprovante.locatario || devolucao.locatario) ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;line-height:1.4;padding:4px;">
-          ${contrato.cliente || comprovante.locatario || devolucao.locatario ? `<strong style="color:${BRAND.preto};">Cliente/Locatario:</strong> ${esc(contrato.cliente || comprovante.locatario || devolucao.locatario)}<br/>` : ''}
-          ${contrato.cidade || comprovante.cidade ? `<strong style="color:${BRAND.preto};">Cidade:</strong> ${esc(contrato.cidade || comprovante.cidade)}<br/>` : ''}
-          ${contrato.localEntrega || comprovante.localEntrega || devolucao.localObra ? `<strong style="color:${BRAND.preto};">Local:</strong> ${esc(contrato.localEntrega || comprovante.localEntrega || devolucao.localObra)}` : ''}
-        </td></tr>
-      </table>` : ''}
-
-      ${contrato.cnpj || comprovante.cpf ? `
-      <div style="margin:3px 0;font-size:8px;">
-        <strong style="color:${BRAND.preto};">${(contrato.cnpj || comprovante.cpf || '').replace(/\D/g, '').length > 11 ? 'CNPJ' : 'CPF'}:</strong> ${esc(contrato.cnpj || comprovante.cpf)}
-      </div>` : ''}
-
-      ${buildSectionTitle('ITENS')}
-      ${itensTableHtml}
-
-      ${contrato.inicio ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:3px 0;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;padding:4px;">
-          <strong style="color:${BRAND.preto};">Periodo:</strong> ${esc(contrato.inicio)} a ${esc(contrato.fim || '-')}<br/>
-          <strong style="color:${BRAND.preto};">Valor Mensal:</strong> R$ ${formatMoney(contrato.valorMensal)}
-        </td></tr>
-      </table>` : ''}
-
-      ${devolucao.data ? `<div style="margin:3px 0;font-size:8px;"><strong style="color:${BRAND.preto};">Data da Devolucao:</strong> ${esc(devolucao.data)} ${esc(devolucao.hora || '')}</div>` : ''}
-
-      ${devolucao.condicoes ? `
-      <div style="margin:4px 0;padding:3px 6px;border:1px solid ${BRAND.cinzaBorda};">
-        <div style="font-size:7px;color:${BRAND.cinzaTexto};margin-bottom:2px;">CONDICOES:</div>
-        <span style="font-size:8px;">${checkbox(devolucao.condicoes.danificado)}&nbsp;DANIFICADO</span>&nbsp;&nbsp;
-        <span style="font-size:8px;">${checkbox(devolucao.condicoes.extraviado)}&nbsp;EXTRAVIADO</span>&nbsp;&nbsp;
-        <span style="font-size:8px;">${checkbox(devolucao.condicoes.testarEmpresa)}&nbsp;TESTAR NA EMPRESA</span>
-      </div>` : ''}
-
-      ${signatario.nome ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0;padding:4px;border:1px solid ${BRAND.cinzaBorda};">
-        <tr><td style="font-size:8px;">
-          <strong style="color:${BRAND.preto};">Signatario:</strong> ${esc(signatario.nome)}
-          ${signatario.cpf ? `<br/><strong style="color:${BRAND.preto};">CPF:</strong> ${esc(signatario.cpf)}` : ''}
-        </td></tr>
-      </table>` : ''}
-
-      ${signatario.assinaturaImagem ? `
-      <div style="text-align:center;margin:6px 0;">
-        <div style="font-size:7px;color:${BRAND.cinzaTexto};margin-bottom:2px;">ASSINATURA DO LOCATARIO:</div>
-        <img src="${signatario.assinaturaImagem}" style="max-height:35px;max-width:130px;" />
-      </div>` : ''}
-
-      <div style="text-align:center;margin:8px 0;padding:4px;border:1px dashed ${BRAND.amarelo};">
-        <div style="font-size:7px;color:${BRAND.cinzaTexto};">DOCUMENTO GERADO AUTOMATICAMENTE PELO SISTEMA</div>
-      </div>
-
-      ${buildFooter(tipoLabel)}
-    </div>`;
+      ${pdfFooter(tipoLabel)}
+    </div>
+  `);
 
   const filename = `notificacao-${tipo}-${contrato.numero || comprovante.id || devolucao.numero || 'doc'}.pdf`;
 
   await (await getHtml2pdf())()
     .set({
-      margin: [8, 8, 12, 8],
+      margin: [6, 6, 10, 6],
       filename,
-      image: { type: 'jpeg', quality: 0.85 },
+      image: { type: 'jpeg', quality: 0.92 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },

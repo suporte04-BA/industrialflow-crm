@@ -307,7 +307,20 @@ export default function AssinaturaDigital() {
               assinaturaImagem: imagem || null,
             },
           }),
-        }).catch(() => {});
+        }).then(async (res) => {
+          try {
+            const data = await res.json();
+            if (data.queued) {
+              toast.info('WhatsApp desconectado. Mensagem na fila para envio posterior.');
+            } else if (data.success) {
+              toast.success('WhatsApp enviado com sucesso!');
+            } else if (data.skipped) {
+              toast.info('WhatsApp desabilitado ou sem telefone.');
+            }
+          } catch {}
+        }).catch(() => {
+          toast.warning('Nao foi possivel enviar notificacao por WhatsApp.');
+        });
       } else {
         toast.success('Assinatura registrada com sucesso!');
         clearCanvas();

@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+﻿import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { LOGO_BASE64 } from './logo-base64.js';
 
 // ============================================
@@ -8,6 +8,15 @@ import { LOGO_BASE64 } from './logo-base64.js';
 const WHATSAPP_DELAY_MS = 3000;
 const WHATSAPP_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 1;
+
+// Helper: headers for ngrok free plan (bypass browser warning)
+function evolutionHeaders(apiKey) {
+  return {
+    'Content-Type': 'application/json',
+    'apikey': apiKey,
+    'ngrok-skip-browser-warning': 'true',
+  };
+}
 
 // ============================================
 // PHONE NUMBER PARSING
@@ -41,32 +50,32 @@ export function formatWhatsAppMessage(tipo, contrato, comprovante, signatario) {
 
   switch (tipo) {
     case 'contrato_assinado': {
-      const tipoDoc = comprovante?.tipoDocumento === 'devolucao' ? 'devolução' : 'entrega';
-      return `Olá ${nome}! Segue seu comprovante de ${tipoDoc} assinado.\n\n` +
-        `📄 Contrato: ${numero}\n` +
-        `📦 Equipamentos: ${equipamentos || 'N/I'}\n` +
-        `📅 Data: ${new Date().toLocaleDateString('pt-BR')}\n\n` +
-        `TransObra — Gestão de Locação de Equipamentos\n` +
+      const tipoDoc = comprovante?.tipoDocumento === 'devolucao' ? 'devoluÃ§Ã£o' : 'entrega';
+      return `OlÃ¡ ${nome}! Segue seu comprovante de ${tipoDoc} assinado.\n\n` +
+        `ðŸ“„ Contrato: ${numero}\n` +
+        `ðŸ“¦ Equipamentos: ${equipamentos || 'N/I'}\n` +
+        `ðŸ“… Data: ${new Date().toLocaleDateString('pt-BR')}\n\n` +
+        `TransObra â€” GestÃ£o de LocaÃ§Ã£o de Equipamentos\n` +
         `(92) 99386-7171`;
     }
     case 'contrato_criado':
-      return `Olá ${nome}! Seu contrato foi cadastrado com sucesso.\n\n` +
-        `📄 Contrato: ${numero}\n` +
-        `📦 Equipamentos: ${equipamentos || 'N/I'}\n\n` +
-        `TransObra — Gestão de Locação de Equipamentos`;
+      return `OlÃ¡ ${nome}! Seu contrato foi cadastrado com sucesso.\n\n` +
+        `ðŸ“„ Contrato: ${numero}\n` +
+        `ðŸ“¦ Equipamentos: ${equipamentos || 'N/I'}\n\n` +
+        `TransObra â€” GestÃ£o de LocaÃ§Ã£o de Equipamentos`;
     case 'contrato_renovado':
-      return `Olá ${nome}! Seu contrato foi renovado.\n\n` +
-        `📄 Contrato: ${numero}\n` +
-        `📅 Novo período: ${contrato?.inicio || ''} a ${contrato?.fim || ''}\n\n` +
-        `TransObra — Gestão de Locação de Equipamentos`;
+      return `OlÃ¡ ${nome}! Seu contrato foi renovado.\n\n` +
+        `ðŸ“„ Contrato: ${numero}\n` +
+        `ðŸ“… Novo perÃ­odo: ${contrato?.inicio || ''} a ${contrato?.fim || ''}\n\n` +
+        `TransObra â€” GestÃ£o de LocaÃ§Ã£o de Equipamentos`;
     case 'devolucao_registrada':
-      return `Olá ${nome}! A devolução do equipamento foi registrada.\n\n` +
-        `📄 Contrato: ${numero}\n\n` +
-        `TransObra — Gestão de Locação de Equipamentos`;
+      return `OlÃ¡ ${nome}! A devoluÃ§Ã£o do equipamento foi registrada.\n\n` +
+        `ðŸ“„ Contrato: ${numero}\n\n` +
+        `TransObra â€” GestÃ£o de LocaÃ§Ã£o de Equipamentos`;
     default:
-      return `Olá ${nome}! Você tem uma notificação do sistema TransObra.\n\n` +
-        `📄 Contrato: ${numero}\n\n` +
-        `TransObra — Gestão de Locação de Equipamentos`;
+      return `OlÃ¡ ${nome}! VocÃª tem uma notificaÃ§Ã£o do sistema TransObra.\n\n` +
+        `ðŸ“„ Contrato: ${numero}\n\n` +
+        `TransObra â€” GestÃ£o de LocaÃ§Ã£o de Equipamentos`;
   }
 }
 
@@ -89,10 +98,7 @@ export async function sendTextViaEvolution(env, phone, message) {
 
     const res = await fetch(`${apiUrl}/message/sendText/${instance}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': apiKey,
-      },
+      headers: evolutionHeaders(apiKey),
       body: JSON.stringify({
         number: phone,
         text: message,
@@ -197,7 +203,7 @@ export async function checkConnectionStatus(env) {
   try {
     const res = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
       method: 'GET',
-      headers: { 'apikey': apiKey },
+      headers: { ...evolutionHeaders(apiKey), 'Content-Type': undefined },
     });
 
     const data = await res.json();
@@ -435,9 +441,9 @@ async function generateWhatsAppPdf(contrato, comprovante, signatario) {
 
   function drawPdfFooter(p, num) {
     p.drawRectangle({ x: ML, y: 38, width: CW, height: 0.5, color: PDF_COLORS.midGray });
-    p.drawText('TRANSOBRA CRM — Sistema de Gestao de Locacao', { x: ML + 4, y: 42, size: 7, font: helvetica, color: PDF_COLORS.textLight });
+    p.drawText('TRANSOBRA CRM â€” Sistema de Gestao de Locacao', { x: ML + 4, y: 42, size: 7, font: helvetica, color: PDF_COLORS.textLight });
     p.drawText(`Pagina ${num}`, { x: PAGE_W - MR - 40, y: 42, size: 7, font: helvetica, color: PDF_COLORS.textLight });
-    p.drawText('Av. Taruma, 1605 — Manaus/AM — (92) 99386-7171', { x: ML + 4, y: 32, size: 6.5, font: helvetica, color: rgb(0.65, 0.65, 0.65) });
+    p.drawText('Av. Taruma, 1605 â€” Manaus/AM â€” (92) 99386-7171', { x: ML + 4, y: 32, size: 6.5, font: helvetica, color: rgb(0.65, 0.65, 0.65) });
   }
 
   const c = contrato || {};
@@ -457,7 +463,7 @@ async function generateWhatsAppPdf(contrato, comprovante, signatario) {
       y -= logoH + 8;
     }
   } catch {
-    page.drawText('TRANSOBRA — LOCACAO DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: PDF_COLORS.dark });
+    page.drawText('TRANSOBRA â€” LOCACAO DE EQUIPAMENTOS', { x: ML, y, size: 16, font: helveticaBold, color: PDF_COLORS.dark });
     y -= 16;
   }
 
@@ -688,7 +694,7 @@ export async function getConnectionQR(env) {
     const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/instance/connect/${instance}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -716,7 +722,7 @@ export async function getPairingCode(env, number) {
     const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/instance/connect/${instance}?number=${number}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -743,7 +749,7 @@ export async function disconnectInstance(env) {
     const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/instance/logout/${instance}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -765,7 +771,7 @@ export async function restartInstance(env) {
     const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/instance/restart/${instance}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -787,7 +793,7 @@ export async function getInstanceState(env) {
     const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -812,7 +818,7 @@ export async function deleteInstance(env) {
     const timeout = setTimeout(() => controller.abort(), WHATSAPP_TIMEOUT_MS);
     const res = await fetch(`${apiUrl}/instance/delete/${instance}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -834,7 +840,7 @@ export async function createInstance(env) {
     const timeout = setTimeout(() => controller.abort(), 60000);
     const res = await fetch(`${apiUrl}/instance/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       body: JSON.stringify({
         instanceName: instance,
         qrcode: true,
@@ -872,7 +878,7 @@ export async function resetAndConnect(env) {
     try {
       const stateRes = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
         method: 'GET',
-        headers: { 'apikey': apiKey },
+        headers: { ...evolutionHeaders(apiKey), 'Content-Type': undefined },
       });
       const stateData = await stateRes.json();
       if (stateData?.instance?.state === 'open') {
@@ -880,11 +886,11 @@ export async function resetAndConnect(env) {
       }
     } catch {}
 
-    // 2. Delete existing instance (ignore errors — might not exist)
+    // 2. Delete existing instance (ignore errors â€” might not exist)
     try {
       await fetch(`${apiUrl}/instance/delete/${instance}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+        headers: evolutionHeaders(apiKey),
       });
     } catch {}
 
@@ -896,7 +902,7 @@ export async function resetAndConnect(env) {
     const timeout = setTimeout(() => controller.abort(), 60000);
     const res = await fetch(`${apiUrl}/instance/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       body: JSON.stringify({
         instanceName: instance,
         qrcode: true,
@@ -933,7 +939,7 @@ export async function resetAndGetPairingCode(env, number) {
     try {
       await fetch(`${apiUrl}/instance/delete/${instance}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+        headers: evolutionHeaders(apiKey),
       });
     } catch {}
 
@@ -943,7 +949,7 @@ export async function resetAndGetPairingCode(env, number) {
     // 3. Create fresh instance WITHOUT QR (pairing code needs this)
     const createRes = await fetch(`${apiUrl}/instance/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       body: JSON.stringify({
         instanceName: instance,
         qrcode: false,
@@ -964,7 +970,7 @@ export async function resetAndGetPairingCode(env, number) {
     const timeout = setTimeout(() => controller.abort(), 30000);
     const connectRes = await fetch(`${apiUrl}/instance/connect/${instance}?number=${number}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+      headers: evolutionHeaders(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timeout);

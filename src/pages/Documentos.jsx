@@ -20,6 +20,9 @@ const TABS = [
 
 function SignatarioInfo({ assinatura, expanded }) {
   if (!assinatura) return null;
+  const fotosEntrega = (assinatura.fotosEntrega || []).filter(Boolean);
+  const fotosRetirada = (assinatura.fotosRetirada || []).filter(Boolean);
+  const hasFotos = fotosEntrega.length > 0 || fotosRetirada.length > 0;
   return (
     <div className={`${expanded ? 'mt-4 pt-4 border-t-2 border-green-200 bg-green-50 rounded-xl p-4 space-y-3' : 'mt-3 pt-3 border-t bg-green-50 rounded-lg p-3 space-y-2'}`}>
       <div className="flex items-center gap-2">
@@ -45,6 +48,39 @@ function SignatarioInfo({ assinatura, expanded }) {
           <p className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider font-semibold">Assinatura:</p>
           <img src={assinatura.assinaturaImagem} alt="Assinatura do recebedor"
             className={`border-2 border-green-300 rounded-lg bg-white object-contain p-1 ${expanded ? 'h-28 sm:h-36' : 'h-20 sm:h-24'}`} />
+        </div>
+      )}
+      {hasFotos && (
+        <div className={`${expanded ? 'mt-3' : 'mt-2'}`}>
+          <p className="text-[10px] text-gray-500 mb-1.5 uppercase tracking-wider font-semibold">Registro Fotografico</p>
+          <div className="space-y-2">
+            {fotosEntrega.length > 0 && (
+              <div>
+                <p className="text-[10px] text-blue-600 font-medium mb-1">Entrega ({fotosEntrega.length})</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {fotosEntrega.map((foto, i) => (
+                    <div key={`e-${i}`} className="relative">
+                      <img src={foto} alt={`Entrega ${i + 1}`} className={`object-cover rounded border ${expanded ? 'w-20 h-20' : 'w-12 h-12'}`} />
+                      <span className="absolute -bottom-0.5 -right-0.5 text-[7px] bg-blue-600 text-white rounded px-0.5">E{i+1}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {fotosRetirada.length > 0 && (
+              <div>
+                <p className="text-[10px] text-orange-600 font-medium mb-1">Retirada ({fotosRetirada.length})</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {fotosRetirada.map((foto, i) => (
+                    <div key={`r-${i}`} className="relative">
+                      <img src={foto} alt={`Retirada ${i + 1}`} className={`object-cover rounded border ${expanded ? 'w-20 h-20' : 'w-12 h-12'}`} />
+                      <span className="absolute -bottom-0.5 -right-0.5 text-[7px] bg-orange-600 text-white rounded px-0.5">R{i+1}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -111,20 +147,27 @@ function ComprovanteModal({ c, contratoData, assinatura, onClose, onDelete, onGe
             {c.assinado && <StatusBadge status="assinado" />}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-            <div><span className="text-gray-500 block text-xs">Locatário</span><span className="font-medium">{c.locatario || '-'}</span></div>
+            <div><span className="text-gray-500 block text-xs">Locatario</span><span className="font-medium">{c.locatario || '-'}</span></div>
             <div><span className="text-gray-500 block text-xs">CPF/CNPJ</span><span className="font-medium" translate="no">{c.cpf || '-'}</span></div>
             <div><span className="text-gray-500 block text-xs">Telefone</span><span className="font-medium">{c.telefoneEntrega || c.telefone || '-'}</span></div>
-            <div className="col-span-2 sm:col-span-3"><span className="text-gray-500 block text-xs">Endereço</span><span className="font-medium">{c.endereco || '-'}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}{c.cidade ? ` — ${c.cidade}/${c.estado}` : ''}</span></div>
+            <div className="col-span-2 sm:col-span-3"><span className="text-gray-500 block text-xs">Endereco</span><span className="font-medium">{c.endereco || '-'}{c.numero ? `, ${c.numero}` : ''}{c.bairro ? ` - ${c.bairro}` : ''}{c.cidade ? ` — ${c.cidade}/${c.estado}` : ''}</span></div>
+            {c.localEntrega && <div className="col-span-2 sm:col-span-3"><span className="text-gray-500 block text-xs">Local Entrega</span><span className="font-medium">{c.localEntrega}</span></div>}
+            {c.contato && <div><span className="text-gray-500 block text-xs">Contato</span><span className="font-medium">{c.contato}</span></div>}
             <div><span className="text-gray-500 block text-xs">Total</span><span className="font-bold text-green-600 text-base">R$ {Number(c.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
           </div>
+          {c.observacao && (
+            <div className="bg-yellow-50 rounded-lg border border-yellow-200 p-3 text-xs text-yellow-800">
+              <span className="font-semibold">Observacao:</span> {c.observacao}
+            </div>
+          )}
           {c.itens && c.itens.length > 0 && (
             <div className="overflow-x-auto">
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Itens</h4>
               <table className="w-full text-xs border rounded-lg overflow-hidden">
                 <thead><tr className="bg-gray-50 border-b text-gray-500">
                   <th className="text-left py-2 px-3">Qtde</th>
-                  <th className="text-left py-2 px-3">Descrição</th>
-                  <th className="text-left py-2 px-3 hidden sm:table-cell">Patrimônio</th>
+                  <th className="text-left py-2 px-3">Descricao</th>
+                  <th className="text-left py-2 px-3 hidden sm:table-cell">Patrimonio</th>
                   <th className="text-right py-2 px-3">Valor</th>
                 </tr></thead>
                 <tbody>{c.itens.map((it, i) => (
@@ -139,6 +182,37 @@ function ComprovanteModal({ c, contratoData, assinatura, onClose, onDelete, onGe
             </div>
           )}
           {assinatura && <SignatarioInfo assinatura={assinatura} expanded />}
+          {assinatura && ((assinatura.fotosEntrega || []).filter(Boolean).length > 0 || (assinatura.fotosRetirada || []).filter(Boolean).length > 0) && (
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase">Fotos Detalhadas</h4>
+              {(assinatura.fotosEntrega || []).filter(Boolean).length > 0 && (
+                <div>
+                  <p className="text-xs text-blue-600 font-medium mb-2">Entrega</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(assinatura.fotosEntrega || []).filter(Boolean).map((foto, i) => (
+                      <div key={`e-${i}`} className="relative">
+                        <img src={foto} alt={`Entrega ${i + 1}`} className="w-full h-24 sm:h-32 object-cover rounded-lg border" />
+                        <span className="absolute top-1 left-1 text-[9px] bg-blue-600 text-white rounded px-1.5 py-0.5 font-medium">Foto {i+1}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(assinatura.fotosRetirada || []).filter(Boolean).length > 0 && (
+                <div>
+                  <p className="text-xs text-orange-600 font-medium mb-2">Retirada</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(assinatura.fotosRetirada || []).filter(Boolean).map((foto, i) => (
+                      <div key={`r-${i}`} className="relative">
+                        <img src={foto} alt={`Retirada ${i + 1}`} className="w-full h-24 sm:h-32 object-cover rounded-lg border" />
+                        <span className="absolute top-1 left-1 text-[9px] bg-orange-600 text-white rounded px-1.5 py-0.5 font-medium">Foto {i+1}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {contratoData && (
             <div className="bg-gray-50 rounded-xl p-4 space-y-2">
               <h4 className="text-xs font-semibold text-gray-500 uppercase">Dados do Contrato</h4>
@@ -146,9 +220,9 @@ function ComprovanteModal({ c, contratoData, assinatura, onClose, onDelete, onGe
                 <div><span className="text-gray-500">Cliente:</span> <span className="font-medium">{contratoData.cliente}</span></div>
                 <div><span className="text-gray-500">CPF/CNPJ:</span> <span className="font-medium">{contratoData.cnpj || '-'}</span></div>
                 <div><span className="text-gray-500">Status:</span> <StatusBadge status={contratoData.status} /></div>
-                <div><span className="text-gray-500">Início:</span> <span className="font-medium">{contratoData.inicio || '-'}</span></div>
+                <div><span className="text-gray-500">Inicio:</span> <span className="font-medium">{contratoData.inicio || '-'}</span></div>
                 <div><span className="text-gray-500">Fim:</span> <span className="font-medium">{contratoData.fim || '-'}</span></div>
-                <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(contratoData.valorMensal || 0).toLocaleString('pt-BR')}/mês</span></div>
+                <div><span className="text-gray-500">Valor Mensal:</span> <span className="font-medium text-green-600">R$ {Number(contratoData.valorMensal || 0).toLocaleString('pt-BR')}/mes</span></div>
                 <div className="sm:col-span-3"><span className="text-gray-500">Equipamentos:</span> <span className="font-medium">{Array.isArray(contratoData.equipamentos) ? contratoData.equipamentos.join(', ') : '-'}</span></div>
               </div>
             </div>
@@ -338,17 +412,28 @@ export default function Documentos() {
     try {
       if (comprovante.tipoDocumento === 'devolucao') {
         const devMatch = (devolucoes || []).find(d => d.comprovanteId === comprovante.id);
+        const devSig = getAssinatura(comprovante.id);
         if (devMatch) {
-          await generateDevolucaoPDF(devMatch);
+          await generateDevolucaoPDF({
+            ...devMatch,
+            signatureImg: devSig?.assinaturaImagem || devMatch.signatureImg,
+            signatarioNome: devSig?.nomeSignatario || devMatch.signatarioNome,
+          });
         } else {
-          await generateDevolucaoPDF(comprovante);
+          await generateDevolucaoPDF({
+            ...comprovante,
+            signatureImg: devSig?.assinaturaImagem,
+            signatarioNome: devSig?.nomeSignatario,
+          });
         }
       } else {
         const sig = getAssinatura(comprovante.id);
         await generateEntregaPDF({
           ...comprovante,
-          signatureImg: sig?.assinaturaImagem,
-          signatarioNome: sig?.nomeSignatario,
+          signatureImg: sig?.assinaturaImagem || comprovante.signatureImg,
+          signatarioNome: sig?.nomeSignatario || comprovante.signatarioNome,
+          fotosEntrega: sig?.fotosEntrega || comprovante.fotosEntrega || [],
+          fotosRetirada: sig?.fotosRetirada || comprovante.fotosRetirada || [],
         });
       }
       toast.success('PDF gerado com sucesso!');

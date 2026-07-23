@@ -413,19 +413,14 @@ export default function Documentos() {
       if (comprovante.tipoDocumento === 'devolucao') {
         const devMatch = (devolucoes || []).find(d => d.comprovanteId === comprovante.id);
         const devSig = getAssinatura(comprovante.id);
-        if (devMatch) {
-          await generateDevolucaoPDF({
-            ...devMatch,
-            signatureImg: devSig?.assinaturaImagem || devMatch.signatureImg,
-            signatarioNome: devSig?.nomeSignatario || devMatch.signatarioNome,
-          });
-        } else {
-          await generateDevolucaoPDF({
-            ...comprovante,
-            signatureImg: devSig?.assinaturaImagem,
-            signatarioNome: devSig?.nomeSignatario,
-          });
-        }
+        const devData = devMatch || comprovante;
+        await generateDevolucaoPDF({
+          ...devData,
+          signatureImg: devSig?.assinaturaImagem || devData.signatureImg,
+          signatarioNome: devSig?.nomeSignatario || devData.signatarioNome,
+          fotosEntrega: devSig?.fotosEntrega || devData.fotosEntrega || [],
+          fotosRetirada: devSig?.fotosRetirada || devData.fotosRetirada || [],
+        });
       } else {
         const sig = getAssinatura(comprovante.id);
         await generateEntregaPDF({

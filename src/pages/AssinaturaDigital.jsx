@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eraser, Save, Loader2, FileText, Building2, Download, User, Camera, Image, X } from 'lucide-react';
+import { Eraser, Save, Loader2, FileText, Building2, Download, User, Camera, Image, X, MessageCircle, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssinaturas, useCreateAssinatura } from '../hooks/useAssinaturas';
 import { useComprovantes, useUpdateComprovante } from '../hooks/useComprovantes';
@@ -38,6 +38,7 @@ export default function AssinaturaDigital() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [fotosEntrega, setFotosEntrega] = useState([]);
   const [fotosRetirada, setFotosRetirada] = useState([]);
+  const [whatsAppStatus, setWhatsAppStatus] = useState(null);
 
   const { isFuncionario, profile } = useAuth();
   const { data: assinaturas, isLoading, isError, error, refetch } = useAssinaturas();
@@ -264,6 +265,7 @@ export default function AssinaturaDigital() {
         setNomeSignatario('');
         setCpfSignatario('');
         setSelectedComprovante('');
+        setWhatsAppStatus(null);
         refetchComprovantes();
 
         const contrato = comp.contratoId ? (contratos || []).find((c) => c.id === comp.contratoId) : null;
@@ -272,6 +274,7 @@ export default function AssinaturaDigital() {
         generateEntregaPDF({ ...comp, assinado: true, nomeSignatario, cpfSignatario, dataAssinatura: new Date().toISOString(), signatureImg: imagem, fotosEntrega, fotosRetirada }).catch(() => {});
 
         // WhatsApp fire-and-forget (parallel to email)
+        setWhatsAppStatus({ sending: true, sentAt: null, result: null });
         fetch('/api/whatsapp/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -311,14 +314,23 @@ export default function AssinaturaDigital() {
           try {
             const data = await res.json();
             if (data.queued) {
+              setWhatsAppStatus({ sending: false, sentAt: new Date(), result: 'queued' });
               toast.info('WhatsApp desconectado. Mensagem na fila para envio posterior.');
             } else if (data.success) {
+              setWhatsAppStatus({ sending: false, sentAt: new Date(), result: 'success' });
               toast.success('WhatsApp enviado com sucesso!');
             } else if (data.skipped) {
+              setWhatsAppStatus({ sending: false, sentAt: new Date(), result: 'skipped' });
               toast.info('WhatsApp desabilitado ou sem telefone.');
+            } else {
+              setWhatsAppStatus({ sending: false, sentAt: new Date(), result: 'error' });
+              toast.warning('WhatsApp: resposta inesperada do servidor.');
             }
-          } catch {}
+          } catch {
+            setWhatsAppStatus({ sending: false, sentAt: new Date(), result: 'error' });
+          }
         }).catch(() => {
+          setWhatsAppStatus({ sending: false, sentAt: new Date(), result: 'error' });
           toast.warning('Nao foi possivel enviar notificacao por WhatsApp.');
         });
       } else {
@@ -327,6 +339,7 @@ export default function AssinaturaDigital() {
         setNomeSignatario('');
         setCpfSignatario('');
         setSelectedComprovante('');
+        setWhatsAppStatus(null);
         refetchComprovantes();
       }
     } catch {
@@ -531,6 +544,27 @@ export default function AssinaturaDigital() {
 
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Assinaturas Registradas</h3>
+          {whatsAppStatus && (
+            <div className={`mb-4 p-3 rounded-lg border flex items-center gap-3 text-sm ${
+              whatsAppStatus.sending ? 'bg-blue-50 border-blue-200 text-blue-800' :
+              whatsAppStatus.result === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+              whatsAppStatus.result === 'queued' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+              whatsAppStatus.result === 'skipped' ? 'bg-gray-50 border-gray-200 text-gray-600' :
+              'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              {whatsAppStatus.sending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /><span>Enviando WhatsApp...</span></>
+              ) : whatsAppStatus.result === 'success' ? (
+                <><CheckCircle2 className="w-4 h-4" /><span>WhatsApp enviado com sucesso!</span></>
+              ) : whatsAppStatus.result === 'queued' ? (
+                <><Clock className="w-4 h-4" /><span>WhatsApp na fila (desconectado)</span></>
+              ) : whatsAppStatus.result === 'skipped' ? (
+                <><MessageCircle className="w-4 h-4" /><span>WhatsApp desabilitado ou sem telefone</span></>
+              ) : (
+                <><AlertCircle className="w-4 h-4" /><span>Erro ao enviar WhatsApp</span></>
+              )}
+            </div>
+          )}
           {(assinaturas || []).length === 0 ? (
             <EmptyState icon={FileText} title="Nenhuma assinatura" description="Registre sua primeira assinatura ao lado." />
           ) : (

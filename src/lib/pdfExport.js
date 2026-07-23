@@ -338,6 +338,10 @@ export async function generateDevolucaoPDF(devolucao) {
   const d = devolucao;
   const itens = Array.isArray(d.itens) ? d.itens : [];
   const condicoes = d.condicoes || {};
+  const fotosEntrega = (Array.isArray(d.fotosEntrega) ? d.fotosEntrega : (Array.isArray(d.fotos_entrega) ? d.fotos_entrega : [])).filter(Boolean);
+  const fotosRetirada = (Array.isArray(d.fotosRetirada) ? d.fotosRetirada : (Array.isArray(d.fotos_retirada) ? d.fotos_retirada : [])).filter(Boolean);
+  const tsEntrega = (Array.isArray(d.fotosEntregaTimestamps) ? d.fotosEntregaTimestamps : (Array.isArray(d.fotos_entrega_timestamps) ? d.fotos_entrega_timestamps : []));
+  const tsRetirada = (Array.isArray(d.fotosRetiradaTimestamps) ? d.fotosRetiradaTimestamps : (Array.isArray(d.fotos_retirada_timestamps) ? d.fotos_retirada_timestamps : []));
 
   const itensHtml = itens.length > 0
     ? itens.map((it) => `
@@ -414,6 +418,21 @@ export async function generateDevolucaoPDF(devolucao) {
       ${d.metodoEntrega ? `<div style="margin-top:4px;font-size:7px;font-style:italic;color:${BRAND.cinzaTexto};">${esc(getMetodoEntregaText(d.metodoEntrega))}</div>` : ''}
 
       ${buildFooter('COMPROVANTE DE DEVOLUCAO')}
+
+      ${(fotosEntrega.length > 0 || fotosRetirada.length > 0) ? `
+      <div style="page-break-before:always;padding-top:8px;">
+        <div style="text-align:center;margin:4px 0 8px 0;">
+          <span style="font-size:11px;font-weight:700;color:${BRAND.preto};letter-spacing:1px;">REGISTRO FOTOGRAFICO</span>
+        </div>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="font-size:7px;color:${BRAND.cinzaTexto};padding-bottom:3px;">
+            Contrato: ${esc(d.numero || d.contratoId || '')} | Data: ${esc(d.data || new Date().toLocaleDateString('pt-BR'))}
+          </td></tr>
+        </table>
+        ${buildPhotoGrid(fotosEntrega, 'ENTREGA', tsEntrega)}
+        ${buildPhotoGrid(fotosRetirada, 'RETIRADA', tsRetirada)}
+        ${buildFooter('REGISTRO FOTOGRAFICO - DEVOLUCAO')}
+      </div>` : ''}
     </div>`;
 
   await (await getHtml2pdf())()

@@ -20,18 +20,31 @@ export function useAssinaturas(comprovanteId = null) {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
+      const stored = getLocal();
       if (!isConfigured()) {
-        const stored = getLocal();
         return comprovanteId ? stored.filter((s) => s.comprovanteId === comprovanteId) : stored;
       }
-      let q = supabase.from('assinaturas').select('*');
-      if (comprovanteId) q = q.eq('comprovante_id', comprovanteId);
-      const { data, error } = await q.order('data_assinatura', { ascending: false });
-      if (error) {
-        const stored = getLocal();
+      try {
+        let q = supabase.from('assinaturas').select('*');
+        if (comprovanteId) q = q.eq('comprovante_id', comprovanteId);
+        const { data, error } = await q.order('data_assinatura', { ascending: false });
+        if (error) {
+          console.warn('[useAssinaturas] Supabase query error, falling back to localStorage:', error.message);
+          return comprovanteId ? stored.filter((s) => s.comprovanteId === comprovanteId) : stored;
+        }
+        const dbData = (data || []).map(toCamel);
+        if (comprovanteId) {
+          const dbIds = new Set(dbData.map((d) => d.comprovanteId));
+          const localOnly = stored.filter((s) => s.comprovanteId === comprovanteId && !dbIds.has(s.comprovanteId));
+          return [...localOnly, ...dbData];
+        }
+        const dbIds = new Set(dbData.map((d) => d.comprovanteId));
+        const localOnly = stored.filter((s) => !dbIds.has(s.comprovanteId));
+        return [...localOnly, ...dbData];
+      } catch (err) {
+        console.warn('[useAssinaturas] Network error, falling back to localStorage:', err);
         return comprovanteId ? stored.filter((s) => s.comprovanteId === comprovanteId) : stored;
       }
-      return (data || []).map(toCamel);
     },
     staleTime: 30000,
   });
@@ -51,6 +64,8 @@ export function useCreateAssinatura() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, funcionarioId, fotosEntrega, fotosRetirada }) => {
+      const localData = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), funcionarioId: funcionarioId || null, fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
+
       if (isConfigured()) {
         try {
           const payload = toSnake({
@@ -65,22 +80,27 @@ export function useCreateAssinatura() {
             fotosRetirada: fotosRetirada || [],
           });
           const { data, error } = await supabase.from('assinaturas').insert(payload).select().single();
-          if (error) throw error;
+          if (error) {
+            console.error('[useCreateAssinatura] Supabase insert failed:', error.message, error);
+            const stored = getLocal();
+            stored.unshift(localData);
+            saveLocal(stored);
+            return localData;
+          }
           return toCamel(data);
-        } catch {
-          const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), funcionarioId: funcionarioId || null, fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
+        } catch (err) {
+          console.error('[useCreateAssinatura] Network error during insert:', err);
           const stored = getLocal();
-          stored.unshift(local);
+          stored.unshift(localData);
           saveLocal(stored);
-          return local;
+          return localData;
         }
       }
 
-      const local = { id: crypto.randomUUID(), comprovanteId, nomeSignatario, cpfSignatario, assinaturaImagem, dataAssinatura: new Date().toISOString(), funcionarioId: funcionarioId || null, fotosEntrega: fotosEntrega || [], fotosRetirada: fotosRetirada || [] };
       const stored = getLocal();
-      stored.unshift(local);
+      stored.unshift(localData);
       saveLocal(stored);
-      return local;
+      return localData;
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['assinaturas'] });
